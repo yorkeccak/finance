@@ -1,6 +1,7 @@
 import { streamText, convertToModelMessages } from "ai";
 import { financeTools } from "@/lib/tools";
 import { FinanceUIMessage } from "@/lib/types";
+import { openai } from "@ai-sdk/openai";
 
 // Allow streaming responses up to 120 seconds
 export const maxDuration = 120;
@@ -8,22 +9,32 @@ export const maxDuration = 120;
 export async function POST(req: Request) {
   try {
     const { messages }: { messages: FinanceUIMessage[] } = await req.json();
-    console.log('[Chat API] Incoming messages:', JSON.stringify(messages, null, 2));
+    console.log(
+      "[Chat API] Incoming messages:",
+      JSON.stringify(messages, null, 2)
+    );
 
-    // Always use OpenAI GPT-5 as the model
-    console.log('[Chat API] Model selected: openai/gpt-5');
+    // Detect available API keys and select provider/tools accordingly
+    const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
 
-    // Log tool usage setup
-    console.log('[Chat API] Tools available:', Object.keys(financeTools));
+    // Prefer direct OpenAI if OPENAI_API_KEY is present; otherwise fall back to Vercel AI Gateway model id
+    const selectedModel = hasOpenAIKey ? openai("gpt-5") : "openai/gpt-5";
+    console.log(
+      "[Chat API] Model selected:",
+      hasOpenAIKey
+        ? "OpenAI (openai:gpt-5)"
+        : 'Vercel AI Gateway ("openai/gpt-5")'
+    );
 
     const result = streamText({
-      model: 'openai/gpt-5',
+      // model will use OpenAI API if available, otherwise Vercel AI Gateway route
+      model: selectedModel as any,
       messages: convertToModelMessages(messages),
       tools: financeTools,
-      toolChoice: 'auto', // Let the AI decide when to use tools
+      toolChoice: "auto", // Let the AI decide when to use tools
       providerOptions: {
         openai: {
-          reasoningSummary: 'auto', // Enable reasoning summaries for better responses
+          reasoningSummary: "auto", // Enable reasoning summaries for better responses
         },
       },
       system: `You are a helpful assistant with access to comprehensive tools for Python code execution, financial data, web search, and data visualization. You can:
@@ -219,17 +230,17 @@ export async function POST(req: Request) {
     });
 
     // Log streamText result object type
-    console.log('[Chat API] streamText result type:', typeof result);
-    console.log('[Chat API] streamText result:', result);
+    console.log("[Chat API] streamText result type:", typeof result);
+    console.log("[Chat API] streamText result:", result);
 
     return result.toUIMessageStreamResponse({
       sendReasoning: true, // Forward reasoning tokens to the client
     });
   } catch (error) {
-    console.error('Chat API error:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    console.error("Chat API error:", error);
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { "Content-Type": "application/json" },
     });
   }
 }

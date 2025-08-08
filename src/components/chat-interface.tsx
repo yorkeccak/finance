@@ -1562,7 +1562,7 @@ export function ChatInterface({
                   <motion.button
                     onClick={() =>
                       handlePromptClick(
-                        "Analyze Berkshire Hathaway's portfolio changes from their latest 13F filing. Use Python to calculate position sizes, identify new investments and exits, then research the fundamental reasons behind Buffett's moves using recent financial statements."
+                        "Analyze PepsiCo's recent SEC filings (10-K, 10-Q, and 8-K). Use Python to calculate key financial metrics (e.g., revenue growth, margins, liquidity), identify significant events and disclosures, then research the fundamental reasons behind management's decisions using recent financial statements."
                       )
                     }
                     className="bg-gray-50 dark:bg-gray-800/50 p-3 sm:p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-left group"

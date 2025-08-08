@@ -1,103 +1,123 @@
-import Image from "next/image";
+'use client';
+
+import { ChatInterface } from '@/components/chat-interface';
+import { ShareButton } from '@/components/share-button';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import BottomBar from '@/components/bottom-bar';
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [hasMessages, setHasMessages] = useState(false);
+  const [isHoveringTitle, setIsHoveringTitle] = useState(false);
+  const [autoTiltTriggered, setAutoTiltTriggered] = useState(false);
+  
+  // Auto-trigger tilt animation after 2 seconds
+  useEffect(() => {
+    if (!hasMessages && !autoTiltTriggered) {
+      const timer = setTimeout(() => {
+        setIsHoveringTitle(true);
+        setAutoTiltTriggered(true);
+        
+        // Keep it tilted for 2 seconds then close
+        setTimeout(() => {
+          setIsHoveringTitle(false);
+        }, 2000);
+      }, 2000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [hasMessages, autoTiltTriggered]);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+  return (
+    <div className="min-h-screen bg-white dark:bg-gray-950">
+      {/* Share Button - Always visible in top right */}
+      <motion.div 
+        className="fixed top-3 sm:top-6 right-3 sm:right-6 z-50"
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.5, duration: 0.5, ease: "easeOut" }}
+      >
+        <ShareButton />
+      </motion.div>
+      
+      <BottomBar />
+      
+      <div className="max-w-4xl mx-auto">
+        {/* Header - Animate out when messages appear */}
+        <AnimatePresence mode="wait">
+          {!hasMessages && (
+            <motion.div 
+              className="text-center pt-12 sm:pt-16 pb-6 sm:pb-4 px-4 sm:px-0"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20, transition: { duration: 0.3 } }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+            >
+              <motion.div 
+                className="relative mb-10 inline-block"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1, duration: 0.6, ease: "easeOut" }}
+                onHoverStart={() => setIsHoveringTitle(true)}
+                onHoverEnd={() => setIsHoveringTitle(false)}
+              >
+                <motion.h1 
+                  className="text-4xl sm:text-5xl font-light text-gray-900 dark:text-gray-100 tracking-tight cursor-default relative z-10"
+                  style={{ transformOrigin: '15% 100%' }}
+                  animate={{ 
+                    rotateZ: isHoveringTitle ? -8 : 0,
+                  }}
+                  transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+                >
+                  Finance
+                </motion.h1>
+                
+                {/* "By Valyu" that slides out from under */}
+                <motion.div 
+                  className="absolute -bottom-6 left-0 right-0 flex items-center justify-center gap-1"
+                  initial={{ opacity: 0 }}
+                  animate={{ 
+                    opacity: isHoveringTitle ? 1 : 0,
+                    y: isHoveringTitle ? 0 : -10,
+                  }}
+                  transition={{ 
+                    opacity: { delay: isHoveringTitle ? 0.15 : 0, duration: 0.2 },
+                    y: { delay: isHoveringTitle ? 0.1 : 0, duration: 0.3, ease: [0.23, 1, 0.32, 1] }
+                  }}
+                >
+                  <span className="text-sm text-gray-500 dark:text-gray-400 font-light">By</span>
+                  <img 
+                    src="/valyu.svg" 
+                    alt="Valyu" 
+                    className="h-5 opacity-80"
+                  />
+                </motion.div>
+                
+                {/* Hover area extender */}
+                <div className="absolute inset-0 -bottom-10" />
+              </motion.div>
+              <motion.p 
+                className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm max-w-md mx-auto"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2, duration: 0.6, ease: "easeOut" }}
+              >
+                AI-powered financial analysis with real-time data, calculations, and interactive visualizations
+              </motion.p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
+        {/* Chat Interface */}
+        <motion.div 
+          className="px-0 sm:px-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3, duration: 0.5 }}
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          <ChatInterface onMessagesChange={setHasMessages} />
+        </motion.div>
+      </div>
     </div>
   );
 }

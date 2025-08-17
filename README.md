@@ -1,10 +1,10 @@
-# Finance by Valyu 🚀
+# Finance.
 
-> **The most powerful financial AI assistant** - Access institutional-grade financial data, run complex analyses, and create stunning visualizations, all through natural conversation.
+> **The most powerful financial AI assistant** - Access institutional-grade financial data, run complex code analyses, and create stunning visualizations. The backend? 1 search api.
 
 ![Finance by Valyu](public/valyu.png)
 
-## 🌟 Why Finance by Valyu?
+## Why Finance by Valyu?
 
 Traditional financial research is fragmented across dozens of expensive platforms. Finance by Valyu changes everything by providing:
 
@@ -15,7 +15,7 @@ Traditional financial research is fragmented across dozens of expensive platform
 - **🌐 Real-Time Intelligence** - Web search integration for breaking news and market updates
 - **🎯 Natural Language** - Just ask questions like you would to a colleague
 
-## ✨ Key Features
+## Key Features
 
 ### 🔥 Powerful Financial Tools
 
@@ -26,7 +26,7 @@ Traditional financial research is fragmented across dozens of expensive platform
 - **Academic Research** - Access to arXiv papers and financial research
 - **News & Sentiment** - Real-time news analysis with market impact assessment
 
-### 🛠️ Advanced Capabilities
+### 🛠️ Advanced Tool Calling
 
 - **Python Code Execution** - Run complex financial models, ML algorithms, and custom analyses
 - **Interactive Charts** - Create publication-ready visualizations

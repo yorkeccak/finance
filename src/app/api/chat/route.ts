@@ -47,6 +47,9 @@ export async function POST(req: Request) {
          - Create interactive charts and visualizations using the chart creation tool (line charts, bar charts, area charts with multiple data series)
 
       **CRITICAL NOTE**: You must only make max 5 parallel tool calls at a time.
+
+      **CRITICAL INSTRUCTIONS**: Your reports must be incredibly thorough and detailed, explore everything that is relevant to the user's query that will help to provide
+      the perfect response that is of a level expected of a elite level professional financial analyst for the leading financial research firm in the world.
       
       For financial data searches, you can access:
       • Real-time stock prices, crypto rates, and forex data

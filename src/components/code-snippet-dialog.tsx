@@ -61,9 +61,9 @@ export default function CodeSnippetDialog({
     const logoMap: { [key: string]: string } = {
       "SEC Filings": "/sec.svg",
       "arXiv Papers": "/arxiv.svg",
+      "Web Search": "/web.svg",
       "Balance Sheets": "/balancesheet.svg",
       "Stock Market Data": "/stocks.svg",
-      "Web Search": "/web.svg",
       "Wiley Research": "/wy.svg"
     };
     return logoMap[title] || "/valyu.svg";

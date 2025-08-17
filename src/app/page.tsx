@@ -3,10 +3,11 @@
 import { ChatInterface } from '@/components/chat-interface';
 import { ShareButton } from '@/components/share-button';
 import { RateLimitDialog } from '@/components/rate-limit-dialog';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BottomBar from '@/components/bottom-bar';
 import { getRateLimitStatus } from '@/lib/rate-limit';
+import Image from 'next/image';
 
 export default function Home() {
   const [hasMessages, setHasMessages] = useState(false);
@@ -100,9 +101,11 @@ export default function Home() {
                   }}
                 >
                   <span className="text-sm text-gray-500 dark:text-gray-400 font-light">By</span>
-                  <img 
+                  <Image 
                     src="/valyu.svg" 
                     alt="Valyu" 
+                    width={20}
+                    height={20}
                     className="h-5 opacity-80"
                   />
                 </motion.div>
@@ -129,10 +132,12 @@ export default function Home() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
         >
-          <ChatInterface 
-            onMessagesChange={handleMessagesChange} 
-            onRateLimitError={handleRateLimitError}
-          />
+          <Suspense fallback={<div className="text-center py-8">Loading...</div>}>
+            <ChatInterface 
+              onMessagesChange={handleMessagesChange} 
+              onRateLimitError={handleRateLimitError}
+            />
+          </Suspense>
         </motion.div>
       </div>
       

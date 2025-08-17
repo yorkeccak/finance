@@ -32,6 +32,7 @@ import {
   useDeferredValue,
 } from "react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   RotateCcw,
@@ -208,7 +209,7 @@ const markdownComponents = {
     if (!src || src.trim() === "") {
       return null;
     }
-    return <img src={src} alt={alt || ""} {...props} />;
+    return <Image src={src} alt={alt || ""} width={500} height={300} {...props} />;
   },
   iframe: ({ src, ...props }: any) => {
     // Don't render iframe if src is empty or undefined
@@ -611,14 +612,6 @@ const SearchResultsCarousel = ({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showAllImages, setShowAllImages] = useState(false);
 
-  if (results.length === 0) {
-    return (
-      <div className="text-center py-4 text-gray-500 dark:text-gray-400">
-        No results found
-      </div>
-    );
-  }
-
   // Extract all images from results
   const allImages: { url: string; title: string; sourceUrl: string }[] = [];
   const firstImages: { url: string; title: string; sourceUrl: string }[] = [];
@@ -670,7 +663,15 @@ const SearchResultsCarousel = ({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [dialogOpen, allImages.length]);
+  }, [dialogOpen, allImages.length, handleNext, handlePrev]);
+
+  if (results.length === 0) {
+    return (
+      <div className="text-center py-4 text-gray-500 dark:text-gray-400">
+        No results found
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -709,8 +710,10 @@ const SearchResultsCarousel = ({
                 }}
               >
                 <div className="relative overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-                  <img
+                  <Image
                     src={image.url}
+                    width={200}
+                    height={150}
                     alt={image.title}
                     className="h-24 sm:h-32 w-36 sm:w-48 object-cover group-hover:scale-105 transition-transform duration-200"
                     onError={(e) => {
@@ -797,9 +800,11 @@ const SearchResultsCarousel = ({
                       />
                     </svg>
                   </button>
-                  <img
+                  <Image
                     src={allImages[selectedIndex].url}
                     alt={allImages[selectedIndex].title}
+                    width={800}
+                    height={600}
                     className="max-h-[60vh] max-w-full rounded-lg shadow-lg mx-8"
                   />
                   <button
@@ -1147,7 +1152,7 @@ export function ChatInterface({
         "[SCROLL DEBUG] NOT auto-scrolling - stick-to-bottom disabled"
       );
     }
-  }, [messages, status, isAtBottomState]);
+  }, [messages, status, isAtBottomState, anchorInView]);
 
   // Handle scroll events to track position and show/hide scroll button
   useEffect(() => {
@@ -1266,7 +1271,7 @@ export function ChatInterface({
       document.removeEventListener("wheel", handleGlobalWheel);
       // No window scroll listener to remove
     };
-  }, []);
+  }, [updateVisibleRange]);
 
   // Observe bottom anchor visibility relative to the scroll container
   useEffect(() => {
@@ -1732,9 +1737,11 @@ export function ChatInterface({
                   rel="noopener noreferrer"
                   className="inline-flex items-center hover:scale-105 transition-transform"
                 >
-                  <img
+                  <Image
                     src="/valyu.svg"
                     alt="Valyu"
+                    width={16}
+                    height={16}
                     className="h-4 opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
                   />
                 </a>
@@ -2054,7 +2061,7 @@ export function ChatInterface({
                                         <div className="text-sm text-purple-600 dark:text-purple-300">
                                           <div className="bg-purple-100 dark:bg-purple-800/30 p-2 rounded">
                                             <div className="font-mono text-xs">
-                                              Query: "{part.input.query}"
+                                              Query: &quot;{part.input.query}&quot;
                                               {part.input.dataType &&
                                                 part.input.dataType !==
                                                   "auto" && (
@@ -2172,8 +2179,7 @@ export function ChatInterface({
                                         <div className="text-sm text-cyan-600 dark:text-cyan-300">
                                           <div className="bg-cyan-100 dark:bg-cyan-800/30 p-2 rounded">
                                             <div className="text-xs">
-                                              Searching for: "{part.input.query}
-                                              "
+                                              Searching for: &quot;{part.input.query}&quot;
                                             </div>
                                           </div>
                                           <div className="mt-2 text-xs">
@@ -2276,7 +2282,7 @@ export function ChatInterface({
                                           <div className="bg-emerald-100 dark:bg-emerald-800/30 p-2 rounded">
                                             <div className="font-mono text-xs">
                                               Creating {part.input.type} chart:
-                                              "{part.input.title}"
+                                              &quot;{part.input.title}&quot;
                                               <br />
                                               Data Series:{" "}
                                               {part.input.dataSeries?.length ||

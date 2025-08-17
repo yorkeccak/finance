@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Copy, Check, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 
 interface CodeSnippet {
   language: string;
@@ -95,9 +96,11 @@ export default function CodeSnippetDialog({
               {/* Header */}
               <div className='p-6 pb-0'>
                 <div className='flex items-center gap-3'>
-                  <img
+                  <Image
                     src={getLogoSrc(title)}
                     alt={title}
+                    width={24}
+                    height={24}
                     className='h-6 w-6 opacity-60'
                   />
                   <div>

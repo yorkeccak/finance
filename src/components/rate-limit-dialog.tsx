@@ -4,7 +4,8 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ExternalLink, Copy, Check } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import Image from 'next/image';
 
 interface RateLimitDialogProps {
   open: boolean;
@@ -23,7 +24,7 @@ export function RateLimitDialog({ open, onOpenChange, resetTime }: RateLimitDial
   });
   
   // Dynamic example queries
-  const exampleQueries = [
+  const exampleQueries = useMemo(() => [
     "Apple earnings Q4 2024",
     "Tesla latest news and developments", 
     "Bitcoin price trends and analysis",
@@ -34,7 +35,7 @@ export function RateLimitDialog({ open, onOpenChange, resetTime }: RateLimitDial
     "Oil prices and energy market outlook",
     "Google antitrust case updates",
     "S&P 500 performance metrics"
-  ];
+  ], []);
 
   const [currentExampleIndex, setCurrentExampleIndex] = useState(0);
   const [currentText, setCurrentText] = useState('');
@@ -235,9 +236,11 @@ curl -X POST "https://api.valyu.network/v1/search" \\
                   
                   {/* Valyu Branding */}
                   <div className="flex items-center justify-center gap-2">
-                    <img 
+                    <Image 
                       src="/valyu.svg" 
                       alt="Valyu"
+                      width={48}
+                      height={48}
                       className="h-12 w-12 opacity-60 mt-1"
                     />
                     <span className="text-sm font-light text-gray-600 dark:text-gray-400">

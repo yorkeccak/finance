@@ -24,7 +24,7 @@ const BottomBar = () => {
         transition={{ delay: 1.1, duration: 0.5, ease: "easeOut" }}
       >
         <p className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500">
-          Not financial advice
+          Not financial advice.
         </p>
       </motion.div>
     </>

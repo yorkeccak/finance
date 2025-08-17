@@ -5,7 +5,7 @@ import { openai } from "@ai-sdk/openai";
 import { checkServerRateLimit, incrementServerRateLimit } from "@/lib/rate-limit";
 
 // Allow streaming responses up to 120 seconds
-export const maxDuration = 120;
+export const maxDuration = 180;
 
 export async function POST(req: Request) {
   try {

@@ -4,6 +4,9 @@ import { Daytona } from '@daytonaio/sdk';
 // Ensure we run on the Node.js runtime since Daytona SDK requires Node APIs
 export const runtime = 'nodejs';
 
+// Allow streaming responses up to 180 seconds
+export const maxDuration = 180;
+
 // Handle OPTIONS requests for CORS
 export async function OPTIONS(req: NextRequest) {
   return NextResponse.json({}, { 

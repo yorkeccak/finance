@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { getRateLimitStatus } from "@/lib/rate-limit";
 
 import {
   Dialog,
@@ -849,14 +850,17 @@ const SearchResultsCarousel = ({
 
 export function ChatInterface({
   onMessagesChange,
+  onRateLimitError,
 }: {
   onMessagesChange?: (hasMessages: boolean) => void;
+  onRateLimitError?: (resetTime: string) => void;
 }) {
   const [input, setInput] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
+  const [isRateLimited, setIsRateLimited] = useState(false);
   const userHasInteracted = useRef(false); // Track if user has scrolled up
 
   const [isFormAtBottom, setIsFormAtBottom] = useState(false);
@@ -960,10 +964,41 @@ export function ChatInterface({
     console.log("Messages updated:", messages);
   }, [messages]);
 
+  // Check rate limit status on mount
+  useEffect(() => {
+    const rateLimitStatus = getRateLimitStatus();
+    if (!rateLimitStatus.allowed) {
+      setIsRateLimited(true);
+      // Don't automatically show dialog on mount - only when user tries to submit
+    }
+  }, []); // Empty dependency array - only run on mount
+
+  // Handle rate limit errors
+  useEffect(() => {
+    if (error) {
+      console.log("[Chat Interface] Error occurred:", error);
+      
+      // Check if it's a rate limit error
+      if (error.message && (error.message.includes('RATE_LIMIT_EXCEEDED') || error.message.includes('429'))) {
+        setIsRateLimited(true);
+        try {
+          // Try to extract reset time from error response
+          const errorData = JSON.parse(error.message);
+          const resetTime = errorData.resetTime || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+          onRateLimitError?.(resetTime);
+        } catch (e) {
+          // Fallback: use default reset time (next day)
+          const resetTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+          onRateLimitError?.(resetTime);
+        }
+      }
+    }
+  }, [error]); // Remove onRateLimitError from dependencies to prevent infinite loops
+
   // Notify parent component about message state changes
   useEffect(() => {
     onMessagesChange?.(messages.length > 0);
-  }, [messages.length, onMessagesChange]);
+  }, [messages.length]); // Remove onMessagesChange from dependencies to prevent infinite loops
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -1266,6 +1301,21 @@ export function ChatInterface({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && status === "ready") {
+      // Check current rate limit status immediately before sending
+      const rateLimitStatus = getRateLimitStatus();
+      console.log("[Chat Interface] Rate limit check before submit:", rateLimitStatus);
+      
+      if (!rateLimitStatus.allowed) {
+        // Rate limit exceeded - show dialog and don't send message or update URL
+        console.log("[Chat Interface] Rate limit exceeded, showing dialog");
+        setIsRateLimited(true);
+        onRateLimitError?.(rateLimitStatus.resetTime.toISOString());
+        return;
+      }
+      
+      console.log("[Chat Interface] Rate limit OK, proceeding with message");
+      
+      // DON'T increment client-side - let server handle it to avoid double counting
       updateUrlWithQuery(input.trim());
       setIsFormAtBottom(true); // Move form to bottom when submitting
       sendMessage({ text: input });

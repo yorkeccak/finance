@@ -2,6 +2,7 @@ import { streamText, convertToModelMessages } from "ai";
 import { financeTools } from "@/lib/tools";
 import { FinanceUIMessage } from "@/lib/types";
 import { openai } from "@ai-sdk/openai";
+import { checkServerRateLimit, incrementServerRateLimit } from "@/lib/rate-limit";
 
 // Allow streaming responses up to 120 seconds
 export const maxDuration = 120;
@@ -13,6 +14,39 @@ export async function POST(req: Request) {
       "[Chat API] Incoming messages:",
       JSON.stringify(messages, null, 2)
     );
+
+    // Determine if this is a user-initiated message (should count towards rate limit)
+    // Only count when the last message is from the user (not automatic tool calls/continuations)
+    const lastMessage = messages[messages.length - 1];
+    const isUserInitiated = lastMessage?.role === 'user';
+    console.log("[Chat API] Is user-initiated request:", isUserInitiated);
+
+    // Check rate limit only for user-initiated messages
+    if (isUserInitiated) {
+      const rateLimitStatus = checkServerRateLimit(req);
+      console.log("[Chat API] Rate limit status:", rateLimitStatus);
+      
+      if (!rateLimitStatus.allowed) {
+        console.log("[Chat API] Rate limit exceeded");
+        return new Response(
+          JSON.stringify({
+            error: "RATE_LIMIT_EXCEEDED",
+            message: "You have exceeded your daily limit of 5 queries. Please try again tomorrow.",
+            resetTime: rateLimitStatus.resetTime.toISOString(),
+            remaining: rateLimitStatus.remaining,
+          }),
+          {
+            status: 429,
+            headers: {
+              "Content-Type": "application/json",
+              "X-RateLimit-Limit": "5",
+              "X-RateLimit-Remaining": rateLimitStatus.remaining.toString(),
+              "X-RateLimit-Reset": rateLimitStatus.resetTime.toISOString(),
+            },
+          }
+        );
+      }
+    }
 
     // Detect available API keys and select provider/tools accordingly
     const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
@@ -236,9 +270,28 @@ export async function POST(req: Request) {
     console.log("[Chat API] streamText result type:", typeof result);
     console.log("[Chat API] streamText result:", result);
 
-    return result.toUIMessageStreamResponse({
+    // Create the streaming response
+    const streamResponse = result.toUIMessageStreamResponse({
       sendReasoning: true, // Forward reasoning tokens to the client
     });
+
+    // Increment rate limit count for user-initiated requests (after successful start)
+    if (isUserInitiated) {
+      const incrementResult = incrementServerRateLimit(req);
+      console.log("[Chat API] Incremented rate limit:", incrementResult.rateLimitResult);
+      
+      // Set rate limit cookies
+      incrementResult.cookies.forEach(cookie => {
+        streamResponse.headers.append("Set-Cookie", cookie);
+      });
+      
+      // Add rate limit headers
+      streamResponse.headers.set("X-RateLimit-Limit", "5");
+      streamResponse.headers.set("X-RateLimit-Remaining", incrementResult.rateLimitResult.remaining.toString());
+      streamResponse.headers.set("X-RateLimit-Reset", incrementResult.rateLimitResult.resetTime.toISOString());
+    }
+
+    return streamResponse;
   } catch (error) {
     console.error("Chat API error:", error);
     return new Response(JSON.stringify({ error: "Internal server error" }), {

@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { getRateLimitStatus } from "@/lib/rate-limit";
 
 import {
   Dialog,
@@ -31,6 +32,7 @@ import {
   useDeferredValue,
 } from "react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   RotateCcw,
@@ -207,7 +209,7 @@ const markdownComponents = {
     if (!src || src.trim() === "") {
       return null;
     }
-    return <img src={src} alt={alt || ""} {...props} />;
+    return <Image src={src} alt={alt || ""} width={500} height={300} {...props} />;
   },
   iframe: ({ src, ...props }: any) => {
     // Don't render iframe if src is empty or undefined
@@ -610,14 +612,6 @@ const SearchResultsCarousel = ({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showAllImages, setShowAllImages] = useState(false);
 
-  if (results.length === 0) {
-    return (
-      <div className="text-center py-4 text-gray-500 dark:text-gray-400">
-        No results found
-      </div>
-    );
-  }
-
   // Extract all images from results
   const allImages: { url: string; title: string; sourceUrl: string }[] = [];
   const firstImages: { url: string; title: string; sourceUrl: string }[] = [];
@@ -669,7 +663,15 @@ const SearchResultsCarousel = ({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [dialogOpen, allImages.length]);
+  }, [dialogOpen, allImages.length, handleNext, handlePrev]);
+
+  if (results.length === 0) {
+    return (
+      <div className="text-center py-4 text-gray-500 dark:text-gray-400">
+        No results found
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -708,8 +710,10 @@ const SearchResultsCarousel = ({
                 }}
               >
                 <div className="relative overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all">
-                  <img
+                  <Image
                     src={image.url}
+                    width={200}
+                    height={150}
                     alt={image.title}
                     className="h-24 sm:h-32 w-36 sm:w-48 object-cover group-hover:scale-105 transition-transform duration-200"
                     onError={(e) => {
@@ -796,9 +800,11 @@ const SearchResultsCarousel = ({
                       />
                     </svg>
                   </button>
-                  <img
+                  <Image
                     src={allImages[selectedIndex].url}
                     alt={allImages[selectedIndex].title}
+                    width={800}
+                    height={600}
                     className="max-h-[60vh] max-w-full rounded-lg shadow-lg mx-8"
                   />
                   <button
@@ -849,14 +855,17 @@ const SearchResultsCarousel = ({
 
 export function ChatInterface({
   onMessagesChange,
+  onRateLimitError,
 }: {
   onMessagesChange?: (hasMessages: boolean) => void;
+  onRateLimitError?: (resetTime: string) => void;
 }) {
   const [input, setInput] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
+  const [isRateLimited, setIsRateLimited] = useState(false);
   const userHasInteracted = useRef(false); // Track if user has scrolled up
 
   const [isFormAtBottom, setIsFormAtBottom] = useState(false);
@@ -960,10 +969,41 @@ export function ChatInterface({
     console.log("Messages updated:", messages);
   }, [messages]);
 
+  // Check rate limit status on mount
+  useEffect(() => {
+    const rateLimitStatus = getRateLimitStatus();
+    if (!rateLimitStatus.allowed) {
+      setIsRateLimited(true);
+      // Don't automatically show dialog on mount - only when user tries to submit
+    }
+  }, []); // Empty dependency array - only run on mount
+
+  // Handle rate limit errors
+  useEffect(() => {
+    if (error) {
+      console.log("[Chat Interface] Error occurred:", error);
+      
+      // Check if it's a rate limit error
+      if (error.message && (error.message.includes('RATE_LIMIT_EXCEEDED') || error.message.includes('429'))) {
+        setIsRateLimited(true);
+        try {
+          // Try to extract reset time from error response
+          const errorData = JSON.parse(error.message);
+          const resetTime = errorData.resetTime || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+          onRateLimitError?.(resetTime);
+        } catch (e) {
+          // Fallback: use default reset time (next day)
+          const resetTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+          onRateLimitError?.(resetTime);
+        }
+      }
+    }
+  }, [error]); // Remove onRateLimitError from dependencies to prevent infinite loops
+
   // Notify parent component about message state changes
   useEffect(() => {
     onMessagesChange?.(messages.length > 0);
-  }, [messages.length, onMessagesChange]);
+  }, [messages.length]); // Remove onMessagesChange from dependencies to prevent infinite loops
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -1112,7 +1152,7 @@ export function ChatInterface({
         "[SCROLL DEBUG] NOT auto-scrolling - stick-to-bottom disabled"
       );
     }
-  }, [messages, status, isAtBottomState]);
+  }, [messages, status, isAtBottomState, anchorInView]);
 
   // Handle scroll events to track position and show/hide scroll button
   useEffect(() => {
@@ -1231,7 +1271,7 @@ export function ChatInterface({
       document.removeEventListener("wheel", handleGlobalWheel);
       // No window scroll listener to remove
     };
-  }, []);
+  }, [updateVisibleRange]);
 
   // Observe bottom anchor visibility relative to the scroll container
   useEffect(() => {
@@ -1266,6 +1306,21 @@ export function ChatInterface({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && status === "ready") {
+      // Check current rate limit status immediately before sending
+      const rateLimitStatus = getRateLimitStatus();
+      console.log("[Chat Interface] Rate limit check before submit:", rateLimitStatus);
+      
+      if (!rateLimitStatus.allowed) {
+        // Rate limit exceeded - show dialog and don't send message or update URL
+        console.log("[Chat Interface] Rate limit exceeded, showing dialog");
+        setIsRateLimited(true);
+        onRateLimitError?.(rateLimitStatus.resetTime.toISOString());
+        return;
+      }
+      
+      console.log("[Chat Interface] Rate limit OK, proceeding with message");
+      
+      // DON'T increment client-side - let server handle it to avoid double counting
       updateUrlWithQuery(input.trim());
       setIsFormAtBottom(true); // Move form to bottom when submitting
       sendMessage({ text: input });
@@ -1682,9 +1737,11 @@ export function ChatInterface({
                   rel="noopener noreferrer"
                   className="inline-flex items-center hover:scale-105 transition-transform"
                 >
-                  <img
+                  <Image
                     src="/valyu.svg"
                     alt="Valyu"
+                    width={16}
+                    height={16}
                     className="h-4 opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
                   />
                 </a>
@@ -2004,7 +2061,7 @@ export function ChatInterface({
                                         <div className="text-sm text-purple-600 dark:text-purple-300">
                                           <div className="bg-purple-100 dark:bg-purple-800/30 p-2 rounded">
                                             <div className="font-mono text-xs">
-                                              Query: "{part.input.query}"
+                                              Query: &quot;{part.input.query}&quot;
                                               {part.input.dataType &&
                                                 part.input.dataType !==
                                                   "auto" && (
@@ -2122,8 +2179,7 @@ export function ChatInterface({
                                         <div className="text-sm text-cyan-600 dark:text-cyan-300">
                                           <div className="bg-cyan-100 dark:bg-cyan-800/30 p-2 rounded">
                                             <div className="text-xs">
-                                              Searching for: "{part.input.query}
-                                              "
+                                              Searching for: &quot;{part.input.query}&quot;
                                             </div>
                                           </div>
                                           <div className="mt-2 text-xs">
@@ -2226,7 +2282,7 @@ export function ChatInterface({
                                           <div className="bg-emerald-100 dark:bg-emerald-800/30 p-2 rounded">
                                             <div className="font-mono text-xs">
                                               Creating {part.input.type} chart:
-                                              "{part.input.title}"
+                                              &quot;{part.input.title}&quot;
                                               <br />
                                               Data Series:{" "}
                                               {part.input.dataSeries?.length ||

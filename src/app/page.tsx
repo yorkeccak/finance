@@ -2,14 +2,29 @@
 
 import { ChatInterface } from '@/components/chat-interface';
 import { ShareButton } from '@/components/share-button';
-import { useState, useEffect } from 'react';
+import { RateLimitDialog } from '@/components/rate-limit-dialog';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BottomBar from '@/components/bottom-bar';
+import { getRateLimitStatus } from '@/lib/rate-limit';
+import Image from 'next/image';
 
 export default function Home() {
   const [hasMessages, setHasMessages] = useState(false);
   const [isHoveringTitle, setIsHoveringTitle] = useState(false);
   const [autoTiltTriggered, setAutoTiltTriggered] = useState(false);
+  const [showRateLimitDialog, setShowRateLimitDialog] = useState(false);
+  const [rateLimitResetTime, setRateLimitResetTime] = useState(new Date());
+
+  // Handle rate limit errors from chat interface
+  const handleRateLimitError = useCallback((resetTime: string) => {
+    setRateLimitResetTime(new Date(resetTime));
+    setShowRateLimitDialog(true);
+  }, []);
+
+  const handleMessagesChange = useCallback((hasMessages: boolean) => {
+    setHasMessages(hasMessages);
+  }, []);
   
   // Auto-trigger tilt animation after 2 seconds
   useEffect(() => {
@@ -86,9 +101,11 @@ export default function Home() {
                   }}
                 >
                   <span className="text-sm text-gray-500 dark:text-gray-400 font-light">By</span>
-                  <img 
+                  <Image 
                     src="/valyu.svg" 
                     alt="Valyu" 
+                    width={20}
+                    height={20}
                     className="h-5 opacity-80"
                   />
                 </motion.div>
@@ -115,9 +132,21 @@ export default function Home() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
         >
-          <ChatInterface onMessagesChange={setHasMessages} />
+          <Suspense fallback={<div className="text-center py-8">Loading...</div>}>
+            <ChatInterface 
+              onMessagesChange={handleMessagesChange} 
+              onRateLimitError={handleRateLimitError}
+            />
+          </Suspense>
         </motion.div>
       </div>
+      
+      {/* Rate Limit Dialog */}
+      <RateLimitDialog
+        open={showRateLimitDialog}
+        onOpenChange={setShowRateLimitDialog}
+        resetTime={rateLimitResetTime}
+      />
     </div>
   );
 }

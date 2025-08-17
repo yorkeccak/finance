@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import BottomBar from '@/components/bottom-bar';
 import { getRateLimitStatus } from '@/lib/rate-limit';
 import Image from 'next/image';
+import { track } from '@vercel/analytics';
 
 export default function Home() {
   const [hasMessages, setHasMessages] = useState(false);
@@ -30,6 +31,9 @@ export default function Home() {
   useEffect(() => {
     if (!hasMessages && !autoTiltTriggered) {
       const timer = setTimeout(() => {
+        track('Title Hover', {
+          trigger: 'auto_tilt'
+        });
         setIsHoveringTitle(true);
         setAutoTiltTriggered(true);
         
@@ -73,7 +77,12 @@ export default function Home() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1, duration: 0.6, ease: "easeOut" }}
-                onHoverStart={() => setIsHoveringTitle(true)}
+                onHoverStart={() => {
+                  track('Title Hover', {
+                    trigger: 'user_hover'
+                  });
+                  setIsHoveringTitle(true);
+                }}
                 onHoverEnd={() => setIsHoveringTitle(false)}
               >
                 <motion.h1 

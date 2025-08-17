@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ExternalLink, Copy, Check } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
+import { track } from '@vercel/analytics';
 
 interface RateLimitDialogProps {
   open: boolean;
@@ -44,18 +45,31 @@ export function RateLimitDialog({ open, onOpenChange, resetTime }: RateLimitDial
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('preferredLanguage', activeTab);
+      
+      if (open) { // Only track if dialog is actually open
+        track('Language Selection', {
+          source: 'rate_limit_dialog',
+          language: activeTab
+        });
+      }
     }
-  }, [activeTab]);
+  }, [activeTab, open]);
 
   useEffect(() => {
     if (open) {
+      // Track rate limit hit
+      track('Rate Limit Hit', {
+        resetTime: resetTime.toISOString(),
+        remainingQueries: 0
+      });
+      
       setShowBadge(true);
       const timer = setTimeout(() => {
         setShowBadge(false);
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [open]);
+  }, [open, resetTime]);
 
   // Typing animation effect
   useEffect(() => {
@@ -114,12 +128,26 @@ export function RateLimitDialog({ open, onOpenChange, resetTime }: RateLimitDial
   };
 
   const handleCopy = async (code: string) => {
+    // Track code copy from rate limit dialog
+    track('Code Copy', {
+      source: 'rate_limit_dialog',
+      language: activeTab,
+      codeLength: code.length
+    });
+    
     await navigator.clipboard.writeText(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleBuildYourOwn = () => {
+    // Track platform clickthrough from rate limit dialog
+    track('Platform Clickthrough', {
+      source: 'rate_limit_dialog',
+      action: 'build_your_own',
+      url: 'https://platform.valyu.network/?utm_source=finance.valyu.network&utm_medium=rate_limit_dialog'
+    });
+    
     window.open('https://platform.valyu.network/?utm_source=finance.valyu.network&utm_medium=rate_limit_dialog', '_blank');
   };
 
@@ -212,7 +240,12 @@ curl -X POST "https://api.valyu.network/v1/search" \\
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             className="fixed inset-0 z-50 bg-white/80 dark:bg-gray-950/80 backdrop-blur-sm"
-            onClick={() => onOpenChange(false)}
+            onClick={() => {
+              track('Rate Limit Dialog Closed', {
+                action: 'backdrop_click'
+              });
+              onOpenChange(false);
+            }}
           />
           <DialogContent className="fixed left-[50%] top-[50%] z-50 !w-[40vw] !max-w-[40vw] translate-x-[-50%] translate-y-[-50%] p-0 border-0 bg-transparent shadow-none">
             <DialogTitle className="sr-only">Daily Rate Limit Reached</DialogTitle>
@@ -344,7 +377,13 @@ curl -X POST "https://api.valyu.network/v1/search" \\
                 </div>
                 
                 <button
-                  onClick={() => onOpenChange(false)}
+                  onClick={() => {
+                    track('Rate Limit Dialog Closed', {
+                      action: 'close_button',
+                      timeOpen: Date.now() - (typeof window !== 'undefined' ? window.performance.now() : 0)
+                    });
+                    onOpenChange(false);
+                  }}
                   className="text-sm font-light text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                 >
                   Close

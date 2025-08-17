@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { MissingKeysDialog } from "@/components/missing-keys-dialog";
+import { Analytics } from '@vercel/analytics/next';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -65,6 +66,7 @@ export default function RootLayout({
       >
         <MissingKeysDialog />
         {children}
+        <Analytics />
       </body>
     </html>
   );

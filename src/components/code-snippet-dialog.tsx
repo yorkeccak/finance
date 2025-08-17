@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Copy, Check, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
+import { track } from '@vercel/analytics';
 
 interface CodeSnippet {
   language: string;
@@ -36,20 +37,42 @@ export default function CodeSnippetDialog({
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('preferredLanguage', activeTab);
+      
+      if (snippets.length > 0) { // Only track if dialog is actually shown
+        track('Language Selection', {
+          source: 'data_source_dialog',
+          dataSource: title,
+          language: activeTab
+        });
+      }
     }
-  }, [activeTab]);
+  }, [activeTab, title, snippets.length]);
 
   useEffect(() => {
     if (isOpen) {
+      // Track data source code example click
+      track('Data Source Code Example Click', {
+        dataSource: title,
+        logoSrc: getLogoSrc(title)
+      });
+      
       setShowBadge(true);
       const timer = setTimeout(() => {
         setShowBadge(false);
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [isOpen]);
+  }, [isOpen, title]);
 
   const handleCopy = async (code: string) => {
+    // Track code copy from data source dialog
+    track('Code Copy', {
+      source: 'data_source_dialog',
+      dataSource: title,
+      language: activeTab,
+      codeLength: code.length
+    });
+    
     await navigator.clipboard.writeText(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -80,7 +103,13 @@ export default function CodeSnippetDialog({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             className='fixed inset-0 z-50 bg-white/80 dark:bg-gray-950/80 backdrop-blur-sm'
-            onClick={onClose}
+            onClick={() => {
+              track('Data Source Dialog Closed', {
+                dataSource: title,
+                action: 'backdrop_click'
+              });
+              onClose();
+            }}
           />
           <DialogContent className='fixed left-[50%] top-[50%] z-50 w-[90vw] max-w-2xl translate-x-[-50%] translate-y-[-50%] p-0 border-0 bg-transparent shadow-none'>
             {/* Hidden DialogTitle for accessibility */}
@@ -165,6 +194,14 @@ export default function CodeSnippetDialog({
                     target='_blank'
                     rel='noopener noreferrer'
                     className='text-sm font-light text-gray-900 dark:text-gray-100 hover:underline relative group'
+                    onClick={() => {
+                      track('Platform Clickthrough', {
+                        source: 'data_source_dialog',
+                        dataSource: title,
+                        action: 'get_api_key',
+                        url: 'https://platform.valyu.network'
+                      });
+                    }}
                   >
                     Get API Key &rarr;
 

@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { getRateLimitStatus } from "@/lib/rate-limit";
+import { track } from '@vercel/analytics';
 
 import {
   Dialog,
@@ -1320,8 +1321,16 @@ export function ChatInterface({
       
       console.log("[Chat Interface] Rate limit OK, proceeding with message");
       
-      // DON'T increment client-side - let server handle it to avoid double counting
-      updateUrlWithQuery(input.trim());
+      // Track user query submission
+      const queryText = input.trim();
+      track('User Query Submitted', {
+        query: queryText,
+        queryLength: queryText.length,
+        messageCount: messages.length,
+        remainingQueries: rateLimitStatus.remaining - 1
+      });
+      
+      updateUrlWithQuery(queryText);
       setIsFormAtBottom(true); // Move form to bottom when submitting
       sendMessage({ text: input });
       setInput("");
@@ -1449,6 +1458,12 @@ export function ChatInterface({
   };
 
   const startNewChat = () => {
+    // Track new chat start
+    track('New Chat Started', {
+      previousMessageCount: messages.length,
+      hadActiveStream: status === "streaming" || status === "submitted"
+    });
+
     // Stop any ongoing streaming first
     if (status === "streaming" || status === "submitted") {
       stop();
@@ -2438,7 +2453,13 @@ export function ChatInterface({
                       {messages[messages.length - 1]?.id === message.id &&
                         canRegenerate && (
                           <Button
-                            onClick={() => regenerate()}
+                            onClick={() => {
+                              track('Message Regenerated', {
+                                messageCount: messages.length,
+                                lastMessageRole: messages[messages.length - 1]?.role
+                              });
+                              regenerate();
+                            }}
                             variant="ghost"
                             size="sm"
                             disabled={status !== "ready" && status !== "error"}

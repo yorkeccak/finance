@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { tool } from "ai";
 import { Valyu } from "valyu-js";
+import { track } from "@vercel/analytics/server";
 
 export const financeTools = {
   // Chart Creation Tool - Create interactive financial charts with time series data
@@ -100,6 +101,18 @@ export const financeTools = {
       dataSeries,
       description,
     }) => {
+      // Track chart creation
+      await track('Chart Created', {
+        chartType: type,
+        title: title,
+        seriesCount: dataSeries.length,
+        totalDataPoints: dataSeries.reduce(
+          (sum, series) => sum + series.data.length,
+          0
+        ),
+        hasDescription: !!description
+      });
+
       // Log chart creation details
       console.log("[Chart Creation] Creating chart:", {
         title,
@@ -217,6 +230,17 @@ export const financeTools = {
         );
 
         const result = await response.json();
+
+        // Track code execution
+        await track('Python Code Executed', {
+          success: result.success,
+          codeLength: code.length,
+          outputLength: result.output?.length || 0,
+          executionTime: result.executionTime || null,
+          hasDescription: !!description,
+          hasError: !!result.error,
+          hasArtifacts: !!result.artifacts
+        });
 
         console.log("[Code Execution] Result:", {
           success: result.success,
@@ -361,6 +385,18 @@ ${result.output || "(No output produced)"}
 
         const response = await valyu.search(query, searchOptions);
 
+        // Track Valyu financial search call
+        await track('Valyu API Call', {
+          toolType: 'financialSearch',
+          query: query,
+          dataType: dataType || 'auto',
+          maxResults: maxResults || 10,
+          resultCount: response?.results?.length || 0,
+          hasApiKey: !!apiKey,
+          cost: (response as any)?.price || null,
+          txId: (response as any)?.tx_id || null
+        });
+
         // Log the full API response for debugging
         console.log(
           "[Financial Search] Full API Response:",
@@ -467,6 +503,18 @@ ${result.output || "(No output produced)"}
         };
 
         const response = await valyu.search(query, searchOptions);
+
+        // Track Valyu web search call
+        await track('Valyu API Call', {
+          toolType: 'webSearch',
+          query: query,
+          maxResults: maxResults || 5,
+          resultCount: response?.results?.length || 0,
+          hasApiKey: !!process.env.VALYU_API_KEY,
+          cost: (response as any)?.metadata?.totalCost || (response as any)?.price || null,
+          searchTime: (response as any)?.metadata?.searchTime || null,
+          txId: (response as any)?.tx_id || null
+        });
 
         // Log the full API response for debugging
         console.log(

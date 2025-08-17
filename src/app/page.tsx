@@ -104,8 +104,8 @@ export default function Home() {
                   <Image 
                     src="/valyu.svg" 
                     alt="Valyu" 
-                    width={20}
-                    height={20}
+                    width={60}
+                    height={60}
                     className="h-5 opacity-80"
                   />
                 </motion.div>

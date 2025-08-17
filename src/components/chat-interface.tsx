@@ -1723,7 +1723,7 @@ export function ChatInterface({
 
               {/* Powered by Valyu */}
               <motion.div
-                className="flex items-center justify-center mt-4 gap-1.5"
+                className="flex items-center justify-center mt-4"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 1.1, duration: 0.5 }}
@@ -1740,8 +1740,8 @@ export function ChatInterface({
                   <Image
                     src="/valyu.svg"
                     alt="Valyu"
-                    width={16}
-                    height={16}
+                    width={60}
+                    height={60}
                     className="h-4 opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
                   />
                 </a>

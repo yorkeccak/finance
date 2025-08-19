@@ -111,7 +111,7 @@ export default function CodeSnippetDialog({
               onClose();
             }}
           />
-          <DialogContent className='fixed left-[50%] top-[50%] z-50 w-[90vw] max-w-2xl translate-x-[-50%] translate-y-[-50%] p-0 border-0 bg-transparent shadow-none'>
+          <DialogContent className='fixed left-[50%] top-[50%] z-50 w-[95vw] max-w-2xl sm:w-[90vw] translate-x-[-50%] translate-y-[-50%] p-0 border-0 bg-transparent shadow-none overflow-hidden'>
             {/* Hidden DialogTitle for accessibility */}
             <DialogTitle className='sr-only'>{title}</DialogTitle>
 
@@ -123,7 +123,7 @@ export default function CodeSnippetDialog({
               className='bg-white dark:bg-gray-950 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 relative'
             >
               {/* Header */}
-              <div className='p-6 pb-0'>
+              <div className='p-4 sm:p-6 pb-0'>
                 <div className='flex items-center gap-3'>
                   <Image
                     src={getLogoSrc(title)}
@@ -144,7 +144,7 @@ export default function CodeSnippetDialog({
               </div>
 
               {/* Language Tabs */}
-              <div className='px-6 pt-4'>
+              <div className='px-4 sm:px-6 pt-4'>
                 <div className='flex space-x-1'>
                   {['Python', 'TypeScript', 'cURL'].map((lang) => (
                     <button
@@ -163,7 +163,7 @@ export default function CodeSnippetDialog({
               </div>
 
               {/* Code Block */}
-              <div className='relative p-6 pt-4'>
+              <div className='relative p-4 sm:p-6 pt-4'>
                 <div className='relative group'>
                   <button
                     onClick={() => activeSnippet && handleCopy(activeSnippet.code)}
@@ -177,8 +177,8 @@ export default function CodeSnippetDialog({
                   </button>
 
                   {activeSnippet && (
-                    <pre className='bg-gray-50 dark:bg-gray-900 rounded-md p-4 overflow-x-auto scrollbar-hide'>
-                      <code className='text-xs font-mono text-gray-700 dark:text-gray-300 whitespace-pre'>
+                    <pre className='bg-gray-50 dark:bg-gray-900 rounded-md p-3 sm:p-4 overflow-x-auto scrollbar-hide max-w-full'>
+                      <code className='text-[10px] sm:text-xs font-mono text-gray-700 dark:text-gray-300 whitespace-pre break-all sm:break-normal'>
                         {activeSnippet.code}
                       </code>
                     </pre>
@@ -187,7 +187,7 @@ export default function CodeSnippetDialog({
               </div>
 
               {/* Footer */}
-              <div className='flex items-center justify-between px-6 pb-6'>
+              <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 px-4 sm:px-6 pb-4 sm:pb-6'>
                 <div className='relative'>
                   <a
                     href='https://platform.valyu.network'

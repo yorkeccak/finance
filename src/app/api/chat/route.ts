@@ -68,6 +68,7 @@ export async function POST(req: Request) {
       toolChoice: "auto", // Let the AI decide when to use tools
       providerOptions: {
         openai: {
+          store: false,
           reasoningSummary: "auto", // Enable reasoning summaries for better responses
         },
       },

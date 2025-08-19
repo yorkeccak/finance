@@ -13,6 +13,7 @@ Traditional financial research is fragmented across dozens of expensive platform
 - **🐍 Advanced Analytics** - Execute Python code in secure Daytona sandboxes for ML models, backtesting, and custom analysis
 - **📈 Interactive Visualizations** - Beautiful charts and dashboards that bring data to life
 - **🌐 Real-Time Intelligence** - Web search integration for breaking news and market updates
+- **🏠 Local AI Models** - Run with Ollama for unlimited, private queries using your own hardware
 - **🎯 Natural Language** - Just ask questions like you would to a colleague
 
 ## Key Features
@@ -37,11 +38,17 @@ Traditional financial research is fragmented across dozens of expensive platform
 
 ### Prerequisites
 
+**For Cloud Usage:**
 - Node.js 18+ 
 - npm or yarn
 - OpenAI API key
 - Valyu API key (get one at [valyu.network](https://valyu.network))
 - Daytona API key (for code execution)
+
+**For Local AI Models:**
+- All of the above, plus:
+- [Ollama](https://ollama.com) installed and running
+- At least one model installed (qwen2.5:7b recommended)
 
 ### Installation
 
@@ -73,6 +80,10 @@ Traditional financial research is fragmented across dozens of expensive platform
    
    # App Configuration
    NEXT_PUBLIC_APP_URL=http://localhost:3000  # Your deployment URL in production
+   APP_MODE=development  # Enable local model support
+   
+   # Ollama Configuration (Optional - for local models)
+   OLLAMA_BASE_URL=http://localhost:11434  # Default Ollama URL
    ```
 
 4. **Run the development server**
@@ -83,6 +94,42 @@ Traditional financial research is fragmented across dozens of expensive platform
 5. **Open your browser**
    
    Navigate to [http://localhost:3000](http://localhost:3000)
+
+### 🏠 Local Model Setup (Optional)
+
+For unlimited, private queries using your own hardware:
+
+1. **Install Ollama**
+   ```bash
+   # macOS
+   brew install ollama
+   
+   # Or download from https://ollama.com
+   ```
+
+2. **Start Ollama service**
+   ```bash
+   ollama serve
+   ```
+
+3. **Install recommended models**
+   ```bash
+   # Best for tool calling (recommended)
+   ollama pull qwen2.5:7b
+   
+   # Alternative options
+   ollama pull qwen2.5:14b    # Better but slower
+   ollama pull llama3.1:7b    # Good general performance
+   ```
+
+4. **Switch to local model**
+   
+   Click the "Local Models" indicator in the top-right corner of the app to select your model.
+
+**Model Recommendations:**
+- **Qwen2.5:7B+** - Excellent for tool calling and financial analysis
+- **Llama 3.1:7B+** - Good general performance with tools
+- **Avoid smaller models** - Many struggle with complex function calling
 
 ## 💡 Example Queries
 
@@ -95,14 +142,20 @@ Try these powerful queries to see what Finance by Valyu can do:
 - "Create a dashboard showing sector rotation over the past month"
 - "Analyze the correlation between Fed minutes sentiment and bond yields"
 
+**With Local Models (Ollama):**
+- Run unlimited queries without API costs
+- Keep all your financial analysis completely private
+- Perfect for sensitive research and proprietary strategies
+
 ## 🏗️ Architecture
 
 - **Frontend**: Next.js 15 with App Router, Tailwind CSS, shadcn/ui
-- **AI**: OpenAI GPT-5 with function calling
+- **AI**: OpenAI GPT-5 with function calling + Ollama for local models
 - **Data**: Valyu API for comprehensive financial data
 - **Code Execution**: Daytona sandboxes for secure Python execution
 - **Visualizations**: Recharts for interactive charts
 - **Real-time**: Streaming responses with Vercel AI SDK
+- **Local Models**: Ollama integration for private, unlimited queries
 
 ## 🔒 Security
 

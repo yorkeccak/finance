@@ -50,15 +50,8 @@ export default function Home() {
 
   return (
     <div className='min-h-screen bg-white dark:bg-gray-950'>
-      {/* Ollama Status Indicator - Top left in development mode */}
-      <motion.div
-        className='fixed top-3 sm:top-6 left-3 sm:left-6 z-50'
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.5, duration: 0.5, ease: 'easeOut' }}
-      >
-        <OllamaStatusIndicator />
-      </motion.div>
+      {/* Ollama Status Indicator - top-left normally, moves right when messages exist */}
+      <OllamaStatusIndicator hasMessages={hasMessages} />
 
       {/* Share Button - Always visible in top right */}
       <motion.div 

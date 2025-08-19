@@ -3,7 +3,7 @@
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ExternalLink, Copy, Check } from 'lucide-react';
+import { ExternalLink, Copy, Check, Github } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { track } from '@vercel/analytics';
@@ -247,7 +247,7 @@ curl -X POST "https://api.valyu.network/v1/search" \\
               onOpenChange(false);
             }}
           />
-          <DialogContent className="fixed left-[50%] top-[50%] z-50 !w-[40vw] !max-w-[40vw] translate-x-[-50%] translate-y-[-50%] p-0 border-0 bg-transparent shadow-none">
+          <DialogContent className="fixed left-[50%] top-[50%] z-50 w-[90vw] max-w-2xl sm:!w-[40vw] sm:!max-w-[40vw] translate-x-[-50%] translate-y-[-50%] p-0 border-0 bg-transparent shadow-none">
             <DialogTitle className="sr-only">Daily Rate Limit Reached</DialogTitle>
             
             <motion.div
@@ -259,7 +259,7 @@ curl -X POST "https://api.valyu.network/v1/search" \\
             >
               {/* Header */}
               <div className="p-6 pb-0">
-                <div className="text-center mb-6">
+                <div className="text-center mb-4">
                   <h2 className="text-xl font-light text-gray-900 dark:text-gray-100 mb-2">
                     You&apos;ve reached your daily limit
                   </h2>
@@ -280,15 +280,55 @@ curl -X POST "https://api.valyu.network/v1/search" \\
                       the information layer for AI
                     </span>
                   </div>
+                  {/* Options */}
+                  <div className="flex flex-col sm:flex-row items-center justify-center mt-6 gap-4 text-sm">
+                    <a
+                      href="https://platform.valyu.network"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                      onClick={() => {
+                        track('Signup CTA Click', {
+                          source: 'rate_limit_dialog',
+                          url: 'https://platform.valyu.network'
+                        });
+                      }}
+                    >
+                      <span className="text-blue-700 dark:text-blue-300 font-medium">
+                        Sign up for Valyu
+                      </span>
+                    </a>
+                    
+                    <span className="text-gray-400 hidden sm:block">or</span>
+                    
+                    <a
+                      href="https://github.com/yorkeccak/finance/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                      aria-label="View on GitHub"
+                      onClick={() => {
+                        track('GitHub CTA Click', {
+                          source: 'rate_limit_dialog',
+                          url: 'https://github.com/yorkeccak/finance/'
+                        });
+                      }}
+                    >
+                      <Github className="h-4 w-4" />
+                      <span className="text-gray-700 dark:text-gray-300">
+                        Run it yourself
+                      </span>
+                    </a>
+                  </div>
                 </div>
                 
                 <div className="flex items-center gap-3">
                   <div>
                     <h3 className="text-lg font-light text-gray-900 dark:text-gray-100">
-                      Build your own Financial AI
+                      Build your own with Valyu
                     </h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      Get started in just 3 lines of code
+                      Use our API to create unlimited financial applications
                     </p>
                   </div>
                 </div>
@@ -345,7 +385,7 @@ curl -X POST "https://api.valyu.network/v1/search" \\
                     onClick={handleBuildYourOwn}
                     className="text-sm font-light text-gray-900 dark:text-gray-100 hover:underline relative group"
                   >
-                    Claim $10 Free Credits & Get Building →
+                    Get $10 Free Credits →
                     
                     {/* Animated free credits badge */}
                     <AnimatePresence>

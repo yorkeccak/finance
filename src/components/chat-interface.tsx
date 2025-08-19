@@ -945,7 +945,7 @@ export function ChatInterface({
         api: "/api/chat",
         prepareSendMessagesRequest: ({ messages }) => ({
           body: {
-            messages: cleanMessagesForModel(messages),
+            messages: messages,
           },
         }),
       })

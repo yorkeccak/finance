@@ -1,12 +1,14 @@
 # Finance.
 
-> **The most powerful financial AI assistant** - Access institutional-grade financial data, run complex code analyses, and create stunning visualizations. The backend? 1 search api.
+> **We put Bloomberg terminal behind a chat interface and open-sourced it** - Access institutional-grade financial data, run complex code analyses, and create stunning visualizations through natural language. The backend? 1 search API.
+
+🚀 **[Try the live demo at finance.valyu.network](https://finance.valyu.network)**
 
 ![Finance by Valyu](public/valyu.png)
 
-## Why Finance by Valyu?
+## Why Finance?
 
-Traditional financial research is fragmented across dozens of expensive platforms. Finance by Valyu changes everything by providing:
+Traditional financial research is fragmented across dozens of expensive platforms. Finance changes everything by providing:
 
 - **📊 Institutional-Grade Data** - SEC filings, real-time market data, financial statements, insider trading, and more
 - **🔍 One Unified Search** - Powered by Valyu's comprehensive financial data API
@@ -40,15 +42,15 @@ Traditional financial research is fragmented across dozens of expensive platform
 - Node.js 18+ 
 - npm or yarn
 - OpenAI API key
-- Valyu API key (get one at [valyu.network](https://valyu.network))
+- Valyu API key (get one at [platform.valyu.network](https://platform.valyu.network))
 - Daytona API key (for code execution)
 
 ### Installation
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/finance-by-valyu.git
-   cd finance-by-valyu
+   git clone https://github.com/yorkeccak/finance.git
+   cd finance
    ```
 
 2. **Install dependencies**
@@ -86,14 +88,14 @@ Traditional financial research is fragmented across dozens of expensive platform
 
 ## 💡 Example Queries
 
-Try these powerful queries to see what Finance by Valyu can do:
+Try these powerful queries to see what Finance can do:
 
-- "Analyze Apple's latest 10-K filing and create a DCF model"
-- "Compare Tesla's financial metrics with traditional automakers"
-- "Build a Python model to backtest a momentum trading strategy on SPY"
-- "What are the latest insider trades for semiconductor companies?"
-- "Create a dashboard showing sector rotation over the past month"
-- "Analyze the correlation between Fed minutes sentiment and bond yields"
+- "Build a Monte Carlo simulation to predict Tesla's stock price in 6 months"
+- "Analyze GameStop's latest 10-K filing and extract key financial metrics"
+- "Research how Trump's latest statements affect Elon Musk's companies"
+- "Create an interactive dashboard comparing the 'Magnificent 7' stocks"
+- "Do an in-depth report on COVID-19's effect on Pfizer with insider trading data"
+- "Analyze PepsiCo's recent SEC filings and calculate key financial ratios"
 
 ## 🏗️ Architecture
 
@@ -121,7 +123,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 🙏 Acknowledgments
 
-- Built with [Valyu](https://valyu.network) - The unified financial data API
+- Built with [Valyu](https://platform.valyu.network) - The unified financial data API
 - Powered by [Daytona](https://daytona.io) - Secure code execution
 - UI components from [shadcn/ui](https://ui.shadcn.com)
 
@@ -134,5 +136,5 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 <p align="center">
   <a href="https://twitter.com/ValyuNetwork">Twitter</a> •
   <a href="https://www.linkedin.com/company/valyu-network">LinkedIn</a> •
-  <a href="https://github.com/valyu-network">GitHub</a>
+  <a href="https://github.com/yorkeccak/finance">GitHub</a>
 </p>

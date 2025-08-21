@@ -75,6 +75,7 @@ import {
 } from "@/lib/markdown-utils";
 import { motion, AnimatePresence } from "framer-motion";
 import DataSourceLogos from "./data-source-logos";
+import SocialLinks from "./social-links";
 
 // Debug toggles removed per request
 
@@ -871,6 +872,8 @@ export function ChatInterface({
   const userHasInteracted = useRef(false); // Track if user has scrolled up
 
   const [isFormAtBottom, setIsFormAtBottom] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isStartingNewChat, setIsStartingNewChat] = useState(false);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -979,13 +982,29 @@ export function ChatInterface({
     console.log("Messages updated:", messages);
   }, [messages]);
 
-  // Check rate limit status on mount
+  // Check rate limit status on mount and detect mobile
   useEffect(() => {
     const rateLimitStatus = getRateLimitStatus();
     if (!rateLimitStatus.allowed) {
       setIsRateLimited(true);
       // Don't automatically show dialog on mount - only when user tries to submit
     }
+    
+    // Detect mobile device
+    const checkMobile = () => {
+      const isMobileDevice = window.innerWidth <= 768 || // 768px is the sm breakpoint in Tailwind
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      setIsMobile(isMobileDevice);
+      // On mobile, always keep form at bottom
+      if (isMobileDevice) {
+        setIsFormAtBottom(true);
+      }
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
   }, []); // Empty dependency array - only run on mount
 
   // Handle rate limit errors
@@ -1014,6 +1033,7 @@ export function ChatInterface({
   useEffect(() => {
     onMessagesChange?.(messages.length > 0);
   }, [messages.length]); // Remove onMessagesChange from dependencies to prevent infinite loops
+
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -1073,8 +1093,13 @@ export function ChatInterface({
     return container.scrollHeight > container.clientHeight + 2;
   };
 
-  // Load query from URL params on initial load
+  // Load query from URL params on initial load (but not when starting new chat)
   useEffect(() => {
+    if (isStartingNewChat) {
+      setIsStartingNewChat(false);
+      return;
+    }
+    
     const queryParam = searchParams.get("q");
     if (queryParam && messages.length === 0) {
       let decodedQuery = queryParam;
@@ -1085,15 +1110,18 @@ export function ChatInterface({
         // fallback: use raw queryParam
       }
       setInput(decodedQuery);
+    } else if (!queryParam && messages.length === 0) {
+      // Clear input if no query param and no messages (fresh start)
+      setInput("");
     }
-  }, [searchParams, messages.length]);
+  }, [searchParams, messages.length, isStartingNewChat]);
 
-  // Reset form position when all messages are cleared
+  // Reset form position when all messages are cleared (except on mobile)
   useEffect(() => {
-    if (messages.length === 0) {
+    if (messages.length === 0 && !isMobile) {
       setIsFormAtBottom(false);
     }
-  }, [messages.length]);
+  }, [messages.length, isMobile]);
 
   // Check if user is at bottom of scroll (container only)
   const isAtBottom = () => {
@@ -1330,8 +1358,13 @@ export function ChatInterface({
       
       console.log("[Chat Interface] Rate limit OK, proceeding with message");
       
-      // Track user query submission
+      // Store the input to send
       const queryText = input.trim();
+      
+      // Clear input immediately before sending to prevent any display lag
+      setInput("");
+      
+      // Track user query submission
       track('User Query Submitted', {
         query: queryText,
         queryLength: queryText.length,
@@ -1340,9 +1373,11 @@ export function ChatInterface({
       });
       
       updateUrlWithQuery(queryText);
-      setIsFormAtBottom(true); // Move form to bottom when submitting
-      sendMessage({ text: input });
-      setInput("");
+      // Move form to bottom when submitting (always true on mobile, conditional on desktop)
+      if (!isFormAtBottom) {
+        setIsFormAtBottom(true);
+      }
+      sendMessage({ text: queryText });
     }
   };
 
@@ -1446,6 +1481,7 @@ export function ChatInterface({
     // Clear input first for animation effect
     setInput("");
     updateUrlWithQuery(query);
+    setIsStartingNewChat(false); // Reset flag since we're setting new content
 
     // Animate text appearing character by character
     let currentIndex = 0;
@@ -1478,6 +1514,9 @@ export function ChatInterface({
       stop();
     }
 
+    // Set flag to prevent URL useEffect from restoring input
+    setIsStartingNewChat(true);
+    
     // Clear input immediately
     setInput("");
 
@@ -1488,12 +1527,16 @@ export function ChatInterface({
       setEditingMessageId(null);
       setEditingText("");
       setExpandedTools(new Set());
-      setIsFormAtBottom(false); // Reset form position when starting new chat
+      // Reset form position when starting new chat (keep at bottom on mobile)
+      setIsFormAtBottom(isMobile);
       userHasInteracted.current = false; // Reset interaction tracking - enable auto-scroll for new chat
       shouldStickToBottomRef.current = true; // Ensure stickiness for fresh chat
 
       // Clear the URL query parameter
       router.replace(window.location.pathname, { scroll: false });
+      
+      // Ensure input stays cleared
+      setInput("");
     }, 50);
   };
 
@@ -1503,7 +1546,7 @@ export function ChatInterface({
     (status === "ready" || status === "error") && messages.length > 0;
 
   return (
-    <div className="w-full max-w-3xl mx-auto relative">
+    <div className="w-full max-w-3xl mx-auto relative min-h-0">
       {/* Translucent Top Bar */}
       <div className="fixed top-0 left-0 right-0 h-16 sm:h-20 bg-gradient-to-b from-white via-white/95 to-transparent dark:from-gray-950 dark:via-gray-950/95 dark:to-transparent z-40 pointer-events-none" />
 
@@ -1511,7 +1554,7 @@ export function ChatInterface({
       <AnimatePresence>
         {messages.length > 0 && (
           <motion.div
-            className="fixed top-3 sm:top-6 left-3 sm:left-6 z-50 flex items-center gap-0.5"
+            className="fixed top-3 sm:top-6 left-3 sm:left-6 z-45 flex items-center gap-0.5"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
@@ -1532,9 +1575,9 @@ export function ChatInterface({
       {/* Messages */}
       <div
         ref={messagesContainerRef}
-        className={`space-y-4 sm:space-y-8 min-h-[300px] overflow-y-auto ${
+        className={`space-y-4 sm:space-y-8 min-h-[300px] overflow-y-auto overflow-x-hidden ${
           messages.length > 0 ? "pt-20 sm:pt-24" : "pt-2 sm:pt-4"
-        } ${isFormAtBottom ? "pb-28 sm:pb-32" : "pb-4 sm:pb-8"}`}
+        } ${isFormAtBottom ? "pb-32 sm:pb-36" : "pb-4 sm:pb-8"}`}
       >
         {messages.length === 0 && (
           <motion.div
@@ -1543,11 +1586,11 @@ export function ChatInterface({
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}
           >
-            <div className="text-center mb-8">
+            <div className="text-center mb-6 sm:mb-8">
               {/* Capabilities */}
               <div className="max-w-4xl mx-auto">
                 <motion.div
-                  className="text-center mb-6"
+                  className="text-center mb-4 sm:mb-6"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1, duration: 0.5 }}
@@ -1557,23 +1600,23 @@ export function ChatInterface({
                   </h3>
                 </motion.div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 px-2 sm:px-0">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 px-2 sm:px-0">
                   <motion.button
                     onClick={() =>
                       handlePromptClick(
                         "Build a Monte Carlo simulation to predict Tesla's stock price in 6 months. Use Python to fetch historical data, calculate volatility and drift, run 10,000 simulations, and visualize the probability distribution with confidence intervals."
                       )
                     }
-                    className="bg-gray-50 dark:bg-gray-800/50 p-3 sm:p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-left group"
+                    className="bg-gray-50 dark:bg-gray-800/50 p-2.5 sm:p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-left group"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3, duration: 0.5 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    <div className="text-gray-700 dark:text-gray-300 mb-2 text-sm font-medium group-hover:text-gray-900 dark:group-hover:text-gray-100">
+                    <div className="text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-gray-900 dark:group-hover:text-gray-100">
                       🐍 ML Models
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                    <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
                       Advanced Python modeling & simulations
                     </div>
                   </motion.button>
@@ -1584,16 +1627,16 @@ export function ChatInterface({
                         "Analyze GameStop's latest 10-K filing. Extract key financial metrics, identify risk factors, and compare revenue streams vs last year. Show me insider trading activity and institutional ownership changes."
                       )
                     }
-                    className="bg-gray-50 dark:bg-gray-800/50 p-3 sm:p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-left group"
+                    className="bg-gray-50 dark:bg-gray-800/50 p-2.5 sm:p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-left group"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.4, duration: 0.5 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    <div className="text-gray-700 dark:text-gray-300 mb-2 text-sm font-medium group-hover:text-gray-900 dark:group-hover:text-gray-100">
+                    <div className="text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-gray-900 dark:group-hover:text-gray-100">
                       📊 SEC Filings
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                    <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
                       Deep dive into regulatory filings & insider data
                     </div>
                   </motion.button>
@@ -1604,16 +1647,16 @@ export function ChatInterface({
                         "Research how Trump's latest statements about tech regulation are affecting Elon Musk's companies. Find recent news about Tesla, SpaceX, and X (Twitter) stock movements, analyst reactions, and political implications for the EV industry."
                       )
                     }
-                    className="bg-gray-50 dark:bg-gray-800/50 p-3 sm:p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-left group"
+                    className="bg-gray-50 dark:bg-gray-800/50 p-2.5 sm:p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-left group"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.5, duration: 0.5 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    <div className="text-gray-700 dark:text-gray-300 mb-2 text-sm font-medium group-hover:text-gray-900 dark:group-hover:text-gray-100">
+                    <div className="text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-gray-900 dark:group-hover:text-gray-100">
                       🔍 News Impact
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                    <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
                       Real-time news analysis & market reactions
                     </div>
                   </motion.button>
@@ -1624,16 +1667,16 @@ export function ChatInterface({
                         "Create an interactive dashboard comparing the 'Magnificent 7' stocks (Apple, Microsoft, Google, Amazon, Tesla, Meta, NVIDIA). Show YTD performance, P/E ratios, market caps, and correlation matrix with beautiful charts."
                       )
                     }
-                    className="bg-gray-50 dark:bg-gray-800/50 p-3 sm:p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-left group"
+                    className="bg-gray-50 dark:bg-gray-800/50 p-2.5 sm:p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-left group"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.6, duration: 0.5 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    <div className="text-gray-700 dark:text-gray-300 mb-2 text-sm font-medium group-hover:text-gray-900 dark:group-hover:text-gray-100">
+                    <div className="text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-gray-900 dark:group-hover:text-gray-100">
                       📈 Dashboards
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                    <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
                       Interactive visualizations & comparisons
                     </div>
                   </motion.button>
@@ -1644,16 +1687,16 @@ export function ChatInterface({
                         "Analyze PepsiCo's recent SEC filings (10-K, 10-Q, and 8-K). Use Python to calculate key financial metrics (e.g., revenue growth, margins, liquidity), identify significant events and disclosures, then research the fundamental reasons behind management's decisions using recent financial statements."
                       )
                     }
-                    className="bg-gray-50 dark:bg-gray-800/50 p-3 sm:p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-left group"
+                    className="bg-gray-50 dark:bg-gray-800/50 p-2.5 sm:p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-left group"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.7, duration: 0.5 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    <div className="text-gray-700 dark:text-gray-300 mb-2 text-sm font-medium group-hover:text-gray-900 dark:group-hover:text-gray-100">
+                    <div className="text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-gray-900 dark:group-hover:text-gray-100">
                       💼 Portfolio Analysis
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                    <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
                       Institutional moves & fundamental analysis
                     </div>
                   </motion.button>
@@ -1661,25 +1704,25 @@ export function ChatInterface({
                   <motion.button
                     onClick={() =>
                       handlePromptClick(
-                        "Do an in-depth report into the effect COVID-19 had on Pfizer. Analyze insider trades made during that time period, research those specific high-profile people involved, look at the company's stock price pre and post COVID, with income statements, balance sheets, and any relevant info from SEC filings around this time. Be thorough."
+                        "Do an in-depth report into the effect COVID-19 had on Pfizer. Analyze insider trades made during that time period, research those specific high-profile people involved, look at the company's stock price pre and post COVID, with income statements, balance sheets, and any relevant info from SEC filings around this time. Be thorough and execute code for deep analysis."
                       )
                     }
-                    className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-3 sm:p-4 rounded-xl border border-blue-200 dark:border-blue-700 hover:border-blue-300 dark:hover:border-blue-600 transition-colors hover:from-blue-100 hover:to-purple-100 dark:hover:from-blue-900/30 dark:hover:to-purple-900/30 text-left group col-span-1 sm:col-span-2 lg:col-span-1"
+                    className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-2.5 sm:p-4 rounded-xl border border-blue-200 dark:border-blue-700 hover:border-blue-300 dark:hover:border-blue-600 transition-colors hover:from-blue-100 hover:to-purple-100 dark:hover:from-blue-900/30 dark:hover:to-purple-900/30 text-left group col-span-1 sm:col-span-2 lg:col-span-1"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.8, duration: 0.5 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    <div className="text-blue-700 dark:text-blue-300 mb-2 text-sm font-medium group-hover:text-blue-900 dark:group-hover:text-blue-100">
+                    <div className="text-blue-700 dark:text-blue-300 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-blue-900 dark:group-hover:text-blue-100">
                       🚀 Deep Investigation
                     </div>
-                    <div className="text-xs text-blue-600 dark:text-blue-400">
+                    <div className="text-[10px] sm:text-xs text-blue-600 dark:text-blue-400">
                       Multi-source research + Insider data + Financial analysis
                     </div>
                   </motion.button>
                 </div>
 
-                <div className="mt-8">
+                <div className="mt-4 sm:mt-8">
                   <DataSourceLogos />
                 </div>
               </div>
@@ -1687,8 +1730,8 @@ export function ChatInterface({
           </motion.div>
         )}
 
-        {/* Input Form when not at bottom */}
-        {!isFormAtBottom && messages.length === 0 && (
+        {/* Input Form when not at bottom (desktop only) */}
+        {!isFormAtBottom && messages.length === 0 && !isMobile && (
           <motion.div
             className="mt-8 mb-16"
             initial={{ opacity: 0, y: 20 }}
@@ -1796,8 +1839,8 @@ export function ChatInterface({
             >
               {message.role === "user" ? (
                 /* User Message */
-                <div className="flex justify-end mb-4 sm:mb-6 px-2 sm:px-0">
-                  <div className="max-w-[90%] sm:max-w-[85%] bg-gray-100 dark:bg-gray-800 rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 relative group">
+                <div className="flex justify-end mb-4 sm:mb-6 px-3 sm:px-0">
+                  <div className="max-w-[85%] sm:max-w-[80%] bg-gray-100 dark:bg-gray-800 rounded-2xl px-4 sm:px-4 py-3 sm:py-3 relative group shadow-sm">
                     {/* User Message Actions */}
                     <div className="absolute -left-8 sm:-left-10 top-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5 sm:gap-1">
                       <Button
@@ -1853,7 +1896,7 @@ export function ChatInterface({
                 </div>
               ) : (
                 /* Assistant Message */
-                <div className="mb-4 sm:mb-6 group px-2 sm:px-0">
+                <div className="mb-4 sm:mb-6 group px-3 sm:px-0">
                   {editingMessageId === message.id ? null : (
                     <div className="space-y-4">
                       {(() => {
@@ -2546,31 +2589,31 @@ export function ChatInterface({
 
       {/* Gradient fade above input form */}
       <AnimatePresence>
-        {isFormAtBottom && (
+        {(isFormAtBottom || isMobile) && (
           <>
             <motion.div
-              className="fixed left-1/2 -translate-x-1/2 bottom-0 w-full max-w-3xl h-32 pointer-events-none z-30"
+              className="fixed left-1/2 -translate-x-1/2 bottom-0 w-full max-w-3xl h-36 pointer-events-none z-45"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
               style={{
                 background:
-                  "linear-gradient(to top, rgba(255,255,255,1) 0%, rgba(255,255,255,0.95) 25%, rgba(255,255,255,0) 100%)",
+                  "linear-gradient(to top, rgba(255,255,255,1) 0%, rgba(255,255,255,0.98) 30%, rgba(255,255,255,0.8) 60%, rgba(255,255,255,0) 100%)",
               }}
             >
               <div
                 className="dark:hidden absolute inset-0"
                 style={{
                   background:
-                    "linear-gradient(to top, rgba(255,255,255,1) 0%, rgba(255,255,255,0.95) 25%, rgba(255,255,255,0) 100%)",
+                    "linear-gradient(to top, rgba(255,255,255,1) 0%, rgba(255,255,255,0.98) 30%, rgba(255,255,255,0.8) 60%, rgba(255,255,255,0) 100%)",
                 }}
               />
               <div
                 className="hidden dark:block absolute inset-0"
                 style={{
                   background:
-                    "linear-gradient(to top, rgba(3,7,18,1) 0%, rgba(3,7,18,0.95) 25%, rgba(3,7,18,0) 100%)",
+                    "linear-gradient(to top, rgba(3,7,18,1) 0%, rgba(3,7,18,0.98) 30%, rgba(3,7,18,0.8) 60%, rgba(3,7,18,0) 100%)",
                 }}
               />
             </motion.div>
@@ -2601,9 +2644,9 @@ export function ChatInterface({
 
       {/* Input Form at bottom */}
       <AnimatePresence>
-        {isFormAtBottom && (
+        {(isFormAtBottom || isMobile) && (
           <motion.div
-            className="fixed left-1/2 -translate-x-1/2 bottom-0 w-full max-w-3xl px-3 sm:px-6 pt-3 sm:pt-4 pb-4 sm:pb-6 z-40"
+            className="fixed left-1/2 -translate-x-1/2 bottom-0 w-full max-w-3xl px-3 sm:px-6 pt-4 sm:pt-5 pb-6 sm:pb-7 z-50"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
@@ -2615,7 +2658,7 @@ export function ChatInterface({
                   value={input}
                   onChange={handleInputChange}
                   placeholder="Ask a question..."
-                  className="w-full resize-none border-gray-200 dark:border-gray-700 rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 pr-14 sm:pr-16 min-h-[38px] sm:min-h-[40px] max-h-28 sm:max-h-32 focus:border-gray-300 dark:focus:border-gray-600 focus:ring-0 bg-gray-50 dark:bg-gray-900/50 overflow-y-auto text-sm sm:text-base"
+                  className="w-full resize-none border-gray-200 dark:border-gray-700 rounded-2xl px-4 sm:px-4 py-3 sm:py-3 pr-14 sm:pr-16 min-h-[44px] sm:min-h-[48px] max-h-28 sm:max-h-32 focus:border-gray-300 dark:focus:border-gray-600 focus:ring-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm overflow-y-auto text-base shadow-lg border"
                   disabled={status === "error" || isLoading}
                   rows={1}
                   style={{ lineHeight: "1.5" }}
@@ -2633,7 +2676,7 @@ export function ChatInterface({
                     !canStop &&
                     (isLoading || !input.trim() || status === "error")
                   }
-                  className="absolute right-1.5 sm:right-2 bottom-1.5 sm:bottom-2 rounded-xl h-7 w-7 sm:h-8 sm:w-8 p-0 bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 dark:text-gray-900"
+                  className="absolute right-2 sm:right-2 bottom-2 sm:bottom-2 rounded-xl h-8 w-8 sm:h-9 sm:w-9 p-0 bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 dark:text-gray-900 shadow-lg"
                 >
                   {canStop ? (
                     <Square className="h-4 w-4" />
@@ -2658,13 +2701,30 @@ export function ChatInterface({
               </div>
 
               {status === "streaming" && (
-                <div className="text-center mt-2">
+                <div className="text-center mt-2 hidden sm:block">
                   <span className="text-xs text-gray-500 dark:text-gray-400">
                     Press Esc to stop • Shift+Enter for new line
                   </span>
                 </div>
               )}
             </form>
+
+            {/* Mobile Bottom Bar - Social links and disclaimer below input */}
+            <motion.div 
+              className="block sm:hidden mt-4 pt-3 border-t border-gray-200 dark:border-gray-700"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5, duration: 0.3 }}
+            >
+              <div className="flex flex-col items-center space-y-3">
+                <div className="flex items-center justify-center space-x-4">
+                  <SocialLinks />
+                </div>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center">
+                  Not financial advice.
+                </p>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

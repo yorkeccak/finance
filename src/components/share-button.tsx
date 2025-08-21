@@ -24,7 +24,7 @@ export function ShareButton({ query, className }: ShareButtonProps) {
   const shareOnX = (e: React.MouseEvent) => {
     e.preventDefault();
     const url = getCurrentUrl();
-    const text = 'Yo @ValyuNetwork just dropped this built on their DeepsearchAPI, it is awesome 👉';
+    const text = 'Yo @ValyuNetwork just put bloomberg data behind a chatbot and open sourced it 👉';
     const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
     window.open(twitterUrl, '_blank', 'width=550,height=420');
   };

@@ -19,7 +19,7 @@ const SocialLinks = () => {
     },
     {
       name: "GitHub",
-      url: "https://github.com/valyu-network",
+      url: "https://github.com/yorkeccak/finance/",
       icon: <Github className="h-4 w-4" />,
     },
   ];

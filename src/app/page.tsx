@@ -15,6 +15,7 @@ export default function Home() {
   const [hasMessages, setHasMessages] = useState(false);
   const [isHoveringTitle, setIsHoveringTitle] = useState(false);
   const [autoTiltTriggered, setAutoTiltTriggered] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [showRateLimitDialog, setShowRateLimitDialog] = useState(false);
   const [rateLimitResetTime, setRateLimitResetTime] = useState(new Date());
 
@@ -27,6 +28,35 @@ export default function Home() {
   const handleMessagesChange = useCallback((hasMessages: boolean) => {
     setHasMessages(hasMessages);
   }, []);
+
+  // Detect mobile device for touch interactions
+  useEffect(() => {
+    const checkMobile = () => {
+      const isMobileDevice = window.innerWidth <= 768 || 
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      setIsMobile(isMobileDevice);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Handle title click on mobile
+  const handleTitleClick = useCallback(() => {
+    if (isMobile) {
+      track('Title Click', {
+        trigger: 'mobile_touch'
+      });
+      setIsHoveringTitle(true);
+      // Keep it tilted for 3 seconds then close
+      setTimeout(() => {
+        setIsHoveringTitle(false);
+      }, 3000);
+    }
+  }, [isMobile]);
+
   
   // Auto-trigger tilt animation after 2 seconds
   useEffect(() => {
@@ -65,7 +95,7 @@ export default function Home() {
       
       <BottomBar />
       
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto pb-8">
         {/* Header - Animate out when messages appear */}
         <AnimatePresence mode="wait">
           {!hasMessages && (
@@ -82,15 +112,24 @@ export default function Home() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1, duration: 0.6, ease: "easeOut" }}
                 onHoverStart={() => {
-                  track('Title Hover', {
-                    trigger: 'user_hover'
-                  });
-                  setIsHoveringTitle(true);
+                  if (!isMobile) {
+                    track('Title Hover', {
+                      trigger: 'user_hover'
+                    });
+                    setIsHoveringTitle(true);
+                  }
                 }}
-                onHoverEnd={() => setIsHoveringTitle(false)}
+                onHoverEnd={() => {
+                  if (!isMobile) {
+                    setIsHoveringTitle(false);
+                  }
+                }}
+                onClick={handleTitleClick}
               >
                 <motion.h1 
-                  className="text-4xl sm:text-5xl font-light text-gray-900 dark:text-gray-100 tracking-tight cursor-default relative z-10"
+                  className={`text-4xl sm:text-5xl font-light text-gray-900 dark:text-gray-100 tracking-tight relative z-10 ${
+                    isMobile ? 'cursor-pointer' : 'cursor-default'
+                  }`}
                   style={{ transformOrigin: '15% 100%' }}
                   animate={{ 
                     rotateZ: isHoveringTitle ? -8 : 0,
@@ -123,6 +162,21 @@ export default function Home() {
                   />
                 </motion.div>
                 
+                {/* Mobile tap hint */}
+                {isMobile && !isHoveringTitle && !hasMessages && (
+                  <motion.div
+                    className="absolute -bottom-8 left-0 right-0 flex items-center justify-center"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ delay: 3, duration: 0.5 }}
+                  >
+                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                      Tap to reveal
+                    </span>
+                  </motion.div>
+                )}
+
                 {/* Hover area extender */}
                 <div className="absolute inset-0 -bottom-10" />
               </motion.div>

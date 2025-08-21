@@ -13,6 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { getRateLimitStatus } from "@/lib/rate-limit";
 import { useOllama } from "@/lib/ollama-context";
+import { useAuth } from "@/components/auth/auth-provider";
+import { createClient } from '@/utils/supabase/client';
 import { track } from '@vercel/analytics';
 
 import {
@@ -857,9 +859,11 @@ const SearchResultsCarousel = ({
 };
 
 export function ChatInterface({
+  sessionId,
   onMessagesChange,
   onRateLimitError,
 }: {
+  sessionId?: string;
   onMessagesChange?: (hasMessages: boolean) => void;
   onRateLimitError?: (resetTime: string) => void;
 }) {
@@ -944,23 +948,32 @@ export function ChatInterface({
   };
 
   const { selectedModel } = useOllama();
+  const { user } = useAuth();
   
   const transport = useMemo(() => 
     new DefaultChatTransport({
       api: "/api/chat",
-      prepareSendMessagesRequest: ({ messages }) => {
+      prepareSendMessagesRequest: async ({ messages }) => {
         const headers: Record<string, string> = {};
         if (selectedModel) {
           headers['x-ollama-model'] = selectedModel;
         }
+        if (user) {
+          const supabase = createClient();
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.access_token) {
+            headers['Authorization'] = `Bearer ${session.access_token}`;
+          }
+        }
         return {
           body: {
             messages,
+            sessionId,
           },
           headers,
         };
       },
-    }), [selectedModel]
+    }), [selectedModel, user, sessionId]
   );
 
   const {

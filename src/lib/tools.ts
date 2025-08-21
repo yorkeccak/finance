@@ -2,6 +2,8 @@ import { z } from "zod";
 import { tool } from "ai";
 import { Valyu } from "valyu-js";
 import { track } from "@vercel/analytics/server";
+import { UsageTracker } from '@/lib/usage-tracking';
+
 
 export const financeTools = {
   // Chart Creation Tool - Create interactive financial charts with time series data
@@ -205,7 +207,8 @@ export const financeTools = {
           'Brief description of what the calculation or analysis does (e.g., "Calculate future value with compound interest", "Analyze portfolio risk metrics")'
         ),
     }),
-    execute: async ({ code, description }) => {
+    execute: async ({ code, description }, options) => {
+      const userId = (options as any)?.experimental_context?.userId;
       try {
         console.log("[Code Execution] Executing Python code:", {
           description,
@@ -242,6 +245,18 @@ export const financeTools = {
           hasArtifacts: !!result.artifacts
         });
 
+        // Track usage for billing if user is authenticated
+        if (userId && result.success) {
+          const usageTracker = new UsageTracker();
+          // Estimate cost based on execution time (example: $0.001 per second)
+          const estimatedCost = (result.executionTime || 1000) / 1000 * 0.001;
+          await usageTracker.trackToolUsage(userId, 'codeExecution', estimatedCost, {
+            executionTime: result.executionTime,
+            codeLength: code.length,
+            hasArtifacts: !!result.artifacts
+          });
+        }
+
         console.log("[Code Execution] Result:", {
           success: result.success,
           outputLength: result.output?.length || 0,
@@ -260,9 +275,6 @@ export const financeTools = {
         }
 
         // Format the successful execution result
-        const artifactsNote = result.artifacts
-          ? "\n\n🖼️ Artifacts captured by Daytona (e.g., charts) are available."
-          : "";
         return `🐍 **Python Code Execution (Daytona Sandbox)**
 ${description ? `**Description**: ${description}\n` : ""}
 
@@ -314,7 +326,8 @@ ${result.output || "(No output produced)"}
           "Maximum number of results to return. This is not number of daya/hours of stock data, for example 1 yr of stock data for 1 company is 1 result"
         ),
     }),
-    execute: async ({ query, dataType, maxResults }) => {
+    execute: async ({ query, dataType, maxResults }, options) => {
+      const userId = (options as any)?.experimental_context?.userId;
       try {
         // Check if Valyu API key is available
         const apiKey = process.env.VALYU_API_KEY;
@@ -396,6 +409,17 @@ ${result.output || "(No output produced)"}
           cost: (response as any)?.price || null,
           txId: (response as any)?.tx_id || null
         });
+
+        // Track usage for billing if user is authenticated
+        if (userId) {
+          const usageTracker = new UsageTracker();
+          const cost = (response as any)?.price || 0;
+          await usageTracker.trackToolUsage(userId, 'financialSearch', cost, {
+            query,
+            resultCount: response?.results?.length || 0,
+            dataType
+          });
+        }
 
         // Log the full API response for debugging
         console.log(

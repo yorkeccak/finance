@@ -4,6 +4,7 @@ import "./globals.css";
 import { MissingKeysDialog } from "@/components/missing-keys-dialog";
 import { OllamaProvider } from "@/lib/ollama-context";
 import { Analytics } from '@vercel/analytics/next';
+import { AuthProvider } from "@/components/auth/auth-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -65,11 +66,13 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <OllamaProvider>
-          <MissingKeysDialog />
-          {children}
-          <Analytics />
-        </OllamaProvider>
+        <AuthProvider>
+          <OllamaProvider>
+            <MissingKeysDialog />
+            {children}
+            <Analytics />
+          </OllamaProvider>
+        </AuthProvider>
       </body>
     </html>
   );

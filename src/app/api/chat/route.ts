@@ -4,13 +4,16 @@ import { FinanceUIMessage } from "@/lib/types";
 import { openai, createOpenAI } from "@ai-sdk/openai";
 import { createOllama, ollama } from "ollama-ai-provider-v2";
 import { checkServerRateLimit, incrementServerRateLimit } from "@/lib/rate-limit";
+import { createClient } from '@supabase/supabase-js';
+import { UsageTracker } from '@/lib/usage-tracking';
+import { checkUserRateLimit } from '@/lib/rate-limit-v2';
 
 // Allow streaming responses up to 120 seconds
 export const maxDuration = 180;
 
 export async function POST(req: Request) {
   try {
-    const { messages }: { messages: FinanceUIMessage[] } = await req.json();
+    const { messages, sessionId }: { messages: FinanceUIMessage[], sessionId?: string } = await req.json();
     console.log(
       "[Chat API] Incoming messages:",
       JSON.stringify(messages, null, 2)
@@ -22,34 +25,69 @@ export async function POST(req: Request) {
     const isUserInitiated = lastMessage?.role === 'user';
     console.log("[Chat API] Is user-initiated request:", isUserInitiated);
 
+    // Get authenticated user
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: req.headers.get('Authorization') || '',
+          },
+        },
+      }
+    );
+
+    const { data: { user } } = await supabase.auth.getUser();
+    
     // Check app mode and configure accordingly
     const isDevelopment = process.env.APP_MODE === 'development';
     console.log("[Chat API] App mode:", isDevelopment ? 'development' : 'production');
+    console.log("[Chat API] Authenticated user:", user?.id || 'anonymous');
 
-    // Check rate limit only for user-initiated messages in production mode
+    // Check rate limit for user-initiated messages
     if (isUserInitiated && !isDevelopment) {
-      const rateLimitStatus = checkServerRateLimit(req);
-      console.log("[Chat API] Rate limit status:", rateLimitStatus);
-      
-      if (!rateLimitStatus.allowed) {
-        console.log("[Chat API] Rate limit exceeded");
-        return new Response(
-          JSON.stringify({
+      if (!user) {
+        // Fall back to anonymous rate limiting for non-authenticated users
+        const rateLimitStatus = checkServerRateLimit(req);
+        console.log("[Chat API] Anonymous rate limit status:", rateLimitStatus);
+        
+        if (!rateLimitStatus.allowed) {
+          console.log("[Chat API] Anonymous rate limit exceeded");
+          return new Response(
+            JSON.stringify({
+              error: "RATE_LIMIT_EXCEEDED",
+              message: "You have exceeded your daily limit of 5 queries. Sign up to continue.",
+              resetTime: rateLimitStatus.resetTime.toISOString(),
+              remaining: rateLimitStatus.remaining,
+            }),
+            {
+              status: 429,
+              headers: {
+                "Content-Type": "application/json",
+                "X-RateLimit-Limit": "5",
+                "X-RateLimit-Remaining": rateLimitStatus.remaining.toString(),
+                "X-RateLimit-Reset": rateLimitStatus.resetTime.toISOString(),
+              },
+            }
+          );
+        }
+      } else {
+        // Check user-based rate limits
+        const rateLimitResult = await checkUserRateLimit(user.id);
+        console.log("[Chat API] User rate limit status:", rateLimitResult);
+        
+        if (!rateLimitResult.allowed) {
+          return new Response(JSON.stringify({
             error: "RATE_LIMIT_EXCEEDED",
-            message: "You have exceeded your daily limit of 5 queries. Please try again tomorrow.",
-            resetTime: rateLimitStatus.resetTime.toISOString(),
-            remaining: rateLimitStatus.remaining,
-          }),
-          {
+            message: "Daily query limit reached. Upgrade to continue.",
+            resetTime: rateLimitResult.resetTime.toISOString(),
+            tier: rateLimitResult.tier
+          }), {
             status: 429,
-            headers: {
-              "Content-Type": "application/json",
-              "X-RateLimit-Limit": "5",
-              "X-RateLimit-Remaining": rateLimitStatus.remaining.toString(),
-              "X-RateLimit-Reset": rateLimitStatus.resetTime.toISOString(),
-            },
-          }
-        );
+            headers: { "Content-Type": "application/json" }
+          });
+        }
       }
     } else if (isUserInitiated && isDevelopment) {
       console.log("[Chat API] Development mode: Rate limiting disabled");
@@ -134,6 +172,30 @@ export async function POST(req: Request) {
 
     console.log("[Chat API] Model selected:", modelInfo);
 
+    // Initialize usage tracker
+    const usageTracker = new UsageTracker();
+    
+    // Get user subscription tier if authenticated
+    let userTier = 'free';
+    if (user) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('subscription_tier')
+        .eq('id', user.id)
+        .single();
+      userTier = userData?.subscription_tier || 'free';
+    }
+
+    // Use tracked model if pay-per-use tier
+    if (user && userTier === 'pay_per_use') {
+      selectedModel = usageTracker.getTrackedModel(user.id, selectedModel);
+    }
+
+    // Save message to database before processing
+    if (user && sessionId) {
+      await saveMessageToSession(supabase, sessionId, messages[messages.length - 1]);
+    }
+
     console.log(`[Chat API] About to call streamText with model:`, selectedModel);
     console.log(`[Chat API] Model info:`, modelInfo);
     
@@ -142,6 +204,10 @@ export async function POST(req: Request) {
       messages: convertToModelMessages(messages),
       tools: financeTools,
       toolChoice: "auto",
+      experimental_context: {
+        userId: user?.id,
+        userTier,
+      },
       providerOptions: {
         openai: {
           store: true, // No data retention - makes interaction stateless
@@ -349,9 +415,22 @@ export async function POST(req: Request) {
     console.log("[Chat API] streamText result type:", typeof result);
     console.log("[Chat API] streamText result:", result);
 
-    // Create the streaming response
+    // Create the streaming response with chat persistence
     const streamResponse = result.toUIMessageStreamResponse({
       sendReasoning: true, // Forward reasoning tokens to the client
+      onFinish: async (completion) => {
+        // Save assistant response
+        if (user && sessionId) {
+          await saveMessageToSession(supabase, sessionId, {
+            role: 'assistant',
+            parts: completion.responseMessage.parts || [],
+            tool_calls: null
+          });
+        }
+        
+        // Usage tracking is handled by Polar's LLMStrategy wrapper
+        // when using tracked models for pay-per-use customers
+      }
     });
 
     // Increment rate limit count for user-initiated requests in production mode only (after successful start)
@@ -385,4 +464,15 @@ export async function POST(req: Request) {
       headers: { "Content-Type": "application/json" },
     });
   }
+}
+
+async function saveMessageToSession(supabase: any, sessionId: string, message: any) {
+  await supabase
+    .from('chat_messages')
+    .insert({
+      session_id: sessionId,
+      role: message.role,
+      content: message.parts || message.content || [],
+      tool_calls: message.tool_calls || message.toolCalls || null
+    });
 }

@@ -1,23 +1,26 @@
 'use client';
 
 import { ChatInterface } from '@/components/chat-interface';
-import { ShareButton } from '@/components/share-button';
 import { RateLimitDialog } from '@/components/rate-limit-dialog';
-import { OllamaStatusIndicator } from '@/components/ollama-status-indicator';
+import { Topbar } from '@/components/topbar';
+import { AuthModal } from '@/components/auth/auth-modal';
+import { useAuth } from '@/components/auth/auth-provider';
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BottomBar from '@/components/bottom-bar';
-import { getRateLimitStatus } from '@/lib/rate-limit';
 import Image from 'next/image';
 import { track } from '@vercel/analytics';
 
 export default function Home() {
+  const { user, loading } = useAuth();
   const [hasMessages, setHasMessages] = useState(false);
   const [isHoveringTitle, setIsHoveringTitle] = useState(false);
   const [autoTiltTriggered, setAutoTiltTriggered] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [showRateLimitDialog, setShowRateLimitDialog] = useState(false);
   const [rateLimitResetTime, setRateLimitResetTime] = useState(new Date());
+  const [currentSessionId, setCurrentSessionId] = useState<string | undefined>(undefined);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Handle rate limit errors from chat interface
   const handleRateLimitError = useCallback((resetTime: string) => {
@@ -78,34 +81,47 @@ export default function Home() {
     }
   }, [hasMessages, autoTiltTriggered]);
 
-  return (
-    <div className='min-h-screen bg-white dark:bg-gray-950'>
-      {/* Ollama Status Indicator - top-left normally, moves right when messages exist */}
-      <OllamaStatusIndicator hasMessages={hasMessages} />
+  const handleSessionSelect = useCallback((sessionId: string) => {
+    setCurrentSessionId(sessionId);
+    // Load session messages here
+  }, []);
 
-      {/* Share Button - Always visible in top right */}
-      <motion.div 
-        className='fixed top-3 sm:top-6 right-3 sm:right-6 z-50'
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.5, duration: 0.5, ease: 'easeOut' }}
-      >
-        <ShareButton />
-      </motion.div>
-      
-      <BottomBar />
-      
-      <div className="max-w-4xl mx-auto pb-8">
+  const handleNewChat = useCallback(() => {
+    setCurrentSessionId(undefined);
+    // Clear current messages
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className='min-h-screen bg-white dark:bg-gray-950 flex flex-col'>
+      {/* Topbar */}
+      <Topbar
+        hasMessages={hasMessages}
+        currentSessionId={currentSessionId}
+        onSessionSelect={handleSessionSelect}
+        onNewChat={handleNewChat}
+        onAuthClick={() => setShowAuthModal(true)}
+      />
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col">
         {/* Header - Animate out when messages appear */}
         <AnimatePresence mode="wait">
-          {!hasMessages && (
-            <motion.div 
-              className="text-center pt-12 sm:pt-16 pb-6 sm:pb-4 px-4 sm:px-0"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20, transition: { duration: 0.3 } }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
-            >
+            {!hasMessages && (
+              <motion.div 
+                className="text-center pt-12 sm:pt-16 pb-6 sm:pb-4 px-4 sm:px-0"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20, transition: { duration: 0.3 } }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+              >
               <motion.div 
                 className="relative mb-10 inline-block"
                 initial={{ opacity: 0, y: 20 }}
@@ -194,18 +210,21 @@ export default function Home() {
         
         {/* Chat Interface */}
         <motion.div 
-          className="px-0 sm:px-4"
+          className="flex-1 px-0 sm:px-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
         >
           <Suspense fallback={<div className="text-center py-8">Loading...</div>}>
             <ChatInterface 
+              sessionId={currentSessionId}
               onMessagesChange={handleMessagesChange} 
               onRateLimitError={handleRateLimitError}
             />
           </Suspense>
         </motion.div>
+        
+        <BottomBar />
       </div>
       
       {/* Rate Limit Dialog */}
@@ -213,6 +232,12 @@ export default function Home() {
         open={showRateLimitDialog}
         onOpenChange={setShowRateLimitDialog}
         resetTime={rateLimitResetTime}
+      />
+      
+      {/* Auth Modal */}
+      <AuthModal
+        open={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
       />
     </div>
   );

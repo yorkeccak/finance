@@ -3,6 +3,7 @@
 import { ChatInterface } from '@/components/chat-interface';
 import { ShareButton } from '@/components/share-button';
 import { RateLimitDialog } from '@/components/rate-limit-dialog';
+import { OllamaStatusIndicator } from '@/components/ollama-status-indicator';
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BottomBar from '@/components/bottom-bar';
@@ -78,13 +79,16 @@ export default function Home() {
   }, [hasMessages, autoTiltTriggered]);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950 overflow-x-hidden">
+    <div className='min-h-screen bg-white dark:bg-gray-950'>
+      {/* Ollama Status Indicator - top-left normally, moves right when messages exist */}
+      <OllamaStatusIndicator hasMessages={hasMessages} />
+
       {/* Share Button - Always visible in top right */}
       <motion.div 
-        className="fixed top-3 sm:top-6 right-3 sm:right-6 z-45"
+        className='fixed top-3 sm:top-6 right-3 sm:right-6 z-50'
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.5, duration: 0.5, ease: "easeOut" }}
+        transition={{ delay: 0.5, duration: 0.5, ease: 'easeOut' }}
       >
         <ShareButton />
       </motion.div>

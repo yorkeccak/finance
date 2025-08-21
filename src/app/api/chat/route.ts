@@ -1,7 +1,8 @@
 import { streamText, convertToModelMessages } from "ai";
 import { financeTools } from "@/lib/tools";
 import { FinanceUIMessage } from "@/lib/types";
-import { openai } from "@ai-sdk/openai";
+import { openai, createOpenAI } from "@ai-sdk/openai";
+import { createOllama, ollama } from "ollama-ai-provider-v2";
 import { checkServerRateLimit, incrementServerRateLimit } from "@/lib/rate-limit";
 
 // Allow streaming responses up to 120 seconds
@@ -21,8 +22,12 @@ export async function POST(req: Request) {
     const isUserInitiated = lastMessage?.role === 'user';
     console.log("[Chat API] Is user-initiated request:", isUserInitiated);
 
-    // Check rate limit only for user-initiated messages
-    if (isUserInitiated) {
+    // Check app mode and configure accordingly
+    const isDevelopment = process.env.APP_MODE === 'development';
+    console.log("[Chat API] App mode:", isDevelopment ? 'development' : 'production');
+
+    // Check rate limit only for user-initiated messages in production mode
+    if (isUserInitiated && !isDevelopment) {
       const rateLimitStatus = checkServerRateLimit(req);
       console.log("[Chat API] Rate limit status:", rateLimitStatus);
       
@@ -46,29 +51,103 @@ export async function POST(req: Request) {
           }
         );
       }
+    } else if (isUserInitiated && isDevelopment) {
+      console.log("[Chat API] Development mode: Rate limiting disabled");
     }
 
     // Detect available API keys and select provider/tools accordingly
     const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
+    const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
 
-    // Prefer direct OpenAI if OPENAI_API_KEY is present; otherwise fall back to Vercel AI Gateway model id
-    const selectedModel = hasOpenAIKey ? openai("gpt-5") : "openai/gpt-5";
-    console.log(
-      "[Chat API] Model selected:",
-      hasOpenAIKey
-        ? "OpenAI (openai:gpt-5)"
-        : 'Vercel AI Gateway ("openai/gpt-5")'
-    );
+    let selectedModel: any;
+    let modelInfo: string;
 
+    if (isDevelopment) {
+      // Development mode: Try to use Ollama first, fallback to OpenAI
+      try {
+        // Try to connect to Ollama first
+        const ollamaResponse = await fetch(`${ollamaBaseUrl}/api/tags`, {
+          method: 'GET',
+          signal: AbortSignal.timeout(3000), // 3 second timeout
+        });
+        
+        if (ollamaResponse.ok) {
+          const data = await ollamaResponse.json();
+          const models = data.models || [];
+          
+          if (models.length > 0) {
+            // Prioritize Llama 3.1 which is explicitly listed as supporting tools
+            const preferredModels = ['llama3.1', 'gemma3:4b', 'gemma3', 'llama3.2', 'llama3', 'qwen2.5', 'codestral', 'deepseek-r1'];
+            let selectedModelName = models[0].name;
+            
+            // Check if user has a specific model preference from the request
+            const userPreferredModel = req.headers.get('x-ollama-model');
+            
+            // Try to find a preferred model
+            if (userPreferredModel && models.some((m: any) => m.name === userPreferredModel)) {
+              selectedModelName = userPreferredModel;
+            } else {
+              for (const preferred of preferredModels) {
+                if (models.some((m: any) => m.name.includes(preferred))) {
+                  selectedModelName = models.find((m: any) => m.name.includes(preferred))?.name;
+                  break;
+                }
+              }
+            }
+            
+            // Debug: Log the exact configuration
+            console.log(`[Chat API] Attempting to configure Ollama with baseURL: ${ollamaBaseUrl}/v1`);
+            console.log(`[Chat API] Selected model name: ${selectedModelName}`);
+            
+            // Use OpenAI provider and explicitly create a chat model (not responses model)
+            const ollamaAsOpenAI = createOpenAI({
+              baseURL: `${ollamaBaseUrl}/v1`, // This should hit /v1/chat/completions
+              apiKey: 'ollama', // Dummy API key for Ollama
+            });
+            
+            // Create a chat model explicitly
+            selectedModel = ollamaAsOpenAI.chat(selectedModelName);
+            modelInfo = `Ollama (${selectedModelName}) - Development Mode`;
+            console.log(`[Chat API] Created model with provider:`, typeof selectedModel);
+            console.log(`[Chat API] Model baseURL should be: ${ollamaBaseUrl}/v1`);
+          } else {
+            throw new Error('No models available in Ollama');
+          }
+        } else {
+          throw new Error(`Ollama API responded with status ${ollamaResponse.status}`);
+        }
+      } catch (error) {
+        console.log("[Chat API] Ollama not available, falling back to OpenAI:", error);
+        // Fallback to OpenAI in development mode
+        selectedModel = hasOpenAIKey ? openai("gpt-5") : "openai/gpt-5";
+        modelInfo = hasOpenAIKey 
+          ? "OpenAI (gpt-5) - Development Mode Fallback" 
+          : 'Vercel AI Gateway ("gpt-5") - Development Mode Fallback';
+      }
+    } else {
+      // Production mode: Use OpenAI only
+      selectedModel = hasOpenAIKey ? openai("gpt-5") : "openai/gpt-5";
+      modelInfo = hasOpenAIKey
+        ? "OpenAI (gpt-5) - Production Mode"
+        : 'Vercel AI Gateway ("gpt-5") - Production Mode';
+    }
+
+    console.log("[Chat API] Model selected:", modelInfo);
+
+    console.log(`[Chat API] About to call streamText with model:`, selectedModel);
+    console.log(`[Chat API] Model info:`, modelInfo);
+    
     const result = streamText({
-      // model will use OpenAI API if available, otherwise Vercel AI Gateway route
       model: selectedModel as any,
       messages: convertToModelMessages(messages),
       tools: financeTools,
-      toolChoice: "auto", // Let the AI decide when to use tools
+      toolChoice: "auto",
       providerOptions: {
         openai: {
-          reasoningSummary: "auto", // Enable reasoning summaries for better responses
+          store: true, // No data retention - makes interaction stateless
+          reasoningEffort: 'medium',
+          reasoningSummary: 'auto', // output reasoning
+          include: ['reasoning.encrypted_content'],
         },
       },
       system: `You are a helpful assistant with access to comprehensive tools for Python code execution, financial data, web search, and data visualization. You can:
@@ -275,8 +354,8 @@ export async function POST(req: Request) {
       sendReasoning: true, // Forward reasoning tokens to the client
     });
 
-    // Increment rate limit count for user-initiated requests (after successful start)
-    if (isUserInitiated) {
+    // Increment rate limit count for user-initiated requests in production mode only (after successful start)
+    if (isUserInitiated && !isDevelopment) {
       const incrementResult = incrementServerRateLimit(req);
       console.log("[Chat API] Incremented rate limit:", incrementResult.rateLimitResult);
       
@@ -289,6 +368,13 @@ export async function POST(req: Request) {
       streamResponse.headers.set("X-RateLimit-Limit", "5");
       streamResponse.headers.set("X-RateLimit-Remaining", incrementResult.rateLimitResult.remaining.toString());
       streamResponse.headers.set("X-RateLimit-Reset", incrementResult.rateLimitResult.resetTime.toISOString());
+    } else if (isUserInitiated && isDevelopment) {
+      console.log("[Chat API] Development mode: Rate limit increment skipped");
+      
+      // Add development mode headers
+      streamResponse.headers.set("X-Development-Mode", "true");
+      streamResponse.headers.set("X-RateLimit-Limit", "unlimited");
+      streamResponse.headers.set("X-RateLimit-Remaining", "unlimited");
     }
 
     return streamResponse;

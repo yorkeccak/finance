@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { getRateLimitStatus } from "@/lib/rate-limit";
+import { useOllama } from "@/lib/ollama-context";
 import { track } from '@vercel/analytics';
 
 import {
@@ -942,16 +943,24 @@ export function ChatInterface({
     return cleaned;
   };
 
-  const [transport, setTransport] = useState<any>(
-    () =>
-      new DefaultChatTransport({
-        api: "/api/chat",
-        prepareSendMessagesRequest: ({ messages }) => ({
+  const { selectedModel } = useOllama();
+  
+  const transport = useMemo(() => 
+    new DefaultChatTransport({
+      api: "/api/chat",
+      prepareSendMessagesRequest: ({ messages }) => {
+        const headers: Record<string, string> = {};
+        if (selectedModel) {
+          headers['x-ollama-model'] = selectedModel;
+        }
+        return {
           body: {
-            messages: messages,
+            messages,
           },
-        }),
-      })
+          headers,
+        };
+      },
+    }), [selectedModel]
   );
 
   const {

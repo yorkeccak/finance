@@ -3,7 +3,7 @@
 import { ChatInterface } from '@/components/chat-interface';
 import { ShareButton } from '@/components/share-button';
 import { RateLimitDialog } from '@/components/rate-limit-dialog';
-import { OllamaStatusIndicator } from '@/components/ollama-status-indicator';
+import { OllamaStatusWrapper } from '@/components/ollama-status-wrapper';
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BottomBar from '@/components/bottom-bar';
@@ -81,7 +81,7 @@ export default function Home() {
   return (
     <div className='min-h-screen bg-white dark:bg-gray-950'>
       {/* Ollama Status Indicator - top-left normally, moves right when messages exist */}
-      <OllamaStatusIndicator hasMessages={hasMessages} />
+      <OllamaStatusWrapper hasMessages={hasMessages} />
 
       {/* Share Button - Always visible in top right */}
       <motion.div 

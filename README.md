@@ -82,9 +82,11 @@ Traditional financial research is fragmented across dozens of expensive platform
    
    # App Configuration
    NEXT_PUBLIC_APP_URL=http://localhost:3000  # Your deployment URL in production
-   APP_MODE=development  # Enable local model support
    
    # Ollama Configuration (Optional - for local models)
+   # By default, Ollama support is DISABLED for production mode
+   # To enable Ollama support, uncomment the line below:
+   # APP_MODE=development  # Enable local model support
    OLLAMA_BASE_URL=http://localhost:11434  # Default Ollama URL
    ```
 
@@ -93,11 +95,19 @@ Traditional financial research is fragmented across dozens of expensive platform
    npm run dev
    ```
 
-5. **Open your browser**
+5. **Check your configuration (optional)**
+   ```bash
+   npm run check-config
+   ```
+   This will show you whether Ollama support is enabled or disabled.
+
+6. **Open your browser**
    
    Navigate to [http://localhost:3000](http://localhost:3000)
 
 ### 🏠 Local Model Setup (Optional)
+
+**Note**: By default, Ollama support is **disabled** for production mode. The app will use OpenAI/Vercel AI Gateway with rate limiting (5 queries/day).
 
 For unlimited, private queries using your own hardware:
 

@@ -19,9 +19,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface AuthModalProps {
   open: boolean;
   onClose: () => void;
+  onSignUpSuccess?: (message: string) => void;
 }
 
-export function AuthModal({ open, onClose }: AuthModalProps) {
+export function AuthModal({ open, onClose, onSignUpSuccess }: AuthModalProps) {
   const signIn = useAuthStore((state) => state.signIn);
   const signUp = useAuthStore((state) => state.signUp);
   const signInWithGoogle = useAuthStore((state) => state.signInWithGoogle);
@@ -72,8 +73,9 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
       } else {
         setError(null);
         setActiveTab('signin');
-        // Show success message instead of closing
-        alert('Check your email to confirm your account!');
+        // Show success notification and close modal
+        onSignUpSuccess?.('Check your email to confirm your account!');
+        onClose();
       }
     } catch (err) {
       setError('An unexpected error occurred');

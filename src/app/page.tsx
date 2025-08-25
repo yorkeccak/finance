@@ -87,6 +87,10 @@ function HomeContent() {
     setHasMessages(hasMessages);
   }, []);
 
+  const handleSignUpSuccess = useCallback((message: string) => {
+    setNotification({ type: 'success', message });
+  }, []);
+
   const handleViewUsage = async () => {
     try {
       const { createClient } = await import('@/utils/supabase/client');
@@ -737,6 +741,7 @@ function HomeContent() {
       <AuthModal
         open={showAuthModal}
         onClose={() => setShowAuthModal(false)}
+        onSignUpSuccess={handleSignUpSuccess}
       />
       
       {/* Subscription Modal */}

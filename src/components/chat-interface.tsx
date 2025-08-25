@@ -299,13 +299,6 @@ const markdownComponents = {
       {children}
     </div>
   ),
-  table: ({ children }: any) => (
-    <div className="overflow-x-auto my-4">
-      <table className="min-w-full border-collapse border border-gray-300 dark:border-gray-600">
-        {children}
-      </table>
-    </div>
-  ),
 };
 
 // Memoized Markdown renderer to avoid re-parsing on unrelated state updates

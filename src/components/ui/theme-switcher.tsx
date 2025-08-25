@@ -58,8 +58,8 @@ export const ThemeSwitcher = ({
 
   const handleThemeClick = useCallback(
     async (themeKey: 'light' | 'dark' | 'system') => {
-      // Check if dark mode requires subscription
-      if (requiresSubscription && themeKey === 'dark' && !hasSubscription) {
+      // Check if dark mode or system theme requires subscription
+      if (requiresSubscription && (themeKey === 'dark' || themeKey === 'system') && !hasSubscription) {
         onUpgradeClick?.();
         return;
       }
@@ -106,8 +106,8 @@ export const ThemeSwitcher = ({
     >
       {themes.map(({ key, icon: Icon, label }) => {
         const isActive = theme === key;
-        const isDarkMode = key === 'dark';
-        const isDisabled = requiresSubscription && isDarkMode && !hasSubscription;
+        const isRestrictedTheme = key === 'dark' || key === 'system';
+        const isDisabled = requiresSubscription && isRestrictedTheme && !hasSubscription;
 
         return (
           <button

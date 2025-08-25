@@ -47,23 +47,31 @@ export function OllamaStatusIndicator({ hasMessages = false }: { hasMessages?: b
   };
 
   useEffect(() => {
-    checkOllamaStatus();
-    
-    // Show initial dialog if Ollama is available but not connected
-    const hasShownDialog = localStorage.getItem('ollama-dialog-shown');
-    if (!hasShownDialog) {
-      setTimeout(() => {
-        if (status && !status.connected && status.available) {
-          setShowInitialDialog(true);
-          localStorage.setItem('ollama-dialog-shown', 'true');
-        }
-      }, 2000);
+    // Only check Ollama status in development mode
+    if (process.env.NEXT_PUBLIC_APP_MODE === 'development') {
+      checkOllamaStatus();
+      
+      // Show initial dialog if Ollama is available but not connected
+      const hasShownDialog = localStorage.getItem('ollama-dialog-shown');
+      if (!hasShownDialog) {
+        setTimeout(() => {
+          if (status && !status.connected && status.available) {
+            setShowInitialDialog(true);
+            localStorage.setItem('ollama-dialog-shown', 'true');
+          }
+        }, 2000);
+      }
+      
+      // Check status every 30 seconds
+      const interval = setInterval(checkOllamaStatus, 30000);
+      return () => clearInterval(interval);
     }
-    
-    // Check status every 30 seconds
-    const interval = setInterval(checkOllamaStatus, 30000);
-    return () => clearInterval(interval);
   }, [status]);
+
+  // Don't render anything in production mode
+  if (process.env.NEXT_PUBLIC_APP_MODE === 'production') {
+    return null;
+  }
 
   if (!status || status.mode === 'production') {
     return null; // Don't show in production mode

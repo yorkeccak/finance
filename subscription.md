@@ -32,7 +32,7 @@ import { openai } from "@ai-sdk/openai";
 
 // Setup the LLM Ingestion Strategy
 const llmIngestion = Ingestion({ accessToken: process.env.POLAR_ACCESS_TOKEN })
-  .strategy(new LLMStrategy(openai("gpt-4o")))
+  .strategy(new LLMStrategy(openai("gpt-5")))
   .ingest("openai-usage");
 
 export async function POST(req: Request) {
@@ -123,7 +123,7 @@ class MyModel(BaseModel):
     country: str
 
 
-agent = Agent("gpt-4.1-nano", output_type=MyModel)
+agent = Agent("gpt-5-nano", output_type=MyModel)
 
 if __name__ == '__main__':
     result = agent.run_sync("The windy city in the US of A.")

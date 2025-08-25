@@ -1,6 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 import {
   DefaultChatTransport,
   lastAssistantMessageIsCompleteWithToolCalls,
@@ -11,11 +12,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { getRateLimitStatus } from "@/lib/rate-limit";
 import { useOllama } from "@/lib/ollama-context";
-import { useAuth } from "@/components/auth/auth-provider";
+import { useAuthStore } from "@/lib/stores/use-auth-store";
 import { createClient } from '@/utils/supabase/client';
 import { track } from '@vercel/analytics';
+import { OllamaStatusIndicator } from '@/components/ollama-status-indicator';
 
 import {
   Dialog,
@@ -37,7 +38,7 @@ import {
 } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
   RotateCcw,
   Square,
@@ -66,7 +67,6 @@ import rehypeRaw from "rehype-raw";
 import "katex/dist/katex.min.css";
 import katex from "katex";
 import { FinancialChart } from "@/components/financial-chart";
-import { ShareButton } from "./share-button";
 const JsonView = dynamic(() => import("@uiw/react-json-view"), {
   ssr: false,
   loading: () => <div className="text-xs text-gray-500">Loading JSON…</div>,
@@ -214,6 +214,23 @@ const markdownComponents = {
     if (!src || src.trim() === "") {
       return null;
     }
+    
+    // Validate URL - must be absolute URL or start with /
+    try {
+      // Check if it's a valid absolute URL
+      new URL(src);
+    } catch {
+      // Check if it starts with / (valid relative path for Next.js)
+      if (!src.startsWith('/')) {
+        console.warn(`Invalid image src: ${src}. Skipping image render.`);
+        return (
+          <div className="text-xs text-gray-500 italic border border-gray-200 p-2 rounded">
+            [Image: {alt || src}] (Invalid URL - academic content)
+          </div>
+        );
+      }
+    }
+    
     return <Image src={src} alt={alt || ""} width={500} height={300} {...props} />;
   },
   iframe: ({ src, ...props }: any) => {
@@ -223,7 +240,7 @@ const markdownComponents = {
     }
     return <iframe src={src} {...props} />;
   },
-  math: ({ children, ...props }: any) => {
+  math: ({ children }: any) => {
     // Render math content using KaTeX
     const mathContent =
       typeof children === "string" ? children : children?.toString() || "";
@@ -249,6 +266,46 @@ const markdownComponents = {
       );
     }
   },
+  // Handle academic XML tags commonly found in Wiley content
+  note: ({ children }: any) => (
+    <div className="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-400 pl-4 py-2 my-2 text-sm">
+      <div className="flex items-start gap-2">
+        <span className="text-blue-600 dark:text-blue-400 font-medium">Note:</span>
+        <div>{children}</div>
+      </div>
+    </div>
+  ),
+  t: ({ children }: any) => (
+    <span className="font-mono text-sm bg-gray-100 dark:bg-gray-800 px-1 rounded">
+      {children}
+    </span>
+  ),
+  f: ({ children }: any) => (
+    <span className="italic">{children}</span>
+  ),
+  // Handle other common academic tags
+  ref: ({ children }: any) => (
+    <span className="text-blue-600 dark:text-blue-400 text-sm">
+      [{children}]
+    </span>
+  ),
+  caption: ({ children }: any) => (
+    <div className="text-sm text-gray-600 dark:text-gray-400 italic text-center my-2">
+      {children}
+    </div>
+  ),
+  figure: ({ children }: any) => (
+    <div className="my-4 p-2 border border-gray-200 dark:border-gray-700 rounded">
+      {children}
+    </div>
+  ),
+  table: ({ children }: any) => (
+    <div className="overflow-x-auto my-4">
+      <table className="min-w-full border-collapse border border-gray-300 dark:border-gray-600">
+        {children}
+      </table>
+    </div>
+  ),
 };
 
 // Memoized Markdown renderer to avoid re-parsing on unrelated state updates
@@ -329,7 +386,7 @@ const SearchResultCard = ({
   type,
 }: {
   result: any;
-  type: "financial" | "web";
+  type: "financial" | "web" | "wiley";
 }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -452,17 +509,25 @@ const SearchResultCard = ({
                     {result.dataType}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                  <span className="truncate px-2 rounded text-xs bg-gray-100 dark:bg-gray-800 py-0.5 max-w-[150px]">
-                    {(() => {
-                      try {
-                        const urlObj = new URL(result.url);
-                        return urlObj.hostname.replace(/^www\./, "");
-                      } catch {
-                        return result.url;
-                      }
-                    })()}
-                  </span>
+                <div className="flex items-center justify-between text-xs text-gray-500 pl-2">
+                  {type === "wiley" ? (
+                    <img 
+                      src="/wy.svg" 
+                      alt="Wiley" 
+                      className="w-10 h-10 dark:invert opacity-80"
+                    />
+                  ) : (
+                    <span className="truncate px-2 rounded text-xs bg-gray-100 dark:bg-gray-800 py-0.5 max-w-[150px]">
+                      {(() => {
+                        try {
+                          const urlObj = new URL(result.url);
+                          return urlObj.hostname.replace(/^www\./, "");
+                        } catch {
+                          return result.url;
+                        }
+                      })()}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -483,7 +548,27 @@ const SearchResultCard = ({
                   {(result.relevanceScore * 100).toFixed(0)}% relevance
                 </span>
               )}
+              {type === "wiley" && result.doi && (
+                <span className="text-xs bg-amber-100 dark:bg-amber-800/30 text-amber-700 dark:text-amber-300 px-2 py-1 rounded">
+                  DOI: {result.doi}
+                </span>
+              )}
             </div>
+            
+            {type === "wiley" && (result.authors || result.citation) && (
+              <div className="space-y-1">
+                {result.authors && result.authors.length > 0 && (
+                  <div className="text-xs text-gray-600 dark:text-gray-400">
+                    <span className="font-medium">Authors:</span> {result.authors.join(", ")}
+                  </div>
+                )}
+                {result.citation && (
+                  <div className="text-xs text-gray-600 dark:text-gray-400 font-mono bg-gray-50 dark:bg-gray-800 p-1 rounded">
+                    {result.citation}
+                  </div>
+                )}
+              </div>
+            )}
 
             {result.url && (
               <a
@@ -609,7 +694,7 @@ const SearchResultsCarousel = ({
   type,
 }: {
   results: any[];
-  type: "financial" | "web";
+  type: "financial" | "web" | "wiley";
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const imagesScrollRef = useRef<HTMLDivElement>(null);
@@ -862,10 +947,21 @@ export function ChatInterface({
   sessionId,
   onMessagesChange,
   onRateLimitError,
+  onSessionCreated,
+  onNewChat,
+  rateLimitProps,
 }: {
   sessionId?: string;
   onMessagesChange?: (hasMessages: boolean) => void;
   onRateLimitError?: (resetTime: string) => void;
+  onSessionCreated?: (sessionId: string) => void;
+  onNewChat?: () => void;
+  rateLimitProps?: {
+    allowed?: boolean;
+    remaining?: number;
+    resetTime?: Date;
+    increment: () => Promise<any>;
+  };
 }) {
   const [input, setInput] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
@@ -873,14 +969,55 @@ export function ChatInterface({
   const [editingText, setEditingText] = useState("");
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
   const [isRateLimited, setIsRateLimited] = useState(false);
-  const userHasInteracted = useRef(false); // Track if user has scrolled up
+  const [currentSessionId, setCurrentSessionId] = useState<string | undefined>(undefined);
+  const sessionIdRef = useRef<string | undefined>(undefined);
+  const [isLoadingSession, setIsLoadingSession] = useState(false);
+  const userHasInteracted = useRef(false);
 
   const [isFormAtBottom, setIsFormAtBottom] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isStartingNewChat, setIsStartingNewChat] = useState(false);
 
-  const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
+  // Rate limit props passed from parent
+  const { allowed, remaining, resetTime, increment } = rateLimitProps || {};
+  const canSendQuery = allowed;
+
+  // Optimistic rate limit increment mutation
+  const rateLimitMutation = useMutation({
+    mutationFn: async () => {
+      // This is a dummy mutation since the actual increment happens server-side
+      return Promise.resolve();
+    },
+    onMutate: async () => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['rateLimit'] });
+      
+      // Snapshot previous value
+      const previousData = queryClient.getQueryData(['rateLimit']);
+      
+      // Optimistically update
+      queryClient.setQueryData(['rateLimit'], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          used: (old.used || 0) + 1,
+          remaining: Math.max(0, (old.remaining || 0) - 1),
+          allowed: (old.used || 0) + 1 < (old.limit || 5)
+        };
+      });
+      
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousData) {
+        queryClient.setQueryData(['rateLimit'], context.previousData);
+      }
+    },
+    // No onSettled - let the optimistic update persist until chat finishes
+  });
 
   // Function to clean messages before sending to model
   const cleanMessagesForModel = (messages: any[]): any[] => {
@@ -948,7 +1085,136 @@ export function ChatInterface({
   };
 
   const { selectedModel } = useOllama();
-  const { user } = useAuth();
+  const user = useAuthStore((state) => state.user);
+  
+  // Session management functions
+  const generateSessionTitle = useCallback((firstMessage: string): string => {
+    // Create a smart title from the first user message
+    const cleaned = firstMessage.trim();
+    
+    // Financial keywords to prioritize in titles
+    const financialKeywords = [
+      'stock', 'stocks', 'share', 'shares', 'equity', 'portfolio', 'investment', 'invest',
+      'market', 'trading', 'trader', 'dividend', 'earnings', 'revenue', 'profit', 'loss',
+      'crypto', 'bitcoin', 'ethereum', 'cryptocurrency', 'finance', 'financial', 'analysis',
+      'valuation', 'dcf', 'ratio', 'ratios', 'balance sheet', 'income statement', 'cash flow',
+      'ipo', 'merger', 'acquisition', 'bonds', 'yield', 'interest', 'rate', 'fed', 'inflation',
+      'gdp', 'recession', 'bull', 'bear', 'volatility', 'risk', 'return'
+    ];
+    
+    // Company/ticker patterns
+    const tickerPattern = /\b[A-Z]{1,5}\b/g;
+    const dollarPattern = /\$[A-Z]{1,5}\b/g;
+    
+    // Extract potential tickers or companies mentioned
+    const tickers = [...(cleaned.match(tickerPattern) || []), ...(cleaned.match(dollarPattern) || [])];
+    
+    if (cleaned.length <= 50) {
+      return cleaned;
+    }
+    
+    // Try to find a sentence with financial context
+    const sentences = cleaned.split(/[.!?]+/);
+    for (const sentence of sentences) {
+      const trimmed = sentence.trim();
+      if (trimmed.length > 10 && trimmed.length <= 50) {
+        // Check if this sentence contains financial keywords or tickers
+        const hasFinancialContext = financialKeywords.some(keyword => 
+          trimmed.toLowerCase().includes(keyword.toLowerCase())
+        ) || tickers.some(ticker => trimmed.includes(ticker));
+        
+        if (hasFinancialContext) {
+          return trimmed;
+        }
+      }
+    }
+    
+    // If we have tickers, try to create a title around them
+    if (tickers.length > 0) {
+      const firstTicker = tickers[0];
+      const tickerIndex = cleaned.indexOf(firstTicker);
+      
+      // Try to get context around the ticker
+      const start = Math.max(0, tickerIndex - 20);
+      const end = Math.min(cleaned.length, tickerIndex + firstTicker.length + 20);
+      const context = cleaned.substring(start, end);
+      
+      if (context.length <= 50) {
+        return context.trim();
+      }
+    }
+    
+    // Fall back to smart truncation
+    const truncated = cleaned.substring(0, 47);
+    const lastSpace = truncated.lastIndexOf(' ');
+    const lastPeriod = truncated.lastIndexOf('.');
+    const lastQuestion = truncated.lastIndexOf('?');
+    
+    const breakPoint = Math.max(lastSpace, lastPeriod, lastQuestion);
+    const title = breakPoint > 20 ? truncated.substring(0, breakPoint) : truncated;
+    
+    return title + (title.endsWith('.') || title.endsWith('?') ? '' : '...');
+  }, []);
+
+  const createSession = useCallback(async (firstMessage: string): Promise<string | null> => {
+    if (!user) return null;
+    
+    try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      // Use fast fallback title initially
+      const quickTitle = generateSessionTitle(firstMessage);
+      
+      // Create session immediately with fallback title
+      const response = await fetch('/api/chat/sessions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({ title: quickTitle })
+      });
+
+      if (response.ok) {
+        const { session: newSession } = await response.json();
+        console.log('[Chat Interface] Created new session quickly:', newSession.id);
+        
+        // Generate better AI title in background (don't wait)
+        fetch('/api/chat/generate-title', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`
+          },
+          body: JSON.stringify({ message: firstMessage })
+        }).then(async (titleResponse) => {
+          if (titleResponse.ok) {
+            const { title: aiTitle } = await titleResponse.json();
+            // Update session title in background
+            await fetch(`/api/chat/sessions/${newSession.id}`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session?.access_token}`
+              },
+              body: JSON.stringify({ title: aiTitle })
+            });
+            console.log('[Chat Interface] Updated session title with AI:', aiTitle);
+          }
+        }).catch(() => {
+          console.log('[Chat Interface] AI title generation failed, keeping fallback');
+        });
+        
+        return newSession.id;
+      }
+    } catch (error) {
+      console.error('[Chat Interface] Failed to create session:', error);
+    }
+    return null;
+  }, [user, generateSessionTitle]);
+
+  // Placeholder for loadSessionMessages - will be defined after useChat hook
   
   const transport = useMemo(() => 
     new DefaultChatTransport({
@@ -958,22 +1224,27 @@ export function ChatInterface({
         if (selectedModel) {
           headers['x-ollama-model'] = selectedModel;
         }
+        console.log('[Chat Interface] Preparing request, user:', user?.id || 'anonymous');
         if (user) {
           const supabase = createClient();
           const { data: { session } } = await supabase.auth.getSession();
+          console.log('[Chat Interface] Session access_token exists:', !!session?.access_token);
           if (session?.access_token) {
             headers['Authorization'] = `Bearer ${session.access_token}`;
           }
         }
+        
+        // Rate limit increment is handled by the backend API
+        
         return {
           body: {
             messages,
-            sessionId,
+            sessionId: sessionIdRef.current,
           },
           headers,
         };
-      },
-    }), [selectedModel, user, sessionId]
+      }
+    }), [selectedModel, user, increment]
   );
 
   const {
@@ -989,21 +1260,118 @@ export function ChatInterface({
     transport,
     // Automatically submit when all tool results are available
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+    onFinish: () => {
+      // Sync with server when chat completes (server has definitely processed increment by now)
+      if (user) {
+        console.log('[Chat Interface] Chat finished, syncing rate limit with server');
+        queryClient.invalidateQueries({ queryKey: ['rateLimit'] });
+      }
+    },
   });
+
+  // Session loading function - defined after useChat to access setMessages
+  const loadSessionMessages = useCallback(async (sessionId: string) => {
+    if (!user) return;
+    
+    setIsLoadingSession(true);
+    try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch(`/api/chat/sessions/${sessionId}`, {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      });
+
+      if (response.ok) {
+        const { messages: sessionMessages } = await response.json();
+        console.log('[Chat Interface] Loaded session messages:', sessionMessages.length);
+        
+        // Convert session messages to the format expected by useChat
+        const convertedMessages = sessionMessages.map((msg: any) => ({
+          id: msg.id,
+          role: msg.role,
+          parts: msg.parts,
+          toolCalls: msg.toolCalls,
+          createdAt: msg.createdAt
+        }));
+        
+        // Set messages in the chat
+        setMessages(convertedMessages);
+        sessionIdRef.current = sessionId;
+        setCurrentSessionId(sessionId);
+        
+        // Move form to bottom when loading a session with messages
+        if (convertedMessages.length > 0) {
+          setIsFormAtBottom(true);
+        }
+        
+        // Scroll to bottom after loading messages
+        setTimeout(() => {
+          const c = messagesContainerRef.current;
+          if (c) {
+            console.log('[Chat Interface] Scrolling to bottom after session load');
+            c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' });
+          }
+          // Also try the messagesEndRef as backup
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+          }, 100);
+        }, 500);
+      }
+    } catch (error) {
+      console.error('[Chat Interface] Failed to load session:', error);
+    } finally {
+      setIsLoadingSession(false);
+    }
+  }, [user, setMessages]);
+
+  // Initialize and handle sessionId prop changes
+  useEffect(() => {
+    console.log('[Chat Interface] sessionId prop:', sessionId, 'current:', currentSessionId);
+    
+    // Always update the ref to stay in sync
+    sessionIdRef.current = sessionId;
+    
+    if (sessionId !== currentSessionId) {
+      if (sessionId) {
+        console.log('[Chat Interface] Loading session:', sessionId);
+        loadSessionMessages(sessionId);
+      } else {
+        console.log('[Chat Interface] Clearing for new chat');
+        
+        // Stop any ongoing streaming
+        if (status === 'streaming' || status === 'submitted') {
+          console.log('[Chat Interface] Stopping ongoing chat for new chat');
+          stop();
+        }
+        
+        // Clear everything for fresh start
+        setCurrentSessionId(undefined);
+        setMessages([]);
+        setInput(''); // Clear input field
+        setIsFormAtBottom(false); // Reset form position for new chat
+        setEditingMessageId(null); // Clear any editing state
+        setEditingText('');
+        
+        // Call parent's new chat handler if provided
+        onNewChat?.();
+      }
+    }
+  }, [sessionId]); // Only sessionId prop dependency
 
   useEffect(() => {
     console.log("Messages updated:", messages);
   }, [messages]);
 
-  // Check rate limit status on mount and detect mobile
+  // Check rate limit status 
   useEffect(() => {
-    const rateLimitStatus = getRateLimitStatus();
-    if (!rateLimitStatus.allowed) {
-      setIsRateLimited(true);
-      // Don't automatically show dialog on mount - only when user tries to submit
-    }
-    
-    // Detect mobile device
+    setIsRateLimited(!canSendQuery);
+  }, [canSendQuery]);
+
+  // Detect mobile device
+  useEffect(() => {
     const checkMobile = () => {
       const isMobileDevice = window.innerWidth <= 768 || // 768px is the sm breakpoint in Tailwind
         /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -1044,6 +1412,7 @@ export function ChatInterface({
 
   // Notify parent component about message state changes
   useEffect(() => {
+    console.log('[Chat Interface] Messages changed, count:', messages.length);
     onMessagesChange?.(messages.length > 0);
   }, [messages.length]); // Remove onMessagesChange from dependencies to prevent infinite loops
 
@@ -1354,18 +1723,17 @@ export function ChatInterface({
     }
   }, [status]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && status === "ready") {
       // Check current rate limit status immediately before sending
-      const rateLimitStatus = getRateLimitStatus();
-      console.log("[Chat Interface] Rate limit check before submit:", rateLimitStatus);
+      console.log("[Chat Interface] Rate limit check before submit:", { canSendQuery });
       
-      if (!rateLimitStatus.allowed) {
+      if (!canSendQuery) {
         // Rate limit exceeded - show dialog and don't send message or update URL
         console.log("[Chat Interface] Rate limit exceeded, showing dialog");
         setIsRateLimited(true);
-        onRateLimitError?.(rateLimitStatus.resetTime.toISOString());
+        onRateLimitError?.(resetTime?.toISOString() || new Date().toISOString());
         return;
       }
       
@@ -1382,7 +1750,7 @@ export function ChatInterface({
         query: queryText,
         queryLength: queryText.length,
         messageCount: messages.length,
-        remainingQueries: rateLimitStatus.remaining - 1
+        remainingQueries: remaining ? remaining - 1 : 0
       });
       
       updateUrlWithQuery(queryText);
@@ -1390,7 +1758,44 @@ export function ChatInterface({
       if (!isFormAtBottom) {
         setIsFormAtBottom(true);
       }
+
+      // Create session BEFORE sending message for proper usage tracking
+      if (user && !currentSessionId && messages.length === 0) {
+        console.log("[Chat Interface] Creating session synchronously for first message");
+        try {
+          const newSessionId = await createSession(queryText);
+          if (newSessionId) {
+            sessionIdRef.current = newSessionId;
+            setCurrentSessionId(newSessionId);
+            onSessionCreated?.(newSessionId);
+            console.log("[Chat Interface] Session created before message:", newSessionId);
+          }
+        } catch (error) {
+          console.error("[Chat Interface] Failed to create session:", error);
+          // Continue with message sending even if session creation fails
+        }
+      }
+
+      // Increment rate limit for anonymous users (authenticated users handled server-side)
+      if (!user && increment) {
+        console.log("[Chat Interface] Incrementing rate limit for anonymous user");
+        try {
+          const result = await increment();
+          console.log("[Chat Interface] Anonymous increment result:", result);
+        } catch (error) {
+          console.error("[Chat Interface] Failed to increment anonymous rate limit:", error);
+          // Continue with message sending even if increment fails
+        }
+      }
+
+      // Send message with sessionId available for usage tracking
       sendMessage({ text: queryText });
+      
+      // For authenticated users, trigger optimistic rate limit update
+      if (user) {
+        console.log('[Chat Interface] Triggering optimistic rate limit update');
+        rateLimitMutation.mutate();
+      }
     }
   };
 
@@ -1479,9 +1884,13 @@ export function ChatInterface({
 
   const updateUrlWithQuery = (query: string) => {
     if (query.trim()) {
-      const encodedQuery = encodeURIComponent(query);
-      const newUrl = `${window.location.pathname}?q=${encodedQuery}`;
-      window.history.replaceState({}, "", newUrl);
+      const url = new URL(window.location.href);
+      url.searchParams.set('q', query);
+      // Preserve chatId if it exists
+      if (sessionIdRef.current) {
+        url.searchParams.set('chatId', sessionIdRef.current);
+      }
+      window.history.replaceState({}, "", url.toString());
     }
   };
 
@@ -1515,43 +1924,7 @@ export function ChatInterface({
       .join("\n");
   };
 
-  const startNewChat = () => {
-    // Track new chat start
-    track('New Chat Started', {
-      previousMessageCount: messages.length,
-      hadActiveStream: status === "streaming" || status === "submitted"
-    });
-
-    // Stop any ongoing streaming first
-    if (status === "streaming" || status === "submitted") {
-      stop();
-    }
-
-    // Set flag to prevent URL useEffect from restoring input
-    setIsStartingNewChat(true);
-    
-    // Clear input immediately
-    setInput("");
-
-    // Small delay to ensure stop completes before clearing other state
-    setTimeout(() => {
-      // Clear all state
-      setMessages([]);
-      setEditingMessageId(null);
-      setEditingText("");
-      setExpandedTools(new Set());
-      // Reset form position when starting new chat (keep at bottom on mobile)
-      setIsFormAtBottom(isMobile);
-      userHasInteracted.current = false; // Reset interaction tracking - enable auto-scroll for new chat
-      shouldStickToBottomRef.current = true; // Ensure stickiness for fresh chat
-
-      // Clear the URL query parameter
-      router.replace(window.location.pathname, { scroll: false });
-      
-      // Ensure input stays cleared
-      setInput("");
-    }, 50);
-  };
+  // Removed startNewChat function - using parent's handleNewChat via URL management
 
   const isLoading = status === "submitted" || status === "streaming";
   const canStop = status === "submitted" || status === "streaming";
@@ -1560,30 +1933,13 @@ export function ChatInterface({
 
   return (
     <div className="w-full max-w-3xl mx-auto relative min-h-0">
-      {/* Translucent Top Bar */}
-      <div className="fixed top-0 left-0 right-0 h-16 sm:h-20 bg-gradient-to-b from-white via-white/95 to-transparent dark:from-gray-950 dark:via-gray-950/95 dark:to-transparent z-40 pointer-events-none" />
 
-      {/* New Chat Button */}
-      <AnimatePresence>
-        {messages.length > 0 && (
-          <motion.div
-            className="fixed top-3 sm:top-6 left-3 sm:left-6 z-45 flex items-center gap-0.5"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-          >
-            <Button
-              onClick={startNewChat}
-              variant="outline"
-              size="sm"
-              className="transition-all duration-200 rounded-lg h-9 w-9 sm:h-10 sm:w-10 p-0 border-none shadow-none hover:bg-gray-100 dark:hover:bg-gray-800"
-            >
-              <SquarePen className="h-3.5 sm:h-4 w-3.5 sm:w-4" />
-            </Button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Removed duplicate New Chat button - handled by parent page */}
+      {process.env.NEXT_PUBLIC_APP_MODE === 'development' && (
+        <div className="fixed top-4 left-4 z-50">
+          <OllamaStatusIndicator hasMessages={messages.length > 0} />
+        </div>
+      )}
 
       {/* Messages */}
       <div
@@ -1677,7 +2033,7 @@ export function ChatInterface({
                   <motion.button
                     onClick={() =>
                       handlePromptClick(
-                        "Create an interactive dashboard comparing the 'Magnificent 7' stocks (Apple, Microsoft, Google, Amazon, Tesla, Meta, NVIDIA). Show YTD performance, P/E ratios, market caps, and correlation matrix with beautiful charts."
+                        "Research advanced Black-Scholes options pricing modifications for high-volatility scenarios. Use Wiley academic corpus to find peer-reviewed papers on volatility clustering, jump diffusion models, and exotic option pricing. Then implement the mathematical models in Python and validate against real market data from Boeing."
                       )
                     }
                     className="bg-gray-50 dark:bg-gray-800/50 p-2.5 sm:p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-left group"
@@ -1687,10 +2043,10 @@ export function ChatInterface({
                     whileTap={{ scale: 0.98 }}
                   >
                     <div className="text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-gray-900 dark:group-hover:text-gray-100">
-                      📈 Dashboards
+                      📚 Academic Research
                     </div>
                     <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
-                      Interactive visualizations & comparisons
+                      Quantitative finance & options pricing deep academic research
                     </div>
                   </motion.button>
 
@@ -1776,7 +2132,7 @@ export function ChatInterface({
                       !canStop &&
                       (isLoading || !input.trim() || status === "error")
                     }
-                    className="absolute right-1.5 sm:right-2 bottom-1.5 sm:bottom-2 rounded-xl h-7 w-7 sm:h-8 sm:w-8 p-0 bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 dark:text-gray-900"
+                    className="absolute right-1.5 sm:right-2 top-1/2 -translate-y-1/2 rounded-xl h-7 w-7 sm:h-8 sm:w-8 p-0 bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 dark:text-gray-900"
                   >
                     {canStop ? (
                       <Square className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -1822,7 +2178,7 @@ export function ChatInterface({
                     alt="Valyu"
                     width={60}
                     height={60}
-                    className="h-4 opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
+                    className="h-4 opacity-60 hover:opacity-100 transition-opacity cursor-pointer dark:invert"
                   />
                 </a>
               </motion.div>
@@ -2323,6 +2679,103 @@ export function ChatInterface({
                                 break;
                               }
 
+                              // Wiley Search Tool
+                              case "tool-wileySearch": {
+                                const callId = part.toolCallId;
+                                switch (part.state) {
+                                  case "input-streaming":
+                                    return (
+                                      <div
+                                        key={callId}
+                                        className="mt-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded p-2 sm:p-3"
+                                      >
+                                        <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 mb-2">
+                                          <span className="text-lg">📚</span>
+                                          <span className="font-medium">
+                                            Wiley Academic Search
+                                          </span>
+                                          <Clock className="h-3 w-3 animate-spin" />
+                                        </div>
+                                        <div className="text-sm text-amber-600 dark:text-amber-300">
+                                          Searching academic journals and textbooks...
+                                        </div>
+                                      </div>
+                                    );
+                                  case "input-available":
+                                    return (
+                                      <div
+                                        key={callId}
+                                        className="mt-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded p-2 sm:p-3"
+                                      >
+                                        <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 mb-2">
+                                          <span className="text-lg">📚</span>
+                                          <span className="font-medium">
+                                            Wiley Academic Search
+                                          </span>
+                                          <Clock className="h-3 w-3 animate-spin" />
+                                        </div>
+                                        <div className="text-sm text-amber-600 dark:text-amber-300">
+                                          <div className="font-medium">
+                                            Searching for: &quot;{part.input.query}&quot;
+                                          </div>
+                                        </div>
+                                        <div className="mt-2 text-xs">
+                                          Searching academic finance literature...
+                                        </div>
+                                      </div>
+                                    );
+                                  case "output-available":
+                                    const wileyResults = extractSearchResults(
+                                      part.output
+                                    );
+                                    return (
+                                      <div
+                                        key={callId}
+                                        className="mt-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 sm:p-4"
+                                      >
+                                        <div className="flex items-center justify-between gap-3 mb-4">
+                                          <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                                            <CheckCircle className="h-4 w-4" />
+                                            <span className="font-medium">
+                                              Wiley Academic Results
+                                            </span>
+                                            <span className="text-xs text-amber-600 dark:text-amber-300">
+                                              ({wileyResults.length} results)
+                                            </span>
+                                          </div>
+                                          {part.input?.query && (
+                                            <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-800/30 px-2 py-1 rounded">
+                                              &quot;{part.input.query}&quot;
+                                            </div>
+                                          )}
+                                        </div>
+                                        <SearchResultsCarousel
+                                          results={wileyResults}
+                                          type="wiley"
+                                        />
+                                      </div>
+                                    );
+                                  case "output-error":
+                                    return (
+                                      <div
+                                        key={callId}
+                                        className="mt-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-2 sm:p-3"
+                                      >
+                                        <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+                                          <AlertCircle className="h-4 w-4" />
+                                          <span className="font-medium">
+                                            Wiley Search Error
+                                          </span>
+                                        </div>
+                                        <div className="text-sm text-red-600 dark:text-red-300">
+                                          {part.errorText}
+                                        </div>
+                                      </div>
+                                    );
+                                }
+                                break;
+                              }
+
                               // Chart Creation Tool
                               case "tool-createChart": {
                                 const callId = part.toolCallId;
@@ -2610,10 +3063,6 @@ export function ChatInterface({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
-              style={{
-                background:
-                  "linear-gradient(to top, rgba(255,255,255,1) 0%, rgba(255,255,255,0.98) 30%, rgba(255,255,255,0.8) 60%, rgba(255,255,255,0) 100%)",
-              }}
             >
               <div
                 className="dark:hidden absolute inset-0"
@@ -2626,31 +3075,54 @@ export function ChatInterface({
                 className="hidden dark:block absolute inset-0"
                 style={{
                   background:
-                    "linear-gradient(to top, rgba(3,7,18,1) 0%, rgba(3,7,18,0.98) 30%, rgba(3,7,18,0.8) 60%, rgba(3,7,18,0) 100%)",
+                    "linear-gradient(to top, rgb(3 7 18) 0%, rgb(3 7 18 / 0.98) 30%, rgb(3 7 18 / 0.8) 60%, transparent 100%)",
                 }}
               />
             </motion.div>
           </>
         )}
       </AnimatePresence>
+      
       {/* Error Display */}
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 sm:p-4">
           <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
             <AlertCircle className="h-4 w-4" />
-            <span className="font-medium">Something went wrong</span>
+            <span className="font-medium">
+              {error.message?.includes('PAYMENT_REQUIRED') ? 'Payment Setup Required' : 'Something went wrong'}
+            </span>
           </div>
           <p className="text-red-600 dark:text-red-400 text-sm mt-1">
-            Please check your API keys and try again.
+            {error.message?.includes('PAYMENT_REQUIRED') 
+              ? 'You need to set up a payment method to use the pay-per-use plan. You only pay for what you use.'
+              : 'Please check your API keys and try again.'
+            }
           </p>
           <Button
-            onClick={() => window.location.reload()}
+            onClick={() => {
+              if (error.message?.includes('PAYMENT_REQUIRED')) {
+                // Redirect to subscription setup
+                const url = `/api/checkout?plan=pay_per_use&redirect=${encodeURIComponent(window.location.href)}`;
+                window.location.href = url;
+              } else {
+                window.location.reload();
+              }
+            }}
             variant="outline"
             size="sm"
             className="mt-2 text-red-700 border-red-300 hover:bg-red-100 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-900/20"
           >
-            <RotateCcw className="h-3 w-3 mr-1" />
-            Retry
+            {error.message?.includes('PAYMENT_REQUIRED') ? (
+              <>
+                <span className="mr-1">💳</span>
+                Setup Payment
+              </>
+            ) : (
+              <>
+                <RotateCcw className="h-3 w-3 mr-1" />
+                Retry
+              </>
+            )}
           </Button>
         </div>
       )}
@@ -2689,7 +3161,7 @@ export function ChatInterface({
                     !canStop &&
                     (isLoading || !input.trim() || status === "error")
                   }
-                  className="absolute right-2 sm:right-2 bottom-2 sm:bottom-2 rounded-xl h-8 w-8 sm:h-9 sm:w-9 p-0 bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 dark:text-gray-900 shadow-lg"
+                  className="absolute right-2 sm:right-2 top-1/2 -translate-y-1/2 rounded-xl h-8 w-8 sm:h-9 sm:w-9 p-0 bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 dark:text-gray-900 shadow-lg"
                 >
                   {canStop ? (
                     <Square className="h-4 w-4" />
@@ -2712,14 +3184,6 @@ export function ChatInterface({
                   )}
                 </Button>
               </div>
-
-              {status === "streaming" && (
-                <div className="text-center mt-2 hidden sm:block">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    Press Esc to stop • Shift+Enter for new line
-                  </span>
-                </div>
-              )}
             </form>
 
             {/* Mobile Bottom Bar - Social links and disclaimer below input */}

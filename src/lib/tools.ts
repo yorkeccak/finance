@@ -2,7 +2,8 @@ import { z } from "zod";
 import { tool } from "ai";
 import { Valyu } from "valyu-js";
 import { track } from "@vercel/analytics/server";
-import { UsageTracker } from '@/lib/usage-tracking';
+import { PolarEventTracker } from '@/lib/polar-events';
+import { Daytona } from '@daytonaio/sdk';
 
 
 export const financeTools = {
@@ -209,6 +210,12 @@ export const financeTools = {
     }),
     execute: async ({ code, description }, options) => {
       const userId = (options as any)?.experimental_context?.userId;
+      const sessionId = (options as any)?.experimental_context?.sessionId;
+      const userTier = (options as any)?.experimental_context?.userTier;
+      const isDevelopment = process.env.NEXT_PUBLIC_APP_MODE === 'development';
+      
+      const startTime = Date.now();
+
       try {
         console.log("[Code Execution] Executing Python code:", {
           description,
@@ -216,82 +223,123 @@ export const financeTools = {
           codePreview: code.substring(0, 100) + "...",
         });
 
-        // Route through our Daytona-backed Python execution API
-        const response = await fetch(
-          `${
-            process.env.NEXT_PUBLIC_APP_URL ||
-            (typeof window === "undefined" ? "" : window.location.origin) ||
-            "http://localhost:3000"
-          }/api/python`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ code, description }),
-          }
-        );
+        // Check for reasonable code length
+        if (code.length > 10000) {
+          return '🚫 **Error**: Code too long. Please limit your code to 10,000 characters.';
+        }
 
-        const result = await response.json();
+        // Initialize Daytona client
+        const daytonaApiKey = process.env.DAYTONA_API_KEY;
+        if (!daytonaApiKey) {
+          return '❌ **Configuration Error**: Daytona API key is not configured. Please set DAYTONA_API_KEY in your environment.';
+        }
 
-        // Track code execution
-        await track('Python Code Executed', {
-          success: result.success,
-          codeLength: code.length,
-          outputLength: result.output?.length || 0,
-          executionTime: result.executionTime || null,
-          hasDescription: !!description,
-          hasError: !!result.error,
-          hasArtifacts: !!result.artifacts
+        const daytona = new Daytona({
+          apiKey: daytonaApiKey,
+          // Optional overrides if provided
+          serverUrl: process.env.DAYTONA_API_URL,
+          target: (process.env.DAYTONA_TARGET as any) || undefined,
         });
 
-        // Track usage for billing if user is authenticated
-        if (userId && result.success) {
-          const usageTracker = new UsageTracker();
-          // Estimate cost based on execution time (example: $0.001 per second)
-          const estimatedCost = (result.executionTime || 1000) / 1000 * 0.001;
-          await usageTracker.trackToolUsage(userId, 'codeExecution', estimatedCost, {
-            executionTime: result.executionTime,
+        let sandbox: any | null = null;
+        try {
+          // Create a Python sandbox
+          sandbox = await daytona.create({ language: 'python' });
+
+          // Execute the user's code
+          const execution = await sandbox.process.codeRun(code);
+          const executionTime = Date.now() - startTime;
+
+          // Track code execution
+          await track('Python Code Executed', {
+            success: execution.exitCode === 0,
             codeLength: code.length,
-            hasArtifacts: !!result.artifacts
+            outputLength: execution.result?.length || 0,
+            executionTime: executionTime,
+            hasDescription: !!description,
+            hasError: execution.exitCode !== 0,
+            hasArtifacts: !!execution.artifacts
           });
-        }
 
-        console.log("[Code Execution] Result:", {
-          success: result.success,
-          outputLength: result.output?.length || 0,
-          executionTime: result.executionTime,
-          error: result.error,
-        });
+          // Track usage for pay-per-use customers with Polar events
+          if (userId && sessionId && userTier === 'pay_per_use' && execution.exitCode === 0 && !isDevelopment) {
+            try {
+              const polarTracker = new PolarEventTracker();
+              
+              console.log('[CodeExecution] Tracking Daytona usage with Polar:', {
+                userId,
+                sessionId,
+                executionTime
+              });
+              
+              await polarTracker.trackDaytonaUsage(
+                userId,
+                sessionId,
+                executionTime,
+                {
+                  codeLength: code.length,
+                  hasArtifacts: !!execution.artifacts,
+                  success: execution.exitCode === 0,
+                  description: description || 'Code execution'
+                }
+              );
+            } catch (error) {
+              console.error('[CodeExecution] Failed to track Daytona usage:', error);
+              // Don't fail the tool execution if usage tracking fails
+            }
+          }
 
-        if (!response.ok) {
-          return `❌ **API Error**: ${
-            result.error || "Failed to execute Python code"
-          }`;
-        }
+          // Handle execution errors
+          if (execution.exitCode !== 0) {
+            // Provide helpful error messages for common issues
+            let helpfulError = execution.result || 'Unknown execution error';
+            if (helpfulError.includes('NameError')) {
+              helpfulError = `${helpfulError}\n\n💡 **Tip**: Make sure all variables are defined before use. If you're trying to calculate something, include the full calculation in your code.`;
+            } else if (helpfulError.includes('SyntaxError')) {
+              helpfulError = `${helpfulError}\n\n💡 **Tip**: Check your Python syntax. Make sure all parentheses, quotes, and indentation are correct.`;
+            } else if (helpfulError.includes('ModuleNotFoundError')) {
+              helpfulError = `${helpfulError}\n\n💡 **Tip**: You can install packages inside the Daytona sandbox using pip if needed (e.g., pip install numpy).`;
+            }
 
-        if (!result.success) {
-          return result.error || "❌ **Execution failed**";
-        }
+            return `❌ **Execution Error**: ${helpfulError}`;
+          }
 
-        // Format the successful execution result
-        return `🐍 **Python Code Execution (Daytona Sandbox)**
+          console.log("[Code Execution] Success:", {
+            outputLength: execution.result?.length || 0,
+            executionTime,
+            hasArtifacts: !!execution.artifacts,
+          });
+
+          // Format the successful execution result
+          return `🐍 **Python Code Execution (Daytona Sandbox)**
 ${description ? `**Description**: ${description}\n` : ""}
 
 \`\`\`python
-${result.executedCode || code}
+${code}
 \`\`\`
 
 **Output:**
 \`\`\`
-${result.output || "(No output produced)"}
+${execution.result || "(No output produced)"}
 \`\`\`
 
-⏱️ **Execution Time**: ${result.executionTime}ms`;
-      } catch (error) {
-        return `❌ **Network Error**: Failed to connect to Python execution service. ${
-          error instanceof Error ? error.message : "Unknown error occurred"
-        }`;
+⏱️ **Execution Time**: ${executionTime}ms`;
+
+        } finally {
+          // Clean up sandbox
+          try {
+            if (sandbox) {
+              await sandbox.delete();
+            }
+          } catch (cleanupError) {
+            console.error('[CodeExecution] Failed to delete Daytona sandbox:', cleanupError);
+          }
+        }
+        
+      } catch (error: any) {
+        console.error('[CodeExecution] Error:', error);
+        
+        return `❌ **Error**: Failed to execute Python code. ${error.message || 'Unknown error occurred'}`;
       }
     },
   }),
@@ -328,6 +376,10 @@ ${result.output || "(No output produced)"}
     }),
     execute: async ({ query, dataType, maxResults }, options) => {
       const userId = (options as any)?.experimental_context?.userId;
+      const sessionId = (options as any)?.experimental_context?.sessionId;
+      const userTier = (options as any)?.experimental_context?.userTier;
+      const isDevelopment = process.env.NEXT_PUBLIC_APP_MODE === 'development';
+      
       try {
         // Check if Valyu API key is available
         const apiKey = process.env.VALYU_API_KEY;
@@ -338,63 +390,8 @@ ${result.output || "(No output produced)"}
 
         // Configure search based on data type
         let searchOptions: any = {
-          max_num_results: maxResults || 10,
+          maxNumResults: maxResults || 10,
         };
-
-        // Add specific data sources based on requested data type
-        switch (dataType) {
-          case "market_data":
-            searchOptions.included_sources = [
-              "valyu/valyu-stocks-US",
-              "valyu/valyu-crypto",
-              "valyu/valyu-forex",
-              "valyu/valyu-market-movers-US",
-            ];
-            break;
-          case "earnings":
-            searchOptions.included_sources = [
-              "valyu/valyu-earnings-US",
-              "valyu/valyu-statistics-US",
-            ];
-            break;
-          case "sec_filings":
-            searchOptions.included_sources = ["valyu/valyu-sec-filings"];
-            break;
-          case "news":
-            searchOptions.included_sources = [
-              "wiley/wiley-finance-books", // Paywalled textbooks and journals from Wiley
-              "wiley/wiley-finance-papers",
-              "bloomberg.com",
-              "reuters.com",
-              "wsj.com",
-              "marketwatch.com",
-              "ft.com",
-              "cnbc.com",
-              "investopedia.com",
-              "seekingalpha.com",
-              "morningstar.com",
-              "fool.com",
-              "barrons.com",
-              "yahoo.com",
-              "forbes.com",
-              "businessinsider.com",
-              "economist.com",
-              "markets.businessinsider.com",
-              "nasdaq.com",
-              "fidelity.com",
-              "zacks.com",
-              "tradingview.com",
-            ];
-            break;
-          case "regulatory":
-            searchOptions.included_sources = [
-              "sec.gov",
-              "federalreserve.gov",
-              "treasury.gov",
-            ];
-            break;
-          // 'auto' - let Valyu automatically select the best sources
-        }
 
         const response = await valyu.search(query, searchOptions);
 
@@ -406,41 +403,75 @@ ${result.output || "(No output produced)"}
           maxResults: maxResults || 10,
           resultCount: response?.results?.length || 0,
           hasApiKey: !!apiKey,
-          cost: (response as any)?.price || null,
+          cost: (response as any)?.total_deduction_dollars || null,
           txId: (response as any)?.tx_id || null
         });
 
-        // Track usage for billing if user is authenticated
-        if (userId) {
-          const usageTracker = new UsageTracker();
-          const cost = (response as any)?.price || 0;
-          await usageTracker.trackToolUsage(userId, 'financialSearch', cost, {
-            query,
-            resultCount: response?.results?.length || 0,
-            dataType
-          });
+        // Track usage for pay-per-use customers with Polar events
+        console.log('[FinancialSearch] Tracking Valyu API usage with Polar:', {
+          userId,
+          sessionId,
+          userTier,
+          isDevelopment
+        });
+
+        if (userId && sessionId && userTier === 'pay_per_use' && !isDevelopment) {
+          console.log('[FinancialSearch] Tracking Valyu API usage with Polar:');
+          try {
+            const polarTracker = new PolarEventTracker();
+            // Use the actual Valyu API cost from response
+            const valyuCostDollars = (response as any)?.total_deduction_dollars || 0;
+            
+            // Bright green color: \x1b[92m ... \x1b[0m
+            console.log(
+              '\x1b[92m[FinancialSearch] Tracking Valyu API usage with Polar:\x1b[0m',
+              {
+                userId,
+                sessionId,
+                valyuCostDollars,
+                resultCount: response?.results?.length || 0
+              }
+            );
+            
+            await polarTracker.trackValyuAPIUsage(
+              userId,
+              sessionId,
+              'financialSearch',
+              valyuCostDollars,
+              {
+                query,
+                resultCount: response?.results?.length || 0,
+                dataType: dataType || 'auto',
+                success: true,
+                tx_id: (response as any)?.tx_id
+              }
+            );
+          } catch (error) {
+            console.error('[FinancialSearch] Failed to track Valyu API usage:', error);
+            // Don't fail the search if usage tracking fails
+          }
         }
 
-        // Log the full API response for debugging
-        console.log(
-          "[Financial Search] Full API Response:",
-          JSON.stringify(response, null, 2)
-        );
+        // // Log the full API response for debugging
+        // console.log(
+        //   "[Financial Search] Full API Response:",
+        //   JSON.stringify(response, null, 2)
+        // );
 
         if (!response || !response.results || response.results.length === 0) {
           return `🔍 No financial data found for "${query}". Try rephrasing your search or checking if the company/symbol exists.`;
         }
 
-        // Log key information about the search
-        console.log("[Financial Search] Summary:", {
-          query,
-          dataType,
-          resultCount: response.results.length,
-          totalCost: (response as any).price || "N/A",
-          txId: (response as any).tx_id || "N/A",
-          firstResultTitle: response.results[0]?.title,
-          firstResultLength: response.results[0]?.length,
-        });
+        // // Log key information about the search
+        // console.log("[Financial Search] Summary:", {
+        //   query,
+        //   dataType,
+        //   resultCount: response.results.length,
+        //   totalCost: (response as any).price || "N/A",
+        //   txId: (response as any).tx_id || "N/A",
+        //   firstResultTitle: response.results[0]?.title,
+        //   firstResultLength: response.results[0]?.length,
+        // });
 
         // Return structured data for the model to process
         const formattedResponse = {
@@ -494,6 +525,141 @@ ${result.output || "(No output produced)"}
     },
   }),
 
+  wileySearch: tool({
+    description:
+      "Wiley finance/business/accounting corpus search for authoritative academic content",
+    inputSchema: z.object({
+      query: z.string().describe("Search query for Wiley finance/business/accounting corpus"),
+      maxResults: z
+        .number()
+        .min(1)
+        .max(20)
+        .optional()
+        .default(10)
+        .describe("Maximum number of results to return"),
+    }),
+    execute: async ({ query, maxResults }, options) => {
+      const userId = (options as any)?.experimental_context?.userId;
+      const sessionId = (options as any)?.experimental_context?.sessionId;
+      const userTier = (options as any)?.experimental_context?.userTier;
+      const isDevelopment = process.env.NEXT_PUBLIC_APP_MODE === 'development';
+
+      try {
+        // Check if Valyu API key is available
+        const apiKey = process.env.VALYU_API_KEY;
+        if (!apiKey) {
+          return "❌ Valyu API key not configured. Please add VALYU_API_KEY to your environment variables to enable Wiley search.";
+        }
+        const valyu = new Valyu(apiKey, "https://api.valyu.network/v1");
+
+        // Configure search options for Wiley sources
+        const searchOptions: any = {
+          maxNumResults: maxResults || 10,
+          includedSources: [
+            "wiley/wiley-finance-papers",
+            "wiley/wiley-finance-books"
+          ]
+        };
+
+        console.log('[WileySearch] Search options:', searchOptions);
+
+        const response = await valyu.search(query, searchOptions);
+
+        // Track Valyu Wiley search call
+        await track('Valyu API Call', {
+          toolType: 'wileySearch',
+          query: query,
+          maxResults: maxResults || 10,
+          resultCount: response?.results?.length || 0,
+          hasApiKey: !!apiKey,
+          cost: (response as any)?.total_deduction_dollars || null,
+          txId: (response as any)?.tx_id || null
+        });
+
+        // Track usage for pay-per-use customers with Polar events
+        if (userId && sessionId && userTier === 'pay_per_use' && !isDevelopment) {
+          try {
+            const polarTracker = new PolarEventTracker();
+            const valyuCostDollars = (response as any)?.total_deduction_dollars || 0;
+            console.log('[WileySearch] Tracking Valyu API usage with Polar:', {
+              userId,
+              sessionId,
+              valyuCostDollars,
+              resultCount: response?.results?.length || 0
+            });
+            await polarTracker.trackValyuAPIUsage(
+              userId,
+              sessionId,
+              'wileySearch',
+              valyuCostDollars,
+              {
+                query,
+                resultCount: response?.results?.length || 0,
+                success: true,
+                tx_id: (response as any)?.tx_id
+              }
+            );
+          } catch (error) {
+            console.error('[WileySearch] Failed to track Valyu API usage:', error);
+            // Don't fail the search if usage tracking fails
+          }
+        }
+
+        if (!response || !response.results || response.results.length === 0) {
+          return `🔍 No Wiley academic results found for "${query}". Try rephrasing your search.`;
+        }
+
+        // Return structured data for the model to process
+        const formattedResponse = {
+          type: "wiley_search",
+          query: query,
+          resultCount: response.results.length,
+          results: response.results.map((result: any) => ({
+            title: result.title || "Wiley Academic Result",
+            url: result.url,
+            content: result.content,
+            date: result.metadata?.date,
+            source: result.metadata?.source,
+            dataType: result.data_type,
+            length: result.length,
+            image_url: result.image_url || {},
+            relevance_score: result.relevance_score,
+          })),
+        };
+
+        console.log(
+          "[Wiley Search] Formatted response size:",
+          JSON.stringify(formattedResponse).length,
+          "bytes"
+        );
+
+        return JSON.stringify(formattedResponse, null, 2);
+      } catch (error) {
+        if (error instanceof Error) {
+          if (
+            error.message.includes("401") ||
+            error.message.includes("unauthorized")
+          ) {
+            return "🔐 Invalid Valyu API key. Please check your VALYU_API_KEY environment variable.";
+          }
+          if (error.message.includes("429")) {
+            return "⏱️ Rate limit exceeded. Please try again in a moment.";
+          }
+          if (
+            error.message.includes("network") ||
+            error.message.includes("fetch")
+          ) {
+            return "🌐 Network error connecting to Valyu API. Please check your internet connection.";
+          }
+        }
+
+        return `❌ Error searching Wiley academic data: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`;
+      }
+    },
+  }),
+
   webSearch: tool({
     description:
       "Search the web for general information on any topic using Valyu DeepSearch API with access to both proprietary sources and web content",
@@ -511,7 +677,12 @@ ${result.output || "(No output produced)"}
         .default(5)
         .describe("Maximum number of results to return"),
     }),
-    execute: async ({ query, maxResults }) => {
+    execute: async ({ query, maxResults }, options) => {
+      const userId = (options as any)?.experimental_context?.userId;
+      const sessionId = (options as any)?.experimental_context?.sessionId;
+      const userTier = (options as any)?.experimental_context?.userTier;
+      const isDevelopment = process.env.NEXT_PUBLIC_APP_MODE === 'development';
+      
       try {
         // Initialize Valyu client (uses default/free tier if no API key)
         const valyu = new Valyu(
@@ -535,10 +706,43 @@ ${result.output || "(No output produced)"}
           maxResults: maxResults || 5,
           resultCount: response?.results?.length || 0,
           hasApiKey: !!process.env.VALYU_API_KEY,
-          cost: (response as any)?.metadata?.totalCost || (response as any)?.price || null,
+          cost: (response as any)?.metadata?.totalCost || (response as any)?.total_deduction_dollars || null,
           searchTime: (response as any)?.metadata?.searchTime || null,
           txId: (response as any)?.tx_id || null
         });
+
+        // Track usage for pay-per-use customers with Polar events
+        if (userId && sessionId && userTier === 'pay_per_use' && !isDevelopment) {
+          try {
+            const polarTracker = new PolarEventTracker();
+            // Use the actual Valyu API cost from response
+            const valyuCostDollars = (response as any)?.total_deduction_dollars || 0;
+            
+            console.log('[WebSearch] Tracking Valyu API usage with Polar:', {
+              userId,
+              sessionId,
+              valyuCostDollars,
+              resultCount: response?.results?.length || 0
+            });
+            
+            await polarTracker.trackValyuAPIUsage(
+              userId,
+              sessionId,
+              'webSearch',
+              valyuCostDollars,
+              {
+                query,
+                resultCount: response?.results?.length || 0,
+                success: true,
+                tx_id: (response as any)?.tx_id,
+                search_time: (response as any)?.metadata?.searchTime
+              }
+            );
+          } catch (error) {
+            console.error('[WebSearch] Failed to track Valyu API usage:', error);
+            // Don't fail the search if usage tracking fails
+          }
+        }
 
         // Log the full API response for debugging
         console.log(
@@ -555,7 +759,7 @@ ${result.output || "(No output produced)"}
         console.log("[Web Search] Summary:", {
           query,
           resultCount: response.results.length,
-          totalCost: metadata?.totalCost || (response as any).price || "N/A",
+          totalCost: metadata?.totalCost || (response as any).total_deduction_dollars || "N/A",
           searchTime: metadata?.searchTime || "N/A",
           txId: (response as any).tx_id || "N/A",
           firstResultTitle: response.results[0]?.title,

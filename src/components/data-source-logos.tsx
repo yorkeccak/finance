@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useTheme } from "next-themes";
 import CodeSnippetDialog from "./code-snippet-dialog";
 
 const logos = [
@@ -357,10 +358,8 @@ const response = await valyu.search({
 
 // Access research papers
 response.results.forEach(paper => {
-    console.log(\`Title: \${paper.title}\`);
-    console.log(\`Journal: \${paper.metadata?.journal}\`);
-    console.log(\`DOI: \${paper.metadata?.doi}\`);
-    console.log(\`Abstract: \${paper.content.substring(0, 300)}...\`);
+    console.log(\`DOI: \${paper.doi}\`);
+    console.log(\`Content: \${paper.content}\`);
 });`,
       },
       {
@@ -384,6 +383,13 @@ const DataSourceLogos = () => {
   const [selectedLogo, setSelectedLogo] = useState<any>(null);
   const [hoveredLogo, setHoveredLogo] = useState<string | null>(null);
   const [animatedLogo, setAnimatedLogo] = useState<number>(0);
+  const { theme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  // Prevent hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   // Keep the exact same logos as before
   const displayLogos = [
@@ -420,6 +426,7 @@ const DataSourceLogos = () => {
           const isHovered = hoveredLogo === displayLogo.name;
           const isAnimated = animatedLogo === index;
           const shouldShowColor = isHovered || isAnimated;
+          const isDark = mounted && (resolvedTheme === 'dark' || (theme === 'system' && resolvedTheme === 'dark'));
           
           return (
             <div
@@ -433,7 +440,11 @@ const DataSourceLogos = () => {
                 alt={displayLogo.name}
                 className={`cursor-pointer transition-all duration-500 ${displayLogo.sizeClass}`}
                 style={{
-                  filter: shouldShowColor ? 'none' : 'grayscale(100%) opacity(0.4)',
+                  filter: shouldShowColor 
+                    ? (isDark ? 'invert(1)' : 'none')
+                    : (isDark 
+                        ? 'grayscale(100%) opacity(0.4) invert(1)'
+                        : 'grayscale(100%) opacity(0.4)'),
                   opacity: shouldShowColor ? 1 : 0.4
                 }}
                 animate={{

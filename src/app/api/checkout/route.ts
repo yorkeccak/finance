@@ -1,107 +1,69 @@
+/**
+ * Simplified Checkout API using Polar External ID pattern
+ * Following POLAR_BILLING_SYSTEM_REDESIGN_V2.md specification
+ * Reduced from 147 lines to ~40 lines
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Polar } from '@polar-sh/sdk';
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const { planId } = await req.json();
+    const { plan } = await req.json();
     
+    // Validate plan
+    if (!['pay_per_use', 'unlimited'].includes(plan)) {
+      return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
+    }
+
+    // Get authenticated user
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         global: {
-          headers: {
-            Authorization: req.headers.get('Authorization') || '',
-          },
+          headers: { Authorization: req.headers.get('Authorization') || '' },
         },
       }
     );
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" }
-      });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const polar = new Polar({
-      accessToken: process.env.POLAR_ACCESS_TOKEN!,
+    // Initialize Polar
+    const polar = new Polar({ accessToken: process.env.POLAR_ACCESS_TOKEN! });
+
+    // Simple product mapping
+    const productId = plan === 'unlimited' 
+      ? process.env.POLAR_UNLIMITED_PRODUCT_ID
+      : process.env.POLAR_PAY_PER_USE_PRODUCT_ID;
+
+    if (!productId) {
+      console.error(`[Checkout] Missing product ID for plan: ${plan}`);
+      return NextResponse.json({ error: 'Product not configured' }, { status: 500 });
+    }
+
+    // Create checkout using External ID pattern
+    const checkout = await polar.checkouts.create({
+      products: [productId],
+      customerEmail: user.email!,
+      externalCustomerId: user.id,  // Use Supabase user ID as external ID
+      successUrl: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+      metadata: { plan, userId: user.id }
     });
 
-    // Create or get customer in Polar
-    let customerId = '';
-    try {
-      const existingCustomer = await polar.customers.list({
-        email: user.email!,
-        limit: 1
-      });
-      
-      if (existingCustomer.result.items.length > 0) {
-        customerId = existingCustomer.result.items[0].id;
-      } else {
-        const newCustomer = await polar.customers.create({
-          email: user.email!,
-          name: user.user_metadata?.name || 'User',
-          externalId: user.id
-        });
-        customerId = newCustomer.id;
-        
-        // Save Polar customer ID to our database
-        await supabase
-          .from('users')
-          .update({ polar_customer_id: customerId })
-          .eq('id', user.id);
-      }
-    } catch (error) {
-      console.error('Polar customer creation error:', error);
-      return new Response(JSON.stringify({ error: "Failed to create customer" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" }
-      });
-    }
-
-    // Create checkout session based on plan
-    let checkoutUrl = '';
-    try {
-      if (planId === 'unlimited') {
-        // Create checkout for recurring subscription
-        const checkout = await polar.checkouts.create({
-          products: [process.env.POLAR_UNLIMITED_PRODUCT_ID!],
-          customerId,
-        });
-        checkoutUrl = checkout.url;
-      } else if (planId === 'pay_per_use') {
-        // For pay-per-use, just update the user's tier in our database
-        await supabase
-          .from('users')
-          .update({ subscription_tier: 'pay_per_use' })
-          .eq('id', user.id);
-        
-        return new Response(JSON.stringify({ 
-          success: true,
-          message: 'Successfully upgraded to pay-per-use plan'
-        }), {
-          headers: { "Content-Type": "application/json" }
-        });
-      }
-    } catch (error) {
-      console.error('Polar checkout creation error:', error);
-      return new Response(JSON.stringify({ error: "Failed to create checkout" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" }
-      });
-    }
-
-    return new Response(JSON.stringify({ checkoutUrl }), {
-      headers: { "Content-Type": "application/json" }
+    console.log(`[Checkout] Created checkout for ${plan} plan, user: ${user.email}`);
+    
+    return NextResponse.json({ 
+      checkoutUrl: checkout.url,
+      plan 
     });
 
   } catch (error) {
-    console.error('Checkout API error:', error);
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" }
-    });
+    console.error('[Checkout] Error:', error);
+    return NextResponse.json({ error: 'Checkout failed' }, { status: 500 });
   }
 }

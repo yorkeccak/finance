@@ -3,10 +3,11 @@ import { financeTools } from "@/lib/tools";
 import { FinanceUIMessage } from "@/lib/types";
 import { openai, createOpenAI } from "@ai-sdk/openai";
 import { createOllama, ollama } from "ollama-ai-provider-v2";
-import { checkServerRateLimit, incrementServerRateLimit } from "@/lib/rate-limit";
+import { checkAnonymousRateLimit, incrementRateLimit } from "@/lib/rate-limit";
 import { createClient } from '@supabase/supabase-js';
-import { UsageTracker } from '@/lib/usage-tracking';
-import { checkUserRateLimit } from '@/lib/rate-limit-v2';
+import { checkUserRateLimit } from '@/lib/rate-limit';
+import { validateAccess } from '@/lib/polar-access-validation';
+import { getPolarTrackedModel } from '@/lib/polar-llm-strategy';
 
 // Allow streaming responses up to 120 seconds
 export const maxDuration = 180;
@@ -20,13 +21,24 @@ export async function POST(req: Request) {
     );
 
     // Determine if this is a user-initiated message (should count towards rate limit)
-    // Only count when the last message is from the user (not automatic tool calls/continuations)
+    // ONLY increment for the very first user message in a conversation
+    // All tool calls, continuations, and follow-ups should NOT increment
     const lastMessage = messages[messages.length - 1];
-    const isUserInitiated = lastMessage?.role === 'user';
-    console.log("[Chat API] Is user-initiated request:", isUserInitiated);
+    const isUserMessage = lastMessage?.role === 'user';
+    const userMessageCount = messages.filter(m => m.role === 'user').length;
+    
+    // Simple rule: Only increment if this is a user message AND it's the first user message
+    const isUserInitiated = isUserMessage && userMessageCount === 1;
+    
+    console.log("[Chat API] Rate limit check:", {
+      isUserMessage,
+      userMessageCount,
+      isUserInitiated,
+      totalMessages: messages.length
+    });
 
-    // Get authenticated user
-    const supabase = createClient(
+    // Get authenticated user using anon key
+    const supabaseAnon = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
@@ -38,18 +50,46 @@ export async function POST(req: Request) {
       }
     );
 
-    const { data: { user } } = await supabase.auth.getUser();
+    // Create service role client for database operations
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    const { data: { user } } = await supabaseAnon.auth.getUser();
     
     // Check app mode and configure accordingly
-    const isDevelopment = process.env.APP_MODE === 'development';
+    const isDevelopment = process.env.NEXT_PUBLIC_APP_MODE === 'development';
     console.log("[Chat API] App mode:", isDevelopment ? 'development' : 'production');
     console.log("[Chat API] Authenticated user:", user?.id || 'anonymous');
+
+    // Validate access for authenticated users (simplified validation)
+    if (user && !isDevelopment) {
+      const accessValidation = await validateAccess(user.id);
+      
+      if (!accessValidation.hasAccess && accessValidation.requiresPaymentSetup) {
+        console.log("[Chat API] Access validation failed - payment required");
+        return new Response(
+          JSON.stringify({
+            error: "PAYMENT_REQUIRED",
+            message: "Payment method setup required",
+            tier: accessValidation.tier,
+            action: "setup_payment"
+          }),
+          { status: 402, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      if (accessValidation.hasAccess) {
+        console.log("[Chat API] Access validated for tier:", accessValidation.tier);
+      }
+    }
 
     // Check rate limit for user-initiated messages
     if (isUserInitiated && !isDevelopment) {
       if (!user) {
         // Fall back to anonymous rate limiting for non-authenticated users
-        const rateLimitStatus = checkServerRateLimit(req);
+        const rateLimitStatus = await checkAnonymousRateLimit();
         console.log("[Chat API] Anonymous rate limit status:", rateLimitStatus);
         
         if (!rateLimitStatus.allowed) {
@@ -65,7 +105,7 @@ export async function POST(req: Request) {
               status: 429,
               headers: {
                 "Content-Type": "application/json",
-                "X-RateLimit-Limit": "5",
+                "X-RateLimit-Limit": rateLimitStatus.limit.toString(),
                 "X-RateLimit-Remaining": rateLimitStatus.remaining.toString(),
                 "X-RateLimit-Reset": rateLimitStatus.resetTime.toISOString(),
               },
@@ -163,19 +203,42 @@ export async function POST(req: Request) {
           : 'Vercel AI Gateway ("gpt-5") - Development Mode Fallback';
       }
     } else {
-      // Production mode: Use OpenAI only
-      selectedModel = hasOpenAIKey ? openai("gpt-5") : "openai/gpt-5";
-      modelInfo = hasOpenAIKey
-        ? "OpenAI (gpt-5) - Production Mode"
-        : 'Vercel AI Gateway ("gpt-5") - Production Mode';
+      // Production mode: Use Polar-wrapped OpenAI ONLY for pay-per-use users
+      if (user) {
+        // Get user subscription tier to determine billing approach
+        const { data: userData } = await supabase
+          .from('users')
+          .select('subscription_tier, subscription_status')
+          .eq('id', user.id)
+          .single();
+        
+        const userTier = userData?.subscription_tier || 'free';
+        const isActive = userData?.subscription_status === 'active';
+        
+        // Only use Polar LLM Strategy for pay-per-use users
+        if (isActive && userTier === 'pay_per_use') {
+          selectedModel = getPolarTrackedModel(user.id, "gpt-5");
+          modelInfo = "OpenAI (gpt-5) - Production Mode (Polar Tracked - Pay-per-use)";
+        } else {
+          // Unlimited users and free users use regular model (no per-token billing)
+          selectedModel = hasOpenAIKey ? openai("gpt-5") : "openai/gpt-5";
+          modelInfo = hasOpenAIKey
+            ? `OpenAI (gpt-5) - Production Mode (${userTier} tier - Flat Rate)`
+            : `Vercel AI Gateway ("gpt-5") - Production Mode (${userTier} tier - Flat Rate)`;
+        }
+      } else {
+        selectedModel = hasOpenAIKey ? openai("gpt-5") : "openai/gpt-5";
+        modelInfo = hasOpenAIKey
+          ? "OpenAI (gpt-5) - Production Mode (Anonymous)"
+          : 'Vercel AI Gateway ("gpt-5") - Production Mode (Anonymous)';
+      }
     }
 
     console.log("[Chat API] Model selected:", modelInfo);
 
-    // Initialize usage tracker
-    const usageTracker = new UsageTracker();
+    // No need for usage tracker - Polar LLM Strategy handles everything automatically
     
-    // Get user subscription tier if authenticated
+    // User tier is already determined above in model selection
     let userTier = 'free';
     if (user) {
       const { data: userData } = await supabase
@@ -184,16 +247,16 @@ export async function POST(req: Request) {
         .eq('id', user.id)
         .single();
       userTier = userData?.subscription_tier || 'free';
-    }
-
-    // Use tracked model if pay-per-use tier
-    if (user && userTier === 'pay_per_use') {
-      selectedModel = usageTracker.getTrackedModel(user.id, selectedModel);
+      console.log("[Chat API] User tier:", userTier);
     }
 
     // Save message to database before processing
     if (user && sessionId) {
+      console.log('[Chat API] Attempting to save user message to session:', sessionId);
+      console.log('[Chat API] Message to save:', messages[messages.length - 1]);
       await saveMessageToSession(supabase, sessionId, messages[messages.length - 1]);
+    } else {
+      console.log('[Chat API] Not saving message - user:', !!user, 'sessionId:', sessionId);
     }
 
     console.log(`[Chat API] About to call streamText with model:`, selectedModel);
@@ -207,21 +270,23 @@ export async function POST(req: Request) {
       experimental_context: {
         userId: user?.id,
         userTier,
+        sessionId,
       },
       providerOptions: {
         openai: {
-          store: true, // No data retention - makes interaction stateless
+          store: true,
           reasoningEffort: 'medium',
-          reasoningSummary: 'auto', // output reasoning
+          reasoningSummary: 'auto',
           include: ['reasoning.encrypted_content'],
         },
       },
-      system: `You are a helpful assistant with access to comprehensive tools for Python code execution, financial data, web search, and data visualization. You can:
+      system: `You are a helpful assistant with access to comprehensive tools for Python code execution, financial data, web search, academic research, and data visualization. You can:
          
          - Execute Python code for financial modeling, complex calculations, data analysis, and mathematical computations using the codeExecution tool (runs in a secure Daytona Sandbox)
          - The Python environment can install packages via pip at runtime inside the sandbox (e.g., numpy, pandas, scikit-learn)
          - Visualization libraries (matplotlib, seaborn, plotly) may work inside Daytona. However, by default, prefer the built-in chart creation tool for standard time series and comparisons. Use Daytona for advanced or custom visualizations only when necessary.
          - Search for real-time financial data using the financial search tool (market data, earnings reports, SEC filings, financial news, regulatory updates)  
+         - Search academic finance literature using the Wiley search tool (peer-reviewed papers, academic journals, textbooks, and scholarly research)
          - Search the web for general information using the web search tool (any topic with relevance scoring and cost control)
          - Create interactive charts and visualizations using the chart creation tool (line charts, bar charts, area charts with multiple data series)
 
@@ -237,6 +302,14 @@ export async function POST(req: Request) {
       • Financial news from Bloomberg, Reuters, WSJ
       • Regulatory updates from SEC, Federal Reserve
       • Market intelligence and insider trading data
+      
+      For Wiley academic searches, you can access:
+      • Peer-reviewed finance and economics journals
+      • Academic textbooks and scholarly publications
+      • Quantitative finance research papers
+      • Advanced financial modeling methodologies
+      • Academic studies on options pricing, derivatives, risk management
+      • Theoretical finance concepts and mathematical frameworks
       
                For web searches, you can find information on:
          • Current events and news from any topic
@@ -318,6 +391,7 @@ export async function POST(req: Request) {
          NEVER use $ or $$ delimiters - only use <math>...</math> tags.
          This makes financial formulas much more readable and professional.
          Choose the financial search tool specifically for financial markets, companies, and economic data.
+         Choose the Wiley search tool for academic finance research, peer-reviewed studies, theoretical concepts, advanced quantitative methods, options pricing models, academic textbooks, and scholarly papers.
          Choose the web search tool for general topics, current events, research, and non-financial information.
          Choose the chart creation tool when users want to visualize data, compare metrics, or see trends over time.
 
@@ -417,39 +491,58 @@ export async function POST(req: Request) {
 
     // Create the streaming response with chat persistence
     const streamResponse = result.toUIMessageStreamResponse({
-      sendReasoning: true, // Forward reasoning tokens to the client
+      sendReasoning: true,
       onFinish: async (completion) => {
         // Save assistant response
+        console.log('[Chat API] onFinish called - user:', !!user, 'sessionId:', sessionId);
         if (user && sessionId) {
+          console.log('[Chat API] Saving assistant response to session:', sessionId);
+          
+          // Extract the content from the completion
+          let messageContent = [];
+          const responseMsg = completion.responseMessage;
+          
+          if (responseMsg && 'content' in responseMsg) {
+            if (typeof (responseMsg as any).content === 'string') {
+              messageContent = [{ type: 'text', text: (responseMsg as any).content }];
+            } else {
+              messageContent = (responseMsg as any).content;
+            }
+          } else if (responseMsg && 'parts' in responseMsg) {
+            messageContent = (responseMsg as any).parts;
+          }
+          
           await saveMessageToSession(supabase, sessionId, {
             role: 'assistant',
-            parts: completion.responseMessage.parts || [],
-            tool_calls: null
+            content: messageContent,
+            tool_calls: (responseMsg as any)?.toolCalls || null
           });
         }
         
-        // Usage tracking is handled by Polar's LLMStrategy wrapper
-        // when using tracked models for pay-per-use customers
+        // No manual usage tracking needed - Polar LLM Strategy handles this automatically!
+        console.log('[Chat API] AI usage automatically tracked by Polar LLM Strategy');
       }
     });
 
-    // Increment rate limit count for user-initiated requests in production mode only (after successful start)
+    // Increment rate limit after successful validation but before processing
     if (isUserInitiated && !isDevelopment) {
-      const incrementResult = incrementServerRateLimit(req);
-      console.log("[Chat API] Incremented rate limit:", incrementResult.rateLimitResult);
-      
-      // Set rate limit cookies
-      incrementResult.cookies.forEach(cookie => {
-        streamResponse.headers.append("Set-Cookie", cookie);
-      });
-      
-      // Add rate limit headers
-      streamResponse.headers.set("X-RateLimit-Limit", "5");
-      streamResponse.headers.set("X-RateLimit-Remaining", incrementResult.rateLimitResult.remaining.toString());
-      streamResponse.headers.set("X-RateLimit-Reset", incrementResult.rateLimitResult.resetTime.toISOString());
-    } else if (isUserInitiated && isDevelopment) {
-      console.log("[Chat API] Development mode: Rate limit increment skipped");
-      
+      console.log("[Chat API] Incrementing rate limit for user-initiated message");
+      try {
+        if (user) {
+          // Only increment server-side for authenticated users
+          const rateLimitResult = await incrementRateLimit(user.id);
+          console.log("[Chat API] Authenticated user rate limit incremented:", rateLimitResult);
+        } else {
+          // Anonymous users handle increment client-side via useRateLimit hook
+          console.log("[Chat API] Skipping server-side increment for anonymous user (handled client-side)");
+        }
+      } catch (error) {
+        console.error("[Chat API] Failed to increment rate limit:", error);
+        // Continue with processing even if increment fails
+      }
+    }
+    
+    if (isDevelopment) {
       // Add development mode headers
       streamResponse.headers.set("X-Development-Mode", "true");
       streamResponse.headers.set("X-RateLimit-Limit", "unlimited");
@@ -467,12 +560,51 @@ export async function POST(req: Request) {
 }
 
 async function saveMessageToSession(supabase: any, sessionId: string, message: any) {
-  await supabase
-    .from('chat_messages')
-    .insert({
+  try {
+    console.log('[saveMessageToSession] Raw message:', JSON.stringify(message, null, 2));
+    
+    // Handle different message formats
+    let content = [];
+    
+    if (message.parts) {
+      console.log('[saveMessageToSession] Using message.parts');
+      content = message.parts;
+    } else if (message.content) {
+      console.log('[saveMessageToSession] Using message.content');
+      // If content is a string, wrap it in a text part
+      if (typeof message.content === 'string') {
+        content = [{ type: 'text', text: message.content }];
+      } else {
+        content = message.content;
+      }
+    } else if (message.text) {
+      console.log('[saveMessageToSession] Using message.text');
+      content = [{ type: 'text', text: message.text }];
+    } else {
+      console.log('[saveMessageToSession] No recognized content field found');
+    }
+
+    const insertData = {
       session_id: sessionId,
       role: message.role,
-      content: message.parts || message.content || [],
+      content: content,
       tool_calls: message.tool_calls || message.toolCalls || null
-    });
+    };
+    
+    console.log('[saveMessageToSession] Inserting data:', JSON.stringify(insertData, null, 2));
+
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .insert(insertData)
+      .select();
+
+    if (error) {
+      console.error('[saveMessageToSession] Database error:', error);
+      console.error('[saveMessageToSession] Error details:', JSON.stringify(error, null, 2));
+    } else {
+      console.log('[saveMessageToSession] Successfully saved message:', data);
+    }
+  } catch (error) {
+    console.error('[saveMessageToSession] Exception:', error);
+  }
 }

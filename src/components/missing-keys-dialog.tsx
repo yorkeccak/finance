@@ -145,7 +145,7 @@ export function MissingKeysDialog() {
                 <div className="text-xs text-blue-700 mt-2">
                   • Install Ollama from ollama.com
                   • Pull a model: <code className="bg-blue-100 px-1 rounded">ollama pull llama3.2</code>
-                  • Set APP_MODE=development in your .env
+                  • APP_MODE=development is already set (development mode)
                 </div>
               )}
             </div>

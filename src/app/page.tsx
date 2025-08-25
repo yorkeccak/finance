@@ -2,8 +2,7 @@
 
 import { ChatInterface } from '@/components/chat-interface';
 import { RateLimitDialog } from '@/components/rate-limit-dialog';
-import { AuthModal } from '@/components/auth/auth-modal';
-import { useAuthStore } from '@/lib/stores/use-auth-store';
+import { OllamaStatusWrapper } from '@/components/ollama-status-wrapper';
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BottomBar from '@/components/bottom-bar';

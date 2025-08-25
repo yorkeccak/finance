@@ -47,45 +47,34 @@ export function OllamaStatusIndicator({ hasMessages = false }: { hasMessages?: b
   };
 
   useEffect(() => {
-    // This component only renders in development mode, so we can proceed directly
-    const checkOllamaStatus = async () => {
-      try {
-        const response = await fetch('/api/ollama-status');
-        const data = await response.json();
-        
-        setStatus(data);
-        
-        // Show initial dialog if Ollama is available but not connected
-        const hasShownDialog = localStorage.getItem('ollama-dialog-shown');
-        if (!hasShownDialog) {
-          setTimeout(() => {
-            if (data && !data.connected && data.available) {
-              setShowInitialDialog(true);
-              localStorage.setItem('ollama-dialog-shown', 'true');
-            }
-          }, 2000);
-        }
-        
-        // Check status every 30 seconds
-        const interval = setInterval(checkOllamaStatus, 30000);
-        return () => clearInterval(interval);
-      } catch (error) {
-        setStatus({
-          connected: false,
-          available: false,
-          mode: 'development',
-          message: 'Failed to check Ollama status',
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
-        setIsLoading(false);
+    // Only check Ollama status in development mode
+    if (process.env.NEXT_PUBLIC_APP_MODE === 'development') {
+      checkOllamaStatus();
+      
+      // Show initial dialog if Ollama is available but not connected
+      const hasShownDialog = localStorage.getItem('ollama-dialog-shown');
+      if (!hasShownDialog) {
+        setTimeout(() => {
+          if (status && !status.connected && status.available) {
+            setShowInitialDialog(true);
+            localStorage.setItem('ollama-dialog-shown', 'true');
+          }
+        }, 2000);
       }
-    };
+      
+      // Check status every 30 seconds
+      const interval = setInterval(checkOllamaStatus, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [status]);
 
-    checkOllamaStatus();
-  }, []);
+  // Don't render anything in production mode
+  if (process.env.NEXT_PUBLIC_APP_MODE === 'production') {
+    return null;
+  }
 
-  if (!status) {
-    return null; // Don't show until status is loaded
+  if (!status || status.mode === 'production') {
+    return null; // Don't show in production mode
   }
 
   const formatModelSize = (bytes: number) => {

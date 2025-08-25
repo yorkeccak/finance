@@ -1,155 +1,392 @@
-// Rate limiting utilities with obscure cookie names
-export const RATE_LIMIT_CONFIG = {
-  maxRequests: 5,
-  windowMs: 24 * 60 * 60 * 1000, // 24 hours
-  cookieName: '_vl_sess_ctx', // Obscure cookie name (Valyu session context)
-  dateCookieName: '_vl_sess_ts', // Timestamp cookie (Valyu session timestamp)
-};
+import { createClient } from '@supabase/supabase-js';
+
+// Consistent environment check as per spec
+const isDevelopment = process.env.NEXT_PUBLIC_APP_MODE === 'development';
 
 export interface RateLimitResult {
   allowed: boolean;
   remaining: number;
+  limit: number;
   resetTime: Date;
-  totalRequests: number;
+  tier: string;
+  used: number;
 }
 
-export function getRateLimitStatus(): RateLimitResult {
-  if (typeof window === 'undefined') {
-    // Server-side: assume allowed
+// Constants for rate limiting
+const ANONYMOUS_LIMIT = 3;
+const FREE_LIMIT = 5;
+const UNLIMITED_LIMIT = 999999;
+
+// Obfuscated cookie name
+const COOKIE_NAME = '$dekcuf_teg';
+
+/**
+ * Anonymous users (before signup) - Cookie-based rate limiting
+ */
+export async function checkAnonymousRateLimit(): Promise<RateLimitResult> {
+  if (isDevelopment) {
     return {
       allowed: true,
-      remaining: RATE_LIMIT_CONFIG.maxRequests,
-      resetTime: new Date(Date.now() + RATE_LIMIT_CONFIG.windowMs),
-      totalRequests: 0,
+      remaining: UNLIMITED_LIMIT,
+      limit: UNLIMITED_LIMIT,
+      resetTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      tier: 'development',
+      used: 0
     };
   }
 
-  const now = Date.now();
-  const today = new Date().toDateString();
+  const today = new Date().toISOString().split('T')[0];
   
-  // Get stored data
-  const storedDate = getCookie(RATE_LIMIT_CONFIG.dateCookieName);
-  const storedRequests = decodeCounter(getCookie(RATE_LIMIT_CONFIG.cookieName) || '');
+  // Decode cookie data
+  const decodeCookieData = (encoded: string | null): { count: number; date: string } => {
+    if (!encoded) return { count: 0, date: '' };
+    try {
+      const decoded = atob(encoded);
+      const [count, date] = decoded.split('|');
+      return { count: parseInt(count) || 0, date: date || '' };
+    } catch {
+      return { count: 0, date: '' };
+    }
+  };
   
-  // Check if it's a new day
-  if (storedDate !== today) {
-    // Reset counters for new day
-    setCookie(RATE_LIMIT_CONFIG.dateCookieName, today, 1);
-    setCookie(RATE_LIMIT_CONFIG.cookieName, encodeCounter(0), 1);
+  const storedData = decodeCookieData(getCookie(COOKIE_NAME));
+  
+  // Reset if new day
+  if (storedData.date !== today) {
+    return {
+      allowed: true,
+      remaining: ANONYMOUS_LIMIT,
+      limit: ANONYMOUS_LIMIT,
+      resetTime: getNextMidnight(),
+      tier: 'anonymous',
+      used: 0
+    };
+  }
+
+  const used = storedData.count;
+  const remaining = Math.max(0, ANONYMOUS_LIMIT - used);
+  const allowed = used < ANONYMOUS_LIMIT;
+
+  return {
+    allowed,
+    remaining,
+    limit: ANONYMOUS_LIMIT,
+    resetTime: getNextMidnight(),
+    tier: 'anonymous',
+    used
+  };
+}
+
+/**
+ * Authenticated users - Database-based rate limiting
+ */
+export async function checkUserRateLimit(userId: string): Promise<RateLimitResult> {
+  if (isDevelopment) {
+    return {
+      allowed: true,
+      remaining: UNLIMITED_LIMIT,
+      limit: UNLIMITED_LIMIT,
+      resetTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      tier: 'development',
+      used: 0
+    };
+  }
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  // Get user subscription info from database
+  const { data: user } = await supabase
+    .from('users')
+    .select('subscription_tier, subscription_status')
+    .eq('id', userId)
+    .single();
+
+  // Determine tier from database subscription info
+  const tier = (user?.subscription_status === 'active' && user?.subscription_tier) 
+    ? user.subscription_tier 
+    : 'free';
+  const today = new Date().toISOString().split('T')[0];
+  
+  const { data: rateLimitRecord } = await supabase
+    .from('user_rate_limits')
+    .select('usage_count, reset_date')
+    .eq('user_id', userId)
+    .single();
+
+  // Calculate used first
+  const used = (rateLimitRecord && tier === 'free') ? (rateLimitRecord.reset_date === today ? rateLimitRecord.usage_count || 0 : 0) : rateLimitRecord?.usage_count || 0;
+  const limit = tier === 'free' ? FREE_LIMIT : UNLIMITED_LIMIT;
+  const remaining = tier === 'free' ? Math.max(0, limit - used) : UNLIMITED_LIMIT;
+  const allowed = used < limit;
+
+  console.log('[Rate Limit] User rate limit result:', {
+    allowed,
+    remaining,
+    limit,
+    resetTime: getNextMidnight(),
+    tier,
+    used
+  });
+
+  return {
+    allowed,
+    remaining,
+    limit,
+    resetTime: getNextMidnight(),
+    tier,
+    used
+  };
+}
+
+/**
+ * Transfer anonymous usage to user account (called once on signup)
+ */
+export async function transferAnonymousToUser(userId: string): Promise<void> {
+  if (isDevelopment) {
+    console.log('[Rate Limit] Skipping transfer in development mode');
+    return;
+  }
+
+  try {
+    // Get current anonymous usage from cookies
+    const anonymousUsage = getAnonymousUsage();
     
-    return {
-      allowed: true,
-      remaining: RATE_LIMIT_CONFIG.maxRequests,
-      resetTime: getNextMidnight(),
-      totalRequests: 0,
-    };
+    if (anonymousUsage.used === 0) {
+      console.log('[Rate Limit] No anonymous usage to transfer');
+      return;
+    }
+
+    console.log(`[Rate Limit] Transferring ${anonymousUsage.used} queries to user ${userId}`);
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    const today = new Date().toISOString().split('T')[0];
+
+    // Get existing record
+    const { data: existingRecord } = await supabase
+      .from('user_rate_limits')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (existingRecord) {
+      // Update existing record - add anonymous usage
+      const newUsageCount = (existingRecord.usage_count || 0) + anonymousUsage.used;
+      
+      await supabase
+        .from('user_rate_limits')
+        .update({
+          usage_count: newUsageCount,
+          last_request_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId);
+
+      console.log(`[Rate Limit] Updated user ${userId}: ${existingRecord.usage_count} + ${anonymousUsage.used} = ${newUsageCount}`);
+    } else {
+      // Create new record with transferred usage
+      await supabase
+        .from('user_rate_limits')
+        .insert({
+          user_id: userId,
+          usage_count: anonymousUsage.used,
+          reset_date: today,
+          last_request_at: new Date().toISOString(),
+          tier: 'free',
+        });
+
+      console.log(`[Rate Limit] Created new record for user ${userId} with ${anonymousUsage.used} usage`);
+    }
+
+    // Clear anonymous cookies
+    clearAnonymousCookies();
+    console.log('[Rate Limit] Successfully transferred anonymous usage and cleared cookies');
+
+  } catch (error) {
+    console.error('[Rate Limit] Error transferring usage:', error);
+    throw error;
   }
+}
+
+/**
+ * Increment usage (handles both anonymous and authenticated)
+ */
+export async function incrementRateLimit(userId?: string): Promise<RateLimitResult> {
+  if (isDevelopment) {
+    console.log('[Rate Limit] Skipping increment in development mode');
+    return userId 
+      ? await checkUserRateLimit(userId)
+      : await checkAnonymousRateLimit();
+  }
+
+  if (userId) {
+    // Authenticated user - increment in database
+    return await incrementUserRateLimit(userId);
+  } else {
+    // Anonymous user - increment cookies
+    return await incrementAnonymousRateLimit();
+  }
+}
+
+/**
+ * Increment user rate limit in database
+ */
+async function incrementUserRateLimit(userId: string): Promise<RateLimitResult> {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const today = new Date().toISOString().split('T')[0];
+
+  // Get current record
+  const { data: existingRecord } = await supabase
+    .from('user_rate_limits')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
+
+  let newUsageCount: number;
+
+  if (existingRecord) {
+    // Check if it's a new day
+    if (existingRecord.reset_date !== today) {
+      // Reset for new day
+      newUsageCount = 1;
+      await supabase
+        .from('user_rate_limits')
+        .update({
+          usage_count: newUsageCount,
+          reset_date: today,
+          last_request_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId);
+    } else {
+      // Increment existing usage
+      newUsageCount = (existingRecord.usage_count || 0) + 1;
+      await supabase
+        .from('user_rate_limits')
+        .update({
+          usage_count: newUsageCount,
+          last_request_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId);
+    }
+  } else {
+    // Create new record
+    newUsageCount = 1;
+    await supabase
+      .from('user_rate_limits')
+      .insert({
+        user_id: userId,
+        usage_count: newUsageCount,
+        reset_date: today,
+        last_request_at: new Date().toISOString(),
+        tier: 'free',
+      });
+  }
+
+  // Return updated rate limit status
+  return await checkUserRateLimit(userId);
+}
+
+/**
+ * Increment anonymous rate limit in cookies
+ */
+async function incrementAnonymousRateLimit(): Promise<RateLimitResult> {
+  const today = new Date().toISOString().split('T')[0];
   
-  const remaining = Math.max(0, RATE_LIMIT_CONFIG.maxRequests - storedRequests);
-  const allowed = storedRequests < RATE_LIMIT_CONFIG.maxRequests;
-  
-  console.log("[Rate Limit] Client check - storedRequests:", storedRequests, "maxRequests:", RATE_LIMIT_CONFIG.maxRequests, "allowed:", allowed, "remaining:", remaining);
-  
+  // Decode cookie data using the same encoding as checkAnonymousRateLimit
+  const decodeCookieData = (encoded: string | null): { count: number; date: string } => {
+    if (!encoded) return { count: 0, date: '' };
+    try {
+      const decoded = atob(encoded);
+      const [count, date] = decoded.split('|');
+      return { count: parseInt(count) || 0, date: date || '' };
+    } catch {
+      return { count: 0, date: '' };
+    }
+  };
+
+  const encodeCookieData = (count: number, date: string): string => {
+    return btoa(`${count}|${date}`);
+  };
+
+  const storedData = decodeCookieData(getCookie(COOKIE_NAME));
+
+  // Reset if new day
+  const isNewDay = storedData.date !== today;
+  const newCount = isNewDay ? 1 : storedData.count + 1;
+
+  // Update cookie with encoded data
+  const encodedData = encodeCookieData(newCount, today);
+  setCookie(COOKIE_NAME, encodedData);
+
+  const remaining = Math.max(0, ANONYMOUS_LIMIT - newCount);
+  const allowed = newCount <= ANONYMOUS_LIMIT;
+
   return {
     allowed,
     remaining,
+    limit: ANONYMOUS_LIMIT,
     resetTime: getNextMidnight(),
-    totalRequests: storedRequests,
+    tier: 'anonymous',
+    used: newCount
   };
 }
 
-export function incrementRequestCount(): RateLimitResult {
+/**
+ * Get current anonymous usage from cookies
+ */
+function getAnonymousUsage(): { used: number; remaining: number } {
   if (typeof window === 'undefined') {
-    // Server-side: return current status
-    return getRateLimitStatus();
+    return { used: 0, remaining: ANONYMOUS_LIMIT };
   }
 
-  const today = new Date().toDateString();
-  const currentRequests = decodeCounter(getCookie(RATE_LIMIT_CONFIG.cookieName) || '');
-  const newCount = currentRequests + 1;
+  const today = new Date().toISOString().split('T')[0];
   
-  // Update cookies
-  setCookie(RATE_LIMIT_CONFIG.dateCookieName, today, 1);
-  setCookie(RATE_LIMIT_CONFIG.cookieName, encodeCounter(newCount), 1);
-  
-  const remaining = Math.max(0, RATE_LIMIT_CONFIG.maxRequests - newCount);
-  const allowed = newCount <= RATE_LIMIT_CONFIG.maxRequests;
-  
-  return {
-    allowed,
-    remaining,
-    resetTime: getNextMidnight(),
-    totalRequests: newCount,
+  // Decode cookie data
+  const decodeCookieData = (encoded: string | null): { count: number; date: string } => {
+    if (!encoded) return { count: 0, date: '' };
+    try {
+      const decoded = atob(encoded);
+      const [count, date] = decoded.split('|');
+      return { count: parseInt(count) || 0, date: date || '' };
+    } catch {
+      return { count: 0, date: '' };
+    }
   };
-}
+  
+  const storedData = decodeCookieData(getCookie(COOKIE_NAME));
 
-export function checkServerRateLimit(request: Request): RateLimitResult {
-  const cookies = request.headers.get('cookie') || '';
-  const cookieMap = parseCookies(cookies);
-  
-  const today = new Date().toDateString();
-  const storedDate = cookieMap[RATE_LIMIT_CONFIG.dateCookieName];
-  const storedRequests = decodeCounter(cookieMap[RATE_LIMIT_CONFIG.cookieName] || '');
-  
-  // Check if it's a new day
-  if (storedDate !== today) {
-    return {
-      allowed: true,
-      remaining: RATE_LIMIT_CONFIG.maxRequests,
-      resetTime: getNextMidnight(),
-      totalRequests: 0,
-    };
+  // If new day, no usage to transfer
+  if (storedData.date !== today) {
+    return { used: 0, remaining: ANONYMOUS_LIMIT };
   }
-  
-  const remaining = Math.max(0, RATE_LIMIT_CONFIG.maxRequests - storedRequests);
-  const allowed = storedRequests < RATE_LIMIT_CONFIG.maxRequests;
-  
-  console.log("[Rate Limit] Server check - storedRequests:", storedRequests, "maxRequests:", RATE_LIMIT_CONFIG.maxRequests, "allowed:", allowed, "remaining:", remaining);
-  
-  return {
-    allowed,
-    remaining,
-    resetTime: getNextMidnight(),
-    totalRequests: storedRequests,
-  };
+
+  const used = storedData.count;
+  const remaining = Math.max(0, ANONYMOUS_LIMIT - used);
+
+  return { used, remaining };
 }
 
-export function incrementServerRateLimit(request: Request): { rateLimitResult: RateLimitResult; cookies: string[] } {
-  const cookies = request.headers.get('cookie') || '';
-  const cookieMap = parseCookies(cookies);
-  
-  const today = new Date().toDateString();
-  const storedDate = cookieMap[RATE_LIMIT_CONFIG.dateCookieName];
-  const currentRequests = decodeCounter(cookieMap[RATE_LIMIT_CONFIG.cookieName] || '');
-  
-  // If it's a new day, reset the counter
-  const isNewDay = storedDate !== today;
-  const newCount = isNewDay ? 1 : currentRequests + 1;
-  
-  const remaining = Math.max(0, RATE_LIMIT_CONFIG.maxRequests - newCount);
-  const allowed = newCount <= RATE_LIMIT_CONFIG.maxRequests;
-  
-  console.log("[Rate Limit] Server increment - currentRequests:", currentRequests, "newCount:", newCount, "maxRequests:", RATE_LIMIT_CONFIG.maxRequests, "allowed:", allowed, "remaining:", remaining);
-  
-  const rateLimitResult: RateLimitResult = {
-    allowed,
-    remaining,
-    resetTime: getNextMidnight(),
-    totalRequests: newCount,
-  };
-  
-  const cookiesToSet = [
-    `${RATE_LIMIT_CONFIG.dateCookieName}=${today}; Path=/; Max-Age=${60 * 60 * 24}; SameSite=Lax; Secure`,
-    `${RATE_LIMIT_CONFIG.cookieName}=${encodeCounter(newCount)}; Path=/; Max-Age=${60 * 60 * 24}; SameSite=Lax; Secure`,
-  ];
-  
-  return {
-    rateLimitResult,
-    cookies: cookiesToSet,
-  };
+/**
+ * Clear anonymous rate limit cookies
+ */
+function clearAnonymousCookies(): void {
+  if (typeof window === 'undefined') return;
+
+  document.cookie = `${COOKIE_NAME}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
 }
 
-// Helper functions
+/**
+ * Helper functions for cookie management
+ */
 function getCookie(name: string): string | null {
   if (typeof window === 'undefined') return null;
   
@@ -161,60 +398,12 @@ function getCookie(name: string): string | null {
   return null;
 }
 
-function setCookie(name: string, value: string, days: number): void {
+function setCookie(name: string, value: string): void {
   if (typeof window === 'undefined') return;
   
   const expires = new Date();
-  expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+  expires.setTime(expires.getTime() + 24 * 60 * 60 * 1000); // 24 hours
   document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
-}
-
-// Simple encoding/decoding to make counter less obvious
-function encodeCounter(count: number): string {
-  // Simple obfuscation: multiply by 7, add 23, then base64 encode
-  const obfuscated = count * 7 + 23;
-  if (typeof window !== 'undefined') {
-    // Client-side: use btoa
-    return btoa(obfuscated.toString()).replace(/=/g, '');
-  } else {
-    // Server-side: use Buffer
-    return Buffer.from(obfuscated.toString()).toString('base64').replace(/=/g, '');
-  }
-}
-
-function decodeCounter(encoded: string): number {
-  try {
-    if (!encoded) return 0;
-    
-    // Add padding back for base64 decoding
-    const padded = encoded + '='.repeat((4 - encoded.length % 4) % 4);
-    
-    let decoded: number;
-    if (typeof window !== 'undefined') {
-      // Client-side: use atob
-      decoded = parseInt(atob(padded));
-    } else {
-      // Server-side: use Buffer
-      decoded = parseInt(Buffer.from(padded, 'base64').toString());
-    }
-    
-    return Math.max(0, (decoded - 23) / 7);
-  } catch (e) {
-    return 0; // Return 0 if decoding fails
-  }
-}
-
-function parseCookies(cookieString: string): Record<string, string> {
-  const cookies: Record<string, string> = {};
-  
-  cookieString.split(';').forEach(cookie => {
-    const [name, value] = cookie.trim().split('=');
-    if (name && value) {
-      cookies[name] = value;
-    }
-  });
-  
-  return cookies;
 }
 
 function getNextMidnight(): Date {
@@ -222,4 +411,19 @@ function getNextMidnight(): Date {
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(0, 0, 0, 0);
   return tomorrow;
+}
+
+/**
+ * Rate limit display helper
+ */
+export function getRateLimitDisplay(rateLimit: RateLimitResult | null): string {
+  if (!rateLimit) return 'Loading...';
+  
+  if (isDevelopment) return 'Dev Mode';
+  
+  if (rateLimit.tier === 'unlimited' || rateLimit.tier === 'pay_per_use') {
+    return `${rateLimit.used}/∞ queries`;
+  }
+  
+  return `${rateLimit.used}/${rateLimit.limit} queries`;
 }

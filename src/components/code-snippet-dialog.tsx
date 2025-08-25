@@ -86,9 +86,9 @@ export default function CodeSnippetDialog({
       'SEC Filings': '/sec.svg',
       'arXiv Papers': '/arxiv.svg',
       'Web Search': '/web.svg',
-      'Balance Sheets': '/balancesheet.svg',
+      'Financial Statements': '/balancesheet.svg',
       'Stock Market Data': '/stocks.svg',
-      'Wiley Research': '/wy.svg'
+      'Wiley': '/wy.svg'
     };
     return logoMap[title] || '/valyu.svg';
   };
@@ -97,21 +97,7 @@ export default function CodeSnippetDialog({
     <AnimatePresence>
       {isOpen && (
         <Dialog open={isOpen} onOpenChange={onClose}>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className='fixed inset-0 z-50 bg-white/80 dark:bg-gray-950/80 backdrop-blur-sm'
-            onClick={() => {
-              track('Data Source Dialog Closed', {
-                dataSource: title,
-                action: 'backdrop_click'
-              });
-              onClose();
-            }}
-          />
-          <DialogContent className='fixed left-[50%] top-[50%] z-50 w-[95vw] max-w-2xl sm:w-[90vw] translate-x-[-50%] translate-y-[-50%] p-0 border-0 bg-transparent shadow-none overflow-hidden'>
+          <DialogContent className='fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] p-0 border-0 bg-transparent shadow-none overflow-hidden'>
             {/* Hidden DialogTitle for accessibility */}
             <DialogTitle className='sr-only'>{title}</DialogTitle>
 
@@ -120,7 +106,7 @@ export default function CodeSnippetDialog({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
-              className='bg-white dark:bg-gray-950 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 relative'
+              className='bg-white dark:bg-gray-950 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 relative max-w-[95vw] w-fit min-w-[320px] max-h-[90vh] overflow-auto flex flex-col'
             >
               {/* Header */}
               <div className='p-4 sm:p-6 pb-0'>
@@ -130,7 +116,7 @@ export default function CodeSnippetDialog({
                     alt={title}
                     width={24}
                     height={24}
-                    className='h-6 w-6 opacity-60'
+                    className='h-6 w-6 opacity-60 dark:invert'
                   />
                   <div>
                     <h2 className='text-lg font-light text-gray-900 dark:text-gray-100'>
@@ -163,11 +149,11 @@ export default function CodeSnippetDialog({
               </div>
 
               {/* Code Block */}
-              <div className='relative p-4 sm:p-6 pt-4'>
-                <div className='relative group'>
+              <div className='relative p-4 sm:p-6 pt-4 flex-1 min-h-0'>
+                <div className='relative group h-full'>
                   <button
                     onClick={() => activeSnippet && handleCopy(activeSnippet.code)}
-                    className='absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity'
+                    className='absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-10'
                   >
                     {copied ? (
                       <Check className='h-4 w-4 text-green-600 dark:text-green-400' />
@@ -177,11 +163,13 @@ export default function CodeSnippetDialog({
                   </button>
 
                   {activeSnippet && (
-                    <pre className='bg-gray-50 dark:bg-gray-900 rounded-md p-3 sm:p-4 overflow-x-auto scrollbar-hide max-w-full'>
-                      <code className='text-[10px] sm:text-xs font-mono text-gray-700 dark:text-gray-300 whitespace-pre break-all sm:break-normal'>
-                        {activeSnippet.code}
-                      </code>
-                    </pre>
+                    <div className='bg-gray-50 dark:bg-gray-900 rounded-md p-3 sm:p-4 max-w-full h-full max-h-[60vh] overflow-auto'>
+                      <pre className='overflow-visible'>
+                        <code className='text-[10px] sm:text-xs font-mono text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words'>
+                          {activeSnippet.code}
+                        </code>
+                      </pre>
+                    </div>
                   )}
                 </div>
               </div>

@@ -4,7 +4,10 @@ import "./globals.css";
 import { MissingKeysDialog } from "@/components/missing-keys-dialog";
 import { OllamaProvider } from "@/lib/ollama-context";
 import { Analytics } from '@vercel/analytics/next';
-
+import { AuthInitializer } from "@/components/auth/auth-initializer";
+import { QueryProvider } from "@/components/query-provider";
+import { ThemeProvider } from "@/components/theme-provider";
+import { logEnvironmentStatus } from "@/lib/env-validation";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -60,16 +63,32 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Log environment status on server-side render
+  if (typeof window === 'undefined') {
+    logEnvironmentStatus();
+  }
+  
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <OllamaProvider>
-          <MissingKeysDialog />
-          {children}
-          <Analytics />
-        </OllamaProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <QueryProvider>
+            <AuthInitializer>
+              <OllamaProvider>
+                <MissingKeysDialog />
+                {children}
+                <Analytics />
+              </OllamaProvider>
+            </AuthInitializer>
+          </QueryProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

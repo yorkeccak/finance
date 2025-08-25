@@ -42,6 +42,8 @@ import { ThemeSelector, CompactThemeSelector } from '@/components/ui/theme-toggl
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRateLimit } from '@/lib/hooks/use-rate-limit';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { AuthModal } from '@/components/auth/auth-modal';
+import { useAuthStore } from '@/lib/stores/use-auth-store';
 
 interface ChatSession {
   id: string;

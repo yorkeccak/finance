@@ -8,9 +8,8 @@ import {
 } from "ai";
 import { FinanceUIMessage } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useOllama } from "@/lib/ollama-context";
 import { useAuthStore } from "@/lib/stores/use-auth-store";
@@ -21,7 +20,6 @@ import { OllamaStatusIndicator } from '@/components/ollama-status-indicator';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -46,20 +44,15 @@ import {
   AlertCircle,
   Loader2,
   Edit3,
-  Calculator,
   Wrench,
   CheckCircle,
   Copy,
   Clock,
   ChevronDown,
   ChevronUp,
-  Plus,
-  ChevronLeft,
-  ChevronRight,
   ExternalLink,
   FileText,
   Clipboard,
-  SquarePen,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -67,6 +60,8 @@ import rehypeRaw from "rehype-raw";
 import "katex/dist/katex.min.css";
 import katex from "katex";
 import { FinancialChart } from "@/components/financial-chart";
+import { CitationTextRenderer } from "@/components/citation-text-renderer";
+import { CitationMap } from "@/lib/citation-utils";
 const JsonView = dynamic(() => import("@uiw/react-json-view"), {
   ssr: false,
   loading: () => <div className="text-xs text-gray-500">Loading JSON…</div>,
@@ -957,7 +952,6 @@ export function ChatInterface({
   };
 }) {
   const [input, setInput] = useState("");
-  const [isExpanded, setIsExpanded] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
@@ -1012,70 +1006,6 @@ export function ChatInterface({
     // No onSettled - let the optimistic update persist until chat finishes
   });
 
-  // Function to clean messages before sending to model
-  const cleanMessagesForModel = (messages: any[]): any[] => {
-    console.log(
-      "[Message Filtering] Original messages count:",
-      messages.length
-    );
-    console.log(
-      "[Message Filtering] Original size:",
-      JSON.stringify(messages).length,
-      "bytes"
-    );
-
-    const cleaned = messages.map((msg) => {
-      // Keep user messages as-is
-      if (msg.role === "user") {
-        return msg;
-      }
-
-      // For assistant messages, only keep the final text response
-      if (msg.role === "assistant" && msg.parts) {
-        const originalPartsCount = msg.parts.length;
-
-        // Filter out tool calls, tool results, and reasoning
-        const textParts = msg.parts.filter(
-          (part: any) =>
-            part.type === "text" && part.text && part.text.trim() !== ""
-        );
-
-        if (originalPartsCount > textParts.length) {
-          console.log(
-            `[Message Filtering] Removed ${
-              originalPartsCount - textParts.length
-            } non-text parts from assistant message`
-          );
-        }
-
-        // If there are text parts, keep only those
-        if (textParts.length > 0) {
-          return {
-            ...msg,
-            parts: textParts,
-          };
-        }
-      }
-
-      // Keep other messages as-is (system, etc.)
-      return msg;
-    });
-
-    console.log(
-      "[Message Filtering] Cleaned size:",
-      JSON.stringify(cleaned).length,
-      "bytes"
-    );
-    console.log(
-      "[Message Filtering] Size reduction:",
-      Math.round(
-        (1 - JSON.stringify(cleaned).length / JSON.stringify(messages).length) *
-          100
-      ) + "%"
-    );
-
-    return cleaned;
-  };
 
   const { selectedModel } = useOllama();
   const user = useAuthStore((state) => state.user);
@@ -2026,7 +1956,7 @@ export function ChatInterface({
                   <motion.button
                     onClick={() =>
                       handlePromptClick(
-                        "Research advanced Black-Scholes options pricing modifications for high-volatility scenarios. Use Wiley academic corpus to find peer-reviewed papers on volatility clustering, jump diffusion models, and exotic option pricing. Then implement the mathematical models in Python and validate against real market data from Boeing."
+                        "Conduct a comprehensive analysis of the 2008 financial crisis: summarize key academic research from Wiley on the causes and impact of the crisis, get Apple Inc.'s stock price performance throughout 2008, and generate a detailed report on how the events of 2008 affected Apple, including financial metrics, business strategy, and market response."
                       )
                     }
                     className="bg-gray-50 dark:bg-gray-800/50 p-2.5 sm:p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-left group"
@@ -2039,7 +1969,7 @@ export function ChatInterface({
                       📚 Academic Research
                     </div>
                     <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
-                      Quantitative finance & options pricing deep academic research
+                      Academic research from peer-reviewed authoratitive content
                     </div>
                   </motion.button>
 
@@ -2329,7 +2259,76 @@ export function ChatInterface({
                                     key={index}
                                     className="prose prose-sm max-w-none dark:prose-invert"
                                   >
-                                    <MemoizedMarkdown text={part.text} />
+                                    {(() => {
+                                      // Collect citations from tool results that appear BEFORE this text part
+                                      const citations: CitationMap = {};
+                                      let citationNumber = 1;
+                                      
+                                      // Find the current part's index
+                                      const currentPartIndex = message.parts.findIndex((p: any) => p === part);
+                                      
+                                      // Look for tool results that come BEFORE this text part
+                                      // This ensures citations match the order the AI references them
+                                      for (let i = 0; i < currentPartIndex; i++) {
+                                        const p = message.parts[i];
+                                        
+                                        // Check for search tool results (financial, web, wiley)
+                                        if ((p.type === 'tool-financialSearch' || 
+                                             p.type === 'tool-webSearch' || 
+                                             p.type === 'tool-wileySearch') &&
+                                            p.state === 'output-available' && 
+                                            p.output) {
+                                          try {
+                                            const output = typeof p.output === 'string' 
+                                              ? JSON.parse(p.output) 
+                                              : (p as any).output; // lol sorry
+                                            
+                                            // Check if this is a search result with multiple items
+                                            if (output.results && Array.isArray(output.results)) {
+                                              output.results.forEach((item: any) => {
+                                                const key = `[${citationNumber}]`;
+                                                // Ensure description is a string, not an object
+                                                let description = item.content || item.summary || item.description || '';
+                                                if (typeof description === 'object') {
+                                                  description = JSON.stringify(description);
+                                                }
+                                                citations[key] = [{
+                                                  number: citationNumber.toString(),
+                                                  title: item.title || `Source ${citationNumber}`,
+                                                  url: item.url || '',
+                                                  description: description,
+                                                  source: item.source,
+                                                  date: item.date,
+                                                  authors: Array.isArray(item.authors) ? item.authors : [],
+                                                  doi: item.doi,
+                                                  relevanceScore: item.relevanceScore || item.relevance_score,
+                                                  toolType: p.type === 'tool-financialSearch' ? 'financial' : 
+                                                           p.type === 'tool-wileySearch' ? 'wiley' : 'web'
+                                                }];
+                                                citationNumber++;
+                                                
+                                                // Log each citation as it's added
+                                                console.log(`[Citations] Added citation [${citationNumber - 1}]:`, item.title || 'Untitled');
+                                              });
+                                            }
+                                          } catch (error) {
+                                            console.error('Error extracting citations from tool:', p.type, error);
+                                          }
+                                        }
+                                      }
+                                      
+                                      // Debug: Log citations collected
+                                      if (Object.keys(citations).length > 0) {
+                                        console.log('[Citations] Total citations collected for text part:', Object.keys(citations).length, citations);
+                                      }
+                                      
+                                      // If we have citations, use the citation renderer, otherwise use regular markdown
+                                      if (Object.keys(citations).length > 0) {
+                                        return <CitationTextRenderer text={part.text} citations={citations} />;
+                                      } else {
+                                        return <MemoizedMarkdown text={part.text} />;
+                                      }
+                                    })()}
                                   </div>
                                 );
 

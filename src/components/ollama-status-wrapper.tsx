@@ -11,19 +11,8 @@ export function OllamaStatusWrapper({ hasMessages }: OllamaStatusWrapperProps) {
   const [isDevelopmentMode, setIsDevelopmentMode] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // Check if we're in development mode by making a single API call
-    const checkMode = async () => {
-      try {
-        const response = await fetch('/api/ollama-status');
-        const data = await response.json();
-        setIsDevelopmentMode(data.mode === 'development');
-      } catch (error) {
-        // If API call fails, assume production mode
-        setIsDevelopmentMode(false);
-      }
-    };
-
-    checkMode();
+    // Check if we're in development mode using environment variable instead of API call
+    setIsDevelopmentMode(process.env.NEXT_PUBLIC_APP_MODE === 'development');
   }, []);
 
   // Don't render anything until we know the mode

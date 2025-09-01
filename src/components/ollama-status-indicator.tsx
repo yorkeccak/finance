@@ -47,7 +47,7 @@ export function OllamaStatusIndicator({ hasMessages = false }: { hasMessages?: b
   };
 
   useEffect(() => {
-    // Only check Ollama status in development mode
+    // Only check Ollama status in development mode, and only once on startup
     if (process.env.NEXT_PUBLIC_APP_MODE === 'development') {
       checkOllamaStatus();
       
@@ -61,12 +61,8 @@ export function OllamaStatusIndicator({ hasMessages = false }: { hasMessages?: b
           }
         }, 2000);
       }
-      
-      // Check status every 30 seconds
-      const interval = setInterval(checkOllamaStatus, 30000);
-      return () => clearInterval(interval);
     }
-  }, [status]);
+  }, []); // Remove status dependency and interval polling
 
   // Don't render anything in production mode
   if (process.env.NEXT_PUBLIC_APP_MODE === 'production') {

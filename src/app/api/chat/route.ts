@@ -141,66 +141,50 @@ export async function POST(req: Request) {
     let modelInfo: string;
 
     if (isDevelopment) {
-      // Development mode: Try to use Ollama first, fallback to OpenAI
-      try {
-        // Try to connect to Ollama first
-        const ollamaResponse = await fetch(`${ollamaBaseUrl}/api/tags`, {
-          method: 'GET',
-          signal: AbortSignal.timeout(3000), // 3 second timeout
-        });
-        
-        if (ollamaResponse.ok) {
-          const data = await ollamaResponse.json();
-          const models = data.models || [];
+      // Development mode: Use OpenAI by default, only use Ollama when explicitly requested
+      const userPreferredModel = req.headers.get('x-ollama-model');
+      
+      if (userPreferredModel) {
+        // User explicitly wants to use Ollama - check if it's available
+        try {
+          const ollamaResponse = await fetch(`${ollamaBaseUrl}/api/tags`, {
+            method: 'GET',
+            signal: AbortSignal.timeout(3000), // 3 second timeout
+          });
           
-          if (models.length > 0) {
-            // Prioritize Llama 3.1 which is explicitly listed as supporting tools
-            const preferredModels = ['llama3.1', 'gemma3:4b', 'gemma3', 'llama3.2', 'llama3', 'qwen2.5', 'codestral', 'deepseek-r1'];
-            let selectedModelName = models[0].name;
+          if (ollamaResponse.ok) {
+            const data = await ollamaResponse.json();
+            const models = data.models || [];
             
-            // Check if user has a specific model preference from the request
-            const userPreferredModel = req.headers.get('x-ollama-model');
-            
-            // Try to find a preferred model
-            if (userPreferredModel && models.some((m: any) => m.name === userPreferredModel)) {
-              selectedModelName = userPreferredModel;
+            if (models.some((m: any) => m.name === userPreferredModel)) {
+              console.log(`[Chat API] Using requested Ollama model: ${userPreferredModel}`);
+              
+              const ollamaAsOpenAI = createOpenAI({
+                baseURL: `${ollamaBaseUrl}/v1`,
+                apiKey: 'ollama',
+              });
+              
+              selectedModel = ollamaAsOpenAI.chat(userPreferredModel);
+              modelInfo = `Ollama (${userPreferredModel}) - Development Mode`;
             } else {
-              for (const preferred of preferredModels) {
-                if (models.some((m: any) => m.name.includes(preferred))) {
-                  selectedModelName = models.find((m: any) => m.name.includes(preferred))?.name;
-                  break;
-                }
-              }
+              throw new Error(`Requested model ${userPreferredModel} not found in Ollama`);
             }
-            
-            // Debug: Log the exact configuration
-            console.log(`[Chat API] Attempting to configure Ollama with baseURL: ${ollamaBaseUrl}/v1`);
-            console.log(`[Chat API] Selected model name: ${selectedModelName}`);
-            
-            // Use OpenAI provider and explicitly create a chat model (not responses model)
-            const ollamaAsOpenAI = createOpenAI({
-              baseURL: `${ollamaBaseUrl}/v1`, // This should hit /v1/chat/completions
-              apiKey: 'ollama', // Dummy API key for Ollama
-            });
-            
-            // Create a chat model explicitly
-            selectedModel = ollamaAsOpenAI.chat(selectedModelName);
-            modelInfo = `Ollama (${selectedModelName}) - Development Mode`;
-            console.log(`[Chat API] Created model with provider:`, typeof selectedModel);
-            console.log(`[Chat API] Model baseURL should be: ${ollamaBaseUrl}/v1`);
           } else {
-            throw new Error('No models available in Ollama');
+            throw new Error(`Ollama API responded with status ${ollamaResponse.status}`);
           }
-        } else {
-          throw new Error(`Ollama API responded with status ${ollamaResponse.status}`);
+        } catch (error) {
+          console.log("[Chat API] Requested Ollama model not available, falling back to OpenAI:", error);
+          selectedModel = hasOpenAIKey ? openai("gpt-5") : "openai/gpt-5";
+          modelInfo = hasOpenAIKey 
+            ? "OpenAI (gpt-5) - Development Mode (Ollama Fallback)" 
+            : 'Vercel AI Gateway ("gpt-5") - Development Mode (Ollama Fallback)';
         }
-      } catch (error) {
-        console.log("[Chat API] Ollama not available, falling back to OpenAI:", error);
-        // Fallback to OpenAI in development mode
+      } else {
+        // Default to OpenAI in development mode
         selectedModel = hasOpenAIKey ? openai("gpt-5") : "openai/gpt-5";
         modelInfo = hasOpenAIKey 
-          ? "OpenAI (gpt-5) - Development Mode Fallback" 
-          : 'Vercel AI Gateway ("gpt-5") - Development Mode Fallback';
+          ? "OpenAI (gpt-5) - Development Mode Default" 
+          : 'Vercel AI Gateway ("gpt-5") - Development Mode Default';
       }
     } else {
       // Production mode: Use Polar-wrapped OpenAI ONLY for pay-per-use users

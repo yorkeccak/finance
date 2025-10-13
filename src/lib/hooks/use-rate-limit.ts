@@ -181,7 +181,6 @@ export function useRateLimit(): UseRateLimitReturn {
   // Listen for sign out events to clear cache
   useEffect(() => {
     const handleSignOut = () => {
-      console.log('[useRateLimit] Sign out detected, clearing rate limit cache');
       queryClient.removeQueries({ queryKey: ['rateLimit'] });
     };
     

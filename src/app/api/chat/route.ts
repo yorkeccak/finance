@@ -15,10 +15,10 @@ export const maxDuration = 800;
 export async function POST(req: Request) {
   try {
     const { messages, sessionId }: { messages: FinanceUIMessage[], sessionId?: string } = await req.json();
-    console.log(
-      "[Chat API] Incoming messages:",
-      JSON.stringify(messages, null, 2)
-    );
+    // console.log(
+    //   "[Chat API] Incoming messages:",
+    //   JSON.stringify(messages, null, 2)
+    // );
 
     // Determine if this is a user-initiated message (should count towards rate limit)
     // ONLY increment for the very first user message in a conversation

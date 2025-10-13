@@ -19,8 +19,6 @@ export async function POST(req: Request) {
       headersObj[key.toLowerCase()] = value;
     });
 
-    console.log('[Webhook] Headers received:', Object.keys(headersObj));
-
     // Skip signature verification in development if configured
     const skipVerification = process.env.NEXT_PUBLIC_APP_MODE === 'development' 
       && process.env.POLAR_SKIP_WEBHOOK_VERIFICATION === 'true';
@@ -36,7 +34,6 @@ export async function POST(req: Request) {
       try {
         // Validate webhook signature using Polar SDK (Standard Webhooks)
         event = validateEvent(body, headersObj, process.env.POLAR_WEBHOOK_SECRET);
-        console.log(`[Webhook] Signature validated successfully`);
       } catch (error) {
         if (error instanceof WebhookVerificationError) {
           console.error('[Webhook] Invalid signature:', error.message);

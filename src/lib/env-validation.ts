@@ -78,8 +78,6 @@ export function logEnvironmentStatus(): void {
   const validation = validatePaymentEnvironment();
   const isDevelopment = process.env.NODE_ENV === 'development';
   
-  console.log(`[Environment] Running in ${isDevelopment ? 'development' : 'production'} mode`);
-  
   if (validation.valid) {
     console.log('[Environment] ✅ All required environment variables are set');
   } else {

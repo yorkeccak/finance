@@ -116,19 +116,6 @@ export const financeTools = {
         hasDescription: !!description
       });
 
-      // Log chart creation details
-      console.log("[Chart Creation] Creating chart:", {
-        title,
-        type,
-        xAxisLabel,
-        yAxisLabel,
-        seriesCount: dataSeries.length,
-        totalDataPoints: dataSeries.reduce(
-          (sum, series) => sum + series.data.length,
-          0
-        ),
-        seriesNames: dataSeries.map((s) => s.name),
-      });
 
       // Return structured chart data for the UI to render
       const chartData = {
@@ -153,12 +140,6 @@ export const financeTools = {
               : null,
         },
       };
-
-      console.log(
-        "[Chart Creation] Chart data size:",
-        JSON.stringify(chartData).length,
-        "bytes"
-      );
 
       return chartData;
     },
@@ -217,11 +198,6 @@ export const financeTools = {
       const startTime = Date.now();
 
       try {
-        console.log("[Code Execution] Executing Python code:", {
-          description,
-          codeLength: code.length,
-          codePreview: code.substring(0, 100) + "...",
-        });
 
         // Check for reasonable code length
         if (code.length > 10000) {
@@ -266,12 +242,6 @@ export const financeTools = {
             try {
               const polarTracker = new PolarEventTracker();
               
-              console.log('[CodeExecution] Tracking Daytona usage with Polar:', {
-                userId,
-                sessionId,
-                executionTime
-              });
-              
               await polarTracker.trackDaytonaUsage(
                 userId,
                 sessionId,
@@ -303,12 +273,6 @@ export const financeTools = {
 
             return `❌ **Execution Error**: ${helpfulError}`;
           }
-
-          console.log("[Code Execution] Success:", {
-            outputLength: execution.result?.length || 0,
-            executionTime,
-            hasArtifacts: !!execution.artifacts,
-          });
 
           // Format the successful execution result
           return `🐍 **Python Code Execution (Daytona Sandbox)**
@@ -407,31 +371,12 @@ ${execution.result || "(No output produced)"}
           txId: (response as any)?.tx_id || null
         });
 
-        // Track usage for pay-per-use customers with Polar events
-        console.log('[FinancialSearch] Tracking Valyu API usage with Polar:', {
-          userId,
-          sessionId,
-          userTier,
-          isDevelopment
-        });
-
         if (userId && sessionId && userTier === 'pay_per_use' && !isDevelopment) {
-          console.log('[FinancialSearch] Tracking Valyu API usage with Polar:');
           try {
             const polarTracker = new PolarEventTracker();
             // Use the actual Valyu API cost from response
             const valyuCostDollars = (response as any)?.total_deduction_dollars || 0;
             
-            // Bright green color: \x1b[92m ... \x1b[0m
-            console.log(
-              '\x1b[92m[FinancialSearch] Tracking Valyu API usage with Polar:\x1b[0m',
-              {
-                userId,
-                sessionId,
-                valyuCostDollars,
-                resultCount: response?.results?.length || 0
-              }
-            );
             
             await polarTracker.trackValyuAPIUsage(
               userId,
@@ -452,27 +397,9 @@ ${execution.result || "(No output produced)"}
           }
         }
 
-        // // Log the full API response for debugging
-        // console.log(
-        //   "[Financial Search] Full API Response:",
-        //   JSON.stringify(response, null, 2)
-        // );
-
         if (!response || !response.results || response.results.length === 0) {
           return `🔍 No financial data found for "${query}". Try rephrasing your search or checking if the company/symbol exists.`;
         }
-
-        // // Log key information about the search
-        // console.log("[Financial Search] Summary:", {
-        //   query,
-        //   dataType,
-        //   resultCount: response.results.length,
-        //   totalCost: (response as any).price || "N/A",
-        //   txId: (response as any).tx_id || "N/A",
-        //   firstResultTitle: response.results[0]?.title,
-        //   firstResultLength: response.results[0]?.length,
-        // });
-
         // Return structured data for the model to process
         const formattedResponse = {
           type: "financial_search",
@@ -491,12 +418,6 @@ ${execution.result || "(No output produced)"}
             relevance_score: result.relevance_score,
           })),
         };
-
-        console.log(
-          "[Financial Search] Formatted response size:",
-          JSON.stringify(formattedResponse).length,
-          "bytes"
-        );
 
         return JSON.stringify(formattedResponse, null, 2);
       } catch (error) {
@@ -561,8 +482,6 @@ ${execution.result || "(No output produced)"}
           ]
         };
 
-        console.log('[WileySearch] Search options:', searchOptions);
-
         const response = await valyu.search(query, searchOptions);
 
         // Track Valyu Wiley search call
@@ -581,12 +500,6 @@ ${execution.result || "(No output produced)"}
           try {
             const polarTracker = new PolarEventTracker();
             const valyuCostDollars = (response as any)?.total_deduction_dollars || 0;
-            console.log('[WileySearch] Tracking Valyu API usage with Polar:', {
-              userId,
-              sessionId,
-              valyuCostDollars,
-              resultCount: response?.results?.length || 0
-            });
             await polarTracker.trackValyuAPIUsage(
               userId,
               sessionId,
@@ -626,12 +539,6 @@ ${execution.result || "(No output produced)"}
             relevance_score: result.relevance_score,
           })),
         };
-
-        console.log(
-          "[Wiley Search] Formatted response size:",
-          JSON.stringify(formattedResponse).length,
-          "bytes"
-        );
 
         return JSON.stringify(formattedResponse, null, 2);
       } catch (error) {
@@ -718,13 +625,6 @@ ${execution.result || "(No output produced)"}
             // Use the actual Valyu API cost from response
             const valyuCostDollars = (response as any)?.total_deduction_dollars || 0;
             
-            console.log('[WebSearch] Tracking Valyu API usage with Polar:', {
-              userId,
-              sessionId,
-              valyuCostDollars,
-              resultCount: response?.results?.length || 0
-            });
-            
             await polarTracker.trackValyuAPIUsage(
               userId,
               sessionId,
@@ -744,28 +644,12 @@ ${execution.result || "(No output produced)"}
           }
         }
 
-        // Log the full API response for debugging
-        console.log(
-          "[Web Search] Full API Response:",
-          JSON.stringify(response, null, 2)
-        );
-
         if (!response || !response.results || response.results.length === 0) {
           return `🔍 No web results found for "${query}". Try rephrasing your search with different keywords.`;
         }
 
         // Log key information about the search
         const metadata = (response as any).metadata;
-        console.log("[Web Search] Summary:", {
-          query,
-          resultCount: response.results.length,
-          totalCost: metadata?.totalCost || (response as any).total_deduction_dollars || "N/A",
-          searchTime: metadata?.searchTime || "N/A",
-          txId: (response as any).tx_id || "N/A",
-          firstResultTitle: response.results[0]?.title,
-          firstResultLength: response.results[0]?.length,
-        });
-
         // Return structured data for the model to process
         const formattedResponse = {
           type: "web_search",
@@ -787,12 +671,6 @@ ${execution.result || "(No output produced)"}
             relevance_score: result.relevance_score,
           })),
         };
-
-        console.log(
-          "[Web Search] Formatted response size:",
-          JSON.stringify(formattedResponse).length,
-          "bytes"
-        );
 
         return JSON.stringify(formattedResponse, null, 2);
       } catch (error) {

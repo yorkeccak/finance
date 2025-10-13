@@ -1101,7 +1101,6 @@ export function ChatInterface({
 
       if (response.ok) {
         const { session: newSession } = await response.json();
-        console.log('[Chat Interface] Created new session quickly:', newSession.id);
         
         // Generate better AI title in background (don't wait)
         fetch('/api/chat/generate-title', {
@@ -1123,7 +1122,6 @@ export function ChatInterface({
               },
               body: JSON.stringify({ title: aiTitle })
             });
-            console.log('[Chat Interface] Updated session title with AI:', aiTitle);
           }
         }).catch(() => {
           console.log('[Chat Interface] AI title generation failed, keeping fallback');
@@ -1147,11 +1145,9 @@ export function ChatInterface({
         if (selectedModel) {
           headers['x-ollama-model'] = selectedModel;
         }
-        console.log('[Chat Interface] Preparing request, user:', user?.id || 'anonymous');
         if (user) {
           const supabase = createClient();
           const { data: { session } } = await supabase.auth.getSession();
-          console.log('[Chat Interface] Session access_token exists:', !!session?.access_token);
           if (session?.access_token) {
             headers['Authorization'] = `Bearer ${session.access_token}`;
           }
@@ -1186,7 +1182,6 @@ export function ChatInterface({
     onFinish: () => {
       // Sync with server when chat completes (server has definitely processed increment by now)
       if (user) {
-        console.log('[Chat Interface] Chat finished, syncing rate limit with server');
         queryClient.invalidateQueries({ queryKey: ['rateLimit'] });
       }
     },
@@ -1209,7 +1204,6 @@ export function ChatInterface({
 
       if (response.ok) {
         const { messages: sessionMessages } = await response.json();
-        console.log('[Chat Interface] Loaded session messages:', sessionMessages.length);
         
         // Convert session messages to the format expected by useChat
         const convertedMessages = sessionMessages.map((msg: any) => ({
@@ -1234,7 +1228,6 @@ export function ChatInterface({
         setTimeout(() => {
           const c = messagesContainerRef.current;
           if (c) {
-            console.log('[Chat Interface] Scrolling to bottom after session load');
             c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' });
           }
           // Also try the messagesEndRef as backup
@@ -1252,21 +1245,17 @@ export function ChatInterface({
 
   // Initialize and handle sessionId prop changes
   useEffect(() => {
-    console.log('[Chat Interface] sessionId prop:', sessionId, 'current:', currentSessionId);
     
     // Always update the ref to stay in sync
     sessionIdRef.current = sessionId;
     
     if (sessionId !== currentSessionId) {
       if (sessionId) {
-        console.log('[Chat Interface] Loading session:', sessionId);
         loadSessionMessages(sessionId);
       } else {
-        console.log('[Chat Interface] Clearing for new chat');
         
         // Stop any ongoing streaming
         if (status === 'streaming' || status === 'submitted') {
-          console.log('[Chat Interface] Stopping ongoing chat for new chat');
           stop();
         }
         
@@ -1283,10 +1272,6 @@ export function ChatInterface({
       }
     }
   }, [sessionId]); // Only sessionId prop dependency
-
-  useEffect(() => {
-    console.log("Messages updated:", messages);
-  }, [messages]);
 
   // Check rate limit status 
   useEffect(() => {
@@ -1314,7 +1299,6 @@ export function ChatInterface({
   // Handle rate limit errors
   useEffect(() => {
     if (error) {
-      console.log("[Chat Interface] Error occurred:", error);
       
       // Check if it's a rate limit error
       if (error.message && (error.message.includes('RATE_LIMIT_EXCEEDED') || error.message.includes('429'))) {
@@ -1335,7 +1319,6 @@ export function ChatInterface({
 
   // Notify parent component about message state changes
   useEffect(() => {
-    console.log('[Chat Interface] Messages changed, count:', messages.length);
     onMessagesChange?.(messages.length > 0);
   }, [messages.length]); // Remove onMessagesChange from dependencies to prevent infinite loops
 
@@ -1436,14 +1419,6 @@ export function ChatInterface({
     const distanceFromBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight;
     const atBottom = distanceFromBottom <= threshold;
-    console.log("[SCROLL DEBUG] isAtBottom (container):", {
-      scrollHeight: container.scrollHeight,
-      scrollTop: container.scrollTop,
-      clientHeight: container.clientHeight,
-      distanceFromBottom,
-      threshold,
-      atBottom,
-    });
     return atBottom;
   };
 
@@ -1452,48 +1427,21 @@ export function ChatInterface({
     const container = messagesContainerRef.current;
     if (!container) return;
 
-    console.log("[SCROLL DEBUG] Message update triggered:", {
-      userHasInteracted: userHasInteracted.current,
-      messageCount: messages.length,
-      status,
-      willAutoScroll: isAtBottomState,
-      anchorInView,
-      containerMetrics: (function () {
-        const c = messagesContainerRef.current;
-        if (!c) return null;
-        return {
-          scrollTop: c.scrollTop,
-          scrollHeight: c.scrollHeight,
-          clientHeight: c.clientHeight,
-        };
-      })(),
-    });
-
     // ONLY auto-scroll if sticky is enabled AND streaming/submitted
     const isLoading = status === "submitted" || status === "streaming";
     if (isLoading && shouldStickToBottomRef.current) {
-      console.log(
-        "[SCROLL DEBUG] AUTO-SCROLLING because stick-to-bottom is enabled"
-      );
       // Small delay to let content render
       requestAnimationFrame(() => {
         const c = messagesContainerRef.current;
         if (c && c.scrollHeight > c.clientHeight + 1) {
-          console.log("[SCROLL DEBUG] Scrolling container to bottom");
           c.scrollTo({ top: c.scrollHeight, behavior: "smooth" });
         } else {
           const doc = document.scrollingElement || document.documentElement;
           const targetTop = doc.scrollHeight;
-          console.log("[SCROLL DEBUG] Scrolling window to bottom", {
-            targetTop,
-          });
           window.scrollTo({ top: targetTop, behavior: "smooth" });
         }
       });
     } else {
-      console.log(
-        "[SCROLL DEBUG] NOT auto-scrolling - stick-to-bottom disabled"
-      );
     }
   }, [messages, status, isAtBottomState, anchorInView]);
 
@@ -1501,22 +1449,12 @@ export function ChatInterface({
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) {
-      console.log("[SCROLL DEBUG] Container not found in scroll handler!");
       return;
     }
-
-    console.log(
-      "[SCROLL DEBUG] Setting up scroll handlers on container:",
-      container
-    );
 
     const handleScroll = () => {
       const atBottom = isAtBottom();
       setIsAtBottomState(atBottom);
-      console.log(
-        "[SCROLL DEBUG] Scroll event fired (container), atBottom:",
-        atBottom
-      );
       // Disable sticky when not at bottom; re-enable when at bottom
       shouldStickToBottomRef.current = atBottom;
       userHasInteracted.current = !atBottom;
@@ -1527,13 +1465,8 @@ export function ChatInterface({
 
     // Handle wheel events to immediately detect scroll intent
     const handleWheel = (e: WheelEvent) => {
-      console.log("[SCROLL DEBUG] Wheel event detected, deltaY:", e.deltaY);
-
       // If scrolling up, immediately disable auto-scroll
       if (e.deltaY < 0) {
-        console.log(
-          "[SCROLL DEBUG] User scrolling UP via wheel - disabling auto-scroll"
-        );
         userHasInteracted.current = true;
         shouldStickToBottomRef.current = false;
       } else if (e.deltaY > 0) {
@@ -1543,9 +1476,6 @@ export function ChatInterface({
           if (atBottom) {
             userHasInteracted.current = false; // Reset if back at bottom
             shouldStickToBottomRef.current = true;
-            console.log(
-              "[SCROLL DEBUG] User scrolled to bottom via wheel - enabling stick-to-bottom"
-            );
           }
         }, 50);
       }
@@ -1563,9 +1493,6 @@ export function ChatInterface({
 
       if (deltaY > 10) {
         // Scrolling up
-        console.log(
-          "[SCROLL DEBUG] Touch scroll UP detected - disabling auto-scroll"
-        );
         userHasInteracted.current = true;
         shouldStickToBottomRef.current = false;
       }
@@ -1584,14 +1511,7 @@ export function ChatInterface({
     const handleGlobalWheel = (e: WheelEvent) => {
       const inContainer = container.contains(e.target as Node);
       if (inContainer) {
-        console.log(
-          "[SCROLL DEBUG] Global wheel event in container, deltaY:",
-          e.deltaY
-        );
         if (e.deltaY < 0) {
-          console.log(
-            "[SCROLL DEBUG] Global scroll UP - disabling auto-scroll"
-          );
           userHasInteracted.current = true;
           shouldStickToBottomRef.current = false;
         }
@@ -1633,7 +1553,6 @@ export function ChatInterface({
   // Scroll to bottom when user submits a message
   useEffect(() => {
     if (status === "submitted") {
-      console.log("[SCROLL DEBUG] User submitted message, scrolling to bottom");
       userHasInteracted.current = false; // Reset interaction flag for new message
       shouldStickToBottomRef.current = true; // Re-enable stickiness on new message
       // Always scroll to bottom when user sends a message
@@ -1650,17 +1569,13 @@ export function ChatInterface({
     e.preventDefault();
     if (input.trim() && status === "ready") {
       // Check current rate limit status immediately before sending
-      console.log("[Chat Interface] Rate limit check before submit:", { canSendQuery });
       
       if (!canSendQuery) {
         // Rate limit exceeded - show dialog and don't send message or update URL
-        console.log("[Chat Interface] Rate limit exceeded, showing dialog");
         setIsRateLimited(true);
         onRateLimitError?.(resetTime?.toISOString() || new Date().toISOString());
         return;
       }
-      
-      console.log("[Chat Interface] Rate limit OK, proceeding with message");
       
       // Store the input to send
       const queryText = input.trim();
@@ -1684,14 +1599,12 @@ export function ChatInterface({
 
       // Create session BEFORE sending message for proper usage tracking
       if (user && !currentSessionId && messages.length === 0) {
-        console.log("[Chat Interface] Creating session synchronously for first message");
         try {
           const newSessionId = await createSession(queryText);
           if (newSessionId) {
             sessionIdRef.current = newSessionId;
             setCurrentSessionId(newSessionId);
             onSessionCreated?.(newSessionId);
-            console.log("[Chat Interface] Session created before message:", newSessionId);
           }
         } catch (error) {
           console.error("[Chat Interface] Failed to create session:", error);
@@ -1701,10 +1614,8 @@ export function ChatInterface({
 
       // Increment rate limit for anonymous users (authenticated users handled server-side)
       if (!user && increment) {
-        console.log("[Chat Interface] Incrementing rate limit for anonymous user");
         try {
           const result = await increment();
-          console.log("[Chat Interface] Anonymous increment result:", result);
         } catch (error) {
           console.error("[Chat Interface] Failed to increment anonymous rate limit:", error);
           // Continue with message sending even if increment fails
@@ -1716,7 +1627,6 @@ export function ChatInterface({
       
       // For authenticated users, trigger optimistic rate limit update
       if (user) {
-        console.log('[Chat Interface] Triggering optimistic rate limit update');
         rateLimitMutation.mutate();
       }
     }
@@ -2306,20 +2216,12 @@ export function ChatInterface({
                                                            p.type === 'tool-wileySearch' ? 'wiley' : 'web'
                                                 }];
                                                 citationNumber++;
-                                                
-                                                // Log each citation as it's added
-                                                console.log(`[Citations] Added citation [${citationNumber - 1}]:`, item.title || 'Untitled');
                                               });
                                             }
                                           } catch (error) {
                                             console.error('Error extracting citations from tool:', p.type, error);
                                           }
                                         }
-                                      }
-                                      
-                                      // Debug: Log citations collected
-                                      if (Object.keys(citations).length > 0) {
-                                        console.log('[Citations] Total citations collected for text part:', Object.keys(citations).length, citations);
                                       }
                                       
                                       // If we have citations, use the citation renderer, otherwise use regular markdown

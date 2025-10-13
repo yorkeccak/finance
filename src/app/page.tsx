@@ -122,7 +122,6 @@ function HomeContent() {
     const chatIdFromUrl = searchParams.get('chatId');
     // Only update if URL param is different from current state
     if (chatIdFromUrl !== currentSessionId) {
-      console.log('[Home] URL chatId changed:', chatIdFromUrl, 'current:', currentSessionId);
       setCurrentSessionId(chatIdFromUrl || undefined);
     }
   }, [searchParams]); // Watch searchParams changes
@@ -149,7 +148,6 @@ function HomeContent() {
     const customerSessionToken = searchParams.get('customer_session_token');
 
     if (checkoutSuccess === 'success' && checkoutPlan && customerSessionToken && user) {
-      console.log('[Home] Processing checkout success:', { checkoutPlan, customerSessionToken });
       
       // Call our checkout success API
       const processCheckout = async () => {
@@ -273,9 +271,7 @@ function HomeContent() {
     updateUrlWithSession(sessionId);
   }, [updateUrlWithSession]);
 
-  const handleNewChat = useCallback(() => {
-    console.log('[Home] Starting new chat, clearing session and URL');
-    
+  const handleNewChat = useCallback(() => {    
     // Clear the local state immediately for immediate UI feedback
     setCurrentSessionId(undefined);
     updateUrlWithSession(null);
@@ -305,8 +301,6 @@ function HomeContent() {
       const response = await fetch('/api/chat/sessions', {
         headers: { 'Authorization': `Bearer ${session?.access_token}` }
       });
-
-      console.log(`sessions: ${JSON.stringify(response)}`)
 
       const { sessions } = await response.json();
       return sessions;

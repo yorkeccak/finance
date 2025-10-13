@@ -122,15 +122,6 @@ export async function checkUserRateLimit(userId: string): Promise<RateLimitResul
   const remaining = tier === 'free' ? Math.max(0, limit - used) : UNLIMITED_LIMIT;
   const allowed = used < limit;
 
-  console.log('[Rate Limit] User rate limit result:', {
-    allowed,
-    remaining,
-    limit,
-    resetTime: getNextMidnight(),
-    tier,
-    used
-  });
-
   return {
     allowed,
     remaining,
@@ -146,7 +137,6 @@ export async function checkUserRateLimit(userId: string): Promise<RateLimitResul
  */
 export async function transferAnonymousToUser(userId: string): Promise<void> {
   if (isDevelopment) {
-    console.log('[Rate Limit] Skipping transfer in development mode');
     return;
   }
 
@@ -155,11 +145,8 @@ export async function transferAnonymousToUser(userId: string): Promise<void> {
     const anonymousUsage = getAnonymousUsage();
     
     if (anonymousUsage.used === 0) {
-      console.log('[Rate Limit] No anonymous usage to transfer');
       return;
     }
-
-    console.log(`[Rate Limit] Transferring ${anonymousUsage.used} queries to user ${userId}`);
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -187,7 +174,6 @@ export async function transferAnonymousToUser(userId: string): Promise<void> {
         })
         .eq('user_id', userId);
 
-      console.log(`[Rate Limit] Updated user ${userId}: ${existingRecord.usage_count} + ${anonymousUsage.used} = ${newUsageCount}`);
     } else {
       // Create new record with transferred usage
       await supabase
@@ -199,13 +185,10 @@ export async function transferAnonymousToUser(userId: string): Promise<void> {
           last_request_at: new Date().toISOString(),
           tier: 'free',
         });
-
-      console.log(`[Rate Limit] Created new record for user ${userId} with ${anonymousUsage.used} usage`);
     }
 
     // Clear anonymous cookies
     clearAnonymousCookies();
-    console.log('[Rate Limit] Successfully transferred anonymous usage and cleared cookies');
 
   } catch (error) {
     console.error('[Rate Limit] Error transferring usage:', error);
@@ -218,7 +201,6 @@ export async function transferAnonymousToUser(userId: string): Promise<void> {
  */
 export async function incrementRateLimit(userId?: string): Promise<RateLimitResult> {
   if (isDevelopment) {
-    console.log('[Rate Limit] Skipping increment in development mode');
     return userId 
       ? await checkUserRateLimit(userId)
       : await checkAnonymousRateLimit();

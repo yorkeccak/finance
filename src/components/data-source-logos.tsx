@@ -398,7 +398,7 @@ const DataSourceLogos = () => {
     { name: "Web Search", src: "/web.svg", sizeClass: "h-6 sm:h-7" },
     { name: "Financial Statements", src: "/balancesheet.svg", sizeClass: "h-5 sm:h-6" },
     { name: "Market Data", src: "/stocks.svg", sizeClass: "h-7 sm:h-9" },
-    { name: "Wiley", src: "/wy.svg", sizeClass: "h-4 sm:h-4" },
+    // { name: "Wiley", src: "/wy.svg", sizeClass: "h-4 sm:h-4" },
   ];
 
   // Cycling animation effect - pauses when user is hovering

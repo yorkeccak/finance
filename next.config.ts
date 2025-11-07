@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  devIndicators: false,
   images: {
     remotePatterns: [
       {
@@ -12,6 +13,13 @@ const nextConfig: NextConfig = {
         hostname: '**',
       },
     ],
+    // Don't optimize external favicon URLs
+    unoptimized: process.env.NODE_ENV === 'development',
+  },
+  // Suppress favicon fetch errors in development
+  onDemandEntries: {
+    maxInactiveAge: 25 * 1000,
+    pagesBufferLength: 2,
   },
 };
 

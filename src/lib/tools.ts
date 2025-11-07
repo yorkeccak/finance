@@ -4,21 +4,23 @@ import { Valyu } from "valyu-js";
 import { track } from "@vercel/analytics/server";
 import { PolarEventTracker } from '@/lib/polar-events';
 import { Daytona } from '@daytonaio/sdk';
+import { createClient } from '@/utils/supabase/server';
 
 
 export const financeTools = {
-  // Chart Creation Tool - Create interactive financial charts with time series data
+  // Chart Creation Tool - Create interactive financial charts with multiple chart types
   createChart: tool({
-    description: `Create interactive charts for financial data visualization. 
-    
-    CRITICAL: ALL FIVE FIELDS ARE REQUIRED:
-    1. title - Chart title (e.g., "Apple vs Microsoft Stock Performance")
-    2. type - Chart type: "line", "bar", or "area" 
-    3. xAxisLabel - X-axis label (e.g., "Date", "Quarter")
-    4. yAxisLabel - Y-axis label (e.g., "Price ($)", "Revenue")
-    5. dataSeries - Array of data series with this exact format:
-    
-    Example complete tool call:
+    description: `Create interactive charts for financial data visualization.
+
+    CHART TYPES:
+    1. "line" - Time series trends (stock prices, revenue over time)
+    2. "bar" - Categorical comparisons (quarterly earnings, company comparisons)
+    3. "area" - Cumulative data (stacked metrics, composition)
+    4. "scatter" - Correlation analysis, positioning maps, bubble charts
+    5. "quadrant" - 2x2 strategic matrix (BCG matrix, Edge Zone analysis)
+    6. "candlestick" - OHLC + Volume data (stock price movements with volume bars)
+
+    TIME SERIES CHARTS (line, bar, area):
     {
       "title": "Apple vs Microsoft Stock Performance",
       "type": "line",
@@ -31,34 +33,75 @@ export const financeTools = {
             {"x": "2024-01-01", "y": 150.25},
             {"x": "2024-02-01", "y": 155.80}
           ]
+        }
+      ]
+    }
+
+    SCATTER/BUBBLE CHARTS (for positioning, correlation):
+    Each SERIES represents a CATEGORY (for color coding).
+    Each DATA POINT represents an individual entity with x, y, size, and label.
+    {
+      "title": "Investor Universe: Strategic Fit vs Deal Likelihood",
+      "type": "scatter",
+      "xAxisLabel": "Strategic Complementarity (1-10)",
+      "yAxisLabel": "Acquisition Likelihood (1-10)",
+      "dataSeries": [
+        {
+          "name": "Financial Sponsors",
+          "data": [
+            {"x": 8.5, "y": 7.2, "size": 5000, "label": "Goldman Sachs"},
+            {"x": 9.0, "y": 8.5, "size": 8000, "label": "Vista Equity"}
+          ]
         },
         {
-          "name": "Microsoft (MSFT)",
+          "name": "Strategic Acquirers",
           "data": [
-            {"x": "2024-01-01", "y": 380.50},
-            {"x": "2024-02-01", "y": 385.20}
+            {"x": 9.5, "y": 6.8, "size": 3000, "label": "Salesforce"}
           ]
         }
       ]
     }
-    
-    NEVER omit any of the five required fields. Each data point must have x (date/label) and y (numeric value).`,
+
+    QUADRANT CHARTS (2x2 strategic matrix):
+    Same as scatter, but with reference lines dividing chart into 4 quadrants.
+    Use for: Edge Zone analysis, BCG matrix, prioritization matrices.
+
+    CANDLESTICK CHARTS (OHLC + Volume):
+    For displaying stock/crypto price movements with candlesticks and volume bars.
+    Each data point requires: x (date), open, high, low, close, volume (optional).
+    {
+      "title": "Tesla (TSLA) Stock Price - Q4 2024",
+      "type": "candlestick",
+      "xAxisLabel": "Date",
+      "yAxisLabel": "Price (USD)",
+      "dataSeries": [
+        {
+          "name": "TSLA",
+          "data": [
+            {"x": "2024-10-01", "open": 250.5, "high": 258.2, "low": 248.1, "close": 255.8, "volume": 12500000},
+            {"x": "2024-10-02", "open": 255.8, "high": 262.4, "low": 253.0, "close": 260.2, "volume": 15200000}
+          ]
+        }
+      ]
+    }
+
+    CRITICAL: ALL REQUIRED FIELDS MUST BE PROVIDED.`,
     inputSchema: z.object({
       title: z
         .string()
         .describe('Chart title (e.g., "Apple vs Microsoft Stock Performance")'),
       type: z
-        .enum(["line", "bar", "area"])
+        .enum(["line", "bar", "area", "scatter", "quadrant", "candlestick"])
         .describe(
-          'Chart type - use "line" for time series data like stock prices'
+          'Chart type: "line" (time series), "bar" (comparisons), "area" (cumulative), "scatter" (positioning/correlation), "quadrant" (2x2 matrix), "candlestick" (OHLC + volume for stocks)'
         ),
       xAxisLabel: z
         .string()
-        .describe('X-axis label (e.g., "Date", "Quarter", "Year")'),
+        .describe('X-axis label (e.g., "Date", "Strategic Fit (1-10)", "Risk")'),
       yAxisLabel: z
         .string()
         .describe(
-          'Y-axis label (e.g., "Price ($)", "Revenue (Millions)", "Percentage (%)")'
+          'Y-axis label (e.g., "Price ($)", "Alpha Potential (1-10)", "Return")'
         ),
       dataSeries: z
         .array(
@@ -66,7 +109,7 @@ export const financeTools = {
             name: z
               .string()
               .describe(
-                'Series name - include company/ticker for stocks (e.g., "Apple (AAPL)", "Tesla Revenue")'
+                'Series name - For time series: company/ticker. For scatter/quadrant: category name for color coding (e.g., "Financial Sponsors", "Strategic Acquirers")'
               ),
             data: z
               .array(
@@ -74,22 +117,65 @@ export const financeTools = {
                   x: z
                     .union([z.string(), z.number()])
                     .describe(
-                      'X-axis value - use date strings like "2024-01-01" for time series'
+                      'X-axis value - Date string for time series, numeric value for scatter/quadrant'
                     ),
                   y: z
                     .number()
+                    .optional()
                     .describe(
-                      "Y-axis numeric value - stock price, revenue, percentage, etc."
+                      "Y-axis numeric value - price, score, percentage, etc. REQUIRED for line/bar/area/scatter/quadrant charts. Optional ONLY for candlestick charts (will use 'close' field)."
+                    ),
+                  size: z
+                    .number()
+                    .optional()
+                    .describe(
+                      'Bubble size for scatter/quadrant charts (e.g., deal size in millions, market cap). Larger = bigger bubble.'
+                    ),
+                  label: z
+                    .string()
+                    .optional()
+                    .describe(
+                      'Individual entity name for scatter/quadrant charts (e.g., "Goldman Sachs", "Microsoft"). Displayed on/near bubble.'
+                    ),
+                  open: z
+                    .number()
+                    .optional()
+                    .describe(
+                      'Opening price for candlestick charts. Required for type="candlestick".'
+                    ),
+                  high: z
+                    .number()
+                    .optional()
+                    .describe(
+                      'Highest price for candlestick charts. Required for type="candlestick".'
+                    ),
+                  low: z
+                    .number()
+                    .optional()
+                    .describe(
+                      'Lowest price for candlestick charts. Required for type="candlestick".'
+                    ),
+                  close: z
+                    .number()
+                    .optional()
+                    .describe(
+                      'Closing price for candlestick charts (can use y field as fallback). Required for type="candlestick".'
+                    ),
+                  volume: z
+                    .number()
+                    .optional()
+                    .describe(
+                      'Trading volume for candlestick charts. Optional but recommended for type="candlestick".'
                     ),
                 })
               )
               .describe(
-                "Array of data points with x (date/label) and y (value) properties"
+                "Array of data points. For time series: {x: date, y: value}. For scatter: {x, y, size, label}. For candlestick: {x: date, open, high, low, close, volume} (y is optional, will use close value)."
               ),
           })
         )
         .describe(
-          "REQUIRED: Array of data series - each series has name and data array with x,y objects"
+          "REQUIRED: Array of data series. For scatter/quadrant: each series = category for color coding, each point = individual entity"
         ),
       description: z
         .string()
@@ -103,21 +189,33 @@ export const financeTools = {
       yAxisLabel,
       dataSeries,
       description,
-    }) => {
-      // Track chart creation
-      await track('Chart Created', {
-        chartType: type,
-        title: title,
-        seriesCount: dataSeries.length,
-        totalDataPoints: dataSeries.reduce(
-          (sum, series) => sum + series.data.length,
-          0
-        ),
-        hasDescription: !!description
-      });
+    }, options) => {
+      const userId = (options as any)?.experimental_context?.userId;
+      const sessionId = (options as any)?.experimental_context?.sessionId;
 
+      // Calculate metadata based on chart type
+      let dateRange = null;
+      if (type === 'scatter' || type === 'quadrant') {
+        // For scatter/quadrant charts, show x and y axis ranges
+        const allXValues = dataSeries.flatMap(s => s.data.map(d => Number(d.x)));
+        const allYValues = dataSeries.flatMap(s => s.data.map(d => d.y ?? 0));
+        if (allXValues.length > 0 && allYValues.length > 0) {
+          dateRange = {
+            start: `X: ${Math.min(...allXValues).toFixed(1)}-${Math.max(...allXValues).toFixed(1)}`,
+            end: `Y: ${Math.min(...allYValues).toFixed(1)}-${Math.max(...allYValues).toFixed(1)}`,
+          };
+        }
+      } else {
+        // For time series charts, show date/label range
+        if (dataSeries.length > 0 && dataSeries[0].data.length > 0) {
+          dateRange = {
+            start: dataSeries[0].data[0].x,
+            end: dataSeries[0].data[dataSeries[0].data.length - 1].x,
+          };
+        }
+      }
 
-      // Return structured chart data for the UI to render
+      // Build chart data object
       const chartData = {
         chartType: type,
         title,
@@ -131,22 +229,241 @@ export const financeTools = {
             (sum, series) => sum + series.data.length,
             0
           ),
-          dateRange:
-            dataSeries.length > 0 && dataSeries[0].data.length > 0
-              ? {
-                  start: dataSeries[0].data[0].x,
-                  end: dataSeries[0].data[dataSeries[0].data.length - 1].x,
-                }
-              : null,
+          dateRange,
         },
       };
 
-      return chartData;
+      // Save chart to database
+      let chartId: string | null = null;
+      try {
+        const supabase = await createClient();
+        const { data: savedChart, error } = await supabase
+          .from('charts')
+          .insert({
+            user_id: userId || null,
+            session_id: sessionId || null,
+            chart_data: chartData,
+          })
+          .select('id')
+          .single();
+
+        if (error) {
+          console.error('[createChart] Error saving chart to database:', error);
+        } else {
+          chartId = savedChart.id;
+        }
+      } catch (error) {
+        console.error('[createChart] Database error:', error);
+      }
+
+      // Track chart creation
+      await track('Chart Created', {
+        chartType: type,
+        title: title,
+        seriesCount: dataSeries.length,
+        totalDataPoints: dataSeries.reduce(
+          (sum, series) => sum + series.data.length,
+          0
+        ),
+        hasDescription: !!description,
+        hasScatterData: dataSeries.some(s => s.data.some(d => d.size || d.label)),
+        savedToDb: !!chartId,
+      });
+
+      // Return chart data with chartId and imageUrl for markdown embedding
+      return {
+        ...chartData,
+        chartId: chartId || undefined,
+        imageUrl: chartId ? `/api/charts/${chartId}/image` : undefined,
+      };
+    },
+  }),
+
+  // CSV Creation Tool - Generate downloadable CSV files for financial data
+  createCSV: tool({
+    description: `Create downloadable CSV files for financial data, tables, and analysis results.
+
+    USE CASES:
+    - Export financial statements (balance sheet, income statement, cash flow)
+    - Create comparison tables (company metrics, product performance)
+    - Generate time series data exports
+    - Build data tables for further analysis
+    - Create custom financial reports
+
+    REFERENCING CSVs IN MARKDOWN:
+    After creating a CSV, you MUST reference it in your markdown response to display it as an inline table.
+
+    CRITICAL - Use this EXACT format:
+    ![csv](csv:csvId)
+
+    Where csvId is the ID returned in the tool response.
+
+    Example:
+    - Tool returns: { csvId: "abc-123-def-456", ... }
+    - In your response: "Here is the data:\n\n![csv](csv:abc-123-def-456)\n\n"
+
+    The CSV will automatically render as a formatted markdown table. Do NOT use link syntax [text](csv:id), ONLY use image syntax ![csv](csv:id).
+
+    IMPORTANT GUIDELINES:
+    - Use descriptive column headers
+    - Include units in headers when applicable (e.g., "Revenue (USD millions)")
+    - Format numbers appropriately (use consistent decimal places)
+    - Add a title/description to explain the data
+    - Organize data logically (chronological, alphabetical, or by importance)
+
+    EXAMPLE - Company Comparison:
+    {
+      "title": "Tech Giants - Financial Metrics Comparison Q3 2024",
+      "description": "Key financial metrics for major technology companies",
+      "headers": ["Company", "Market Cap (B)", "Revenue (B)", "Net Income (B)", "P/E Ratio", "Employees"],
+      "rows": [
+        ["Apple", "2,800", "383.3", "97.0", "28.9", "164,000"],
+        ["Microsoft", "2,750", "211.9", "72.4", "35.2", "221,000"],
+        ["Google", "1,700", "307.4", "73.8", "23.1", "182,000"]
+      ]
+    }
+
+    EXAMPLE - Time Series Data:
+    {
+      "title": "Apple Stock Price - Last 12 Months",
+      "description": "Monthly closing prices for AAPL",
+      "headers": ["Date", "Open", "High", "Low", "Close", "Volume"],
+      "rows": [
+        ["2024-01-01", "185.23", "196.45", "184.12", "193.58", "125000000"],
+        ["2024-02-01", "193.50", "199.20", "190.10", "197.45", "118000000"]
+      ]
+    }
+
+    EXAMPLE - Financial Statement:
+    {
+      "title": "Apple Inc. - Income Statement FY2023",
+      "description": "Consolidated statement of operations (in millions)",
+      "headers": ["Item", "FY2023", "FY2022", "Change %"],
+      "rows": [
+        ["Net Sales", "383,285", "394,328", "-2.8%"],
+        ["Cost of Revenue", "214,137", "223,546", "-4.2%"],
+        ["Gross Profit", "169,148", "170,782", "-1.0%"],
+        ["Operating Expenses", "55,013", "51,345", "7.1%"],
+        ["Operating Income", "114,135", "119,437", "-4.4%"]
+      ]
+    }
+
+    The CSV will be rendered as an interactive table with download capability.`,
+    inputSchema: z.object({
+      title: z.string().describe("Title for the CSV file (will be used as filename)"),
+      description: z.string().optional().describe("Optional description of the data"),
+      headers: z.array(z.string()).describe("Column headers for the CSV"),
+      rows: z.array(z.array(z.string())).describe("Data rows - each row is an array matching the headers"),
+    }),
+    execute: async ({ title, description, headers, rows }, options) => {
+      const userId = (options as any)?.experimental_context?.userId;
+      const sessionId = (options as any)?.experimental_context?.sessionId;
+
+      try {
+        // Validate that all rows have the same number of columns as headers
+        const headerCount = headers.length;
+        const invalidRows = rows.filter(row => row.length !== headerCount);
+
+        if (invalidRows.length > 0) {
+          // Return error message instead of throwing - allows AI to continue
+          return {
+            error: true,
+            message: `❌ **CSV Validation Error**: All rows must have ${headerCount} columns to match headers. Found ${invalidRows.length} invalid row(s). Please regenerate the CSV with matching column counts.`,
+            title,
+            headers,
+            expectedColumns: headerCount,
+            invalidRowCount: invalidRows.length,
+          };
+        }
+
+        // Generate CSV content
+        const csvContent = [
+          headers.join(','),
+          ...rows.map(row =>
+            row.map(cell => {
+              // Escape cells that contain commas, quotes, or newlines
+              if (cell.includes(',') || cell.includes('"') || cell.includes('\n')) {
+                return `"${cell.replace(/"/g, '""')}"`;
+              }
+              return cell;
+            }).join(',')
+          )
+        ].join('\n');
+
+        // Save CSV to database
+        let csvId: string | null = null;
+        try {
+          const supabase = await createClient();
+
+          console.log('[createCSV] Saving CSV with rows type:', typeof rows, 'isArray:', Array.isArray(rows));
+          console.log('[createCSV] First row sample:', rows[0]);
+
+          const { data: savedCsv, error } = await supabase
+            .from('csvs')
+            .insert({
+              user_id: userId || null,
+              session_id: sessionId || null,
+              title,
+              description: description || null,
+              headers,
+              rows: rows, // Send as-is, let Postgres handle JSONB
+            })
+            .select('id')
+            .single();
+
+          if (error) {
+            console.error('[createCSV] Error saving CSV to database:', error);
+            console.error('[createCSV] Error details:', JSON.stringify(error, null, 2));
+          } else {
+            csvId = savedCsv.id;
+            console.log('[createCSV] Successfully saved CSV with ID:', csvId);
+          }
+        } catch (error) {
+          console.error('[createCSV] Database error:', error);
+        }
+
+        // Track CSV creation
+        await track('CSV Created', {
+          title: title,
+          rowCount: rows.length,
+          columnCount: headers.length,
+          hasDescription: !!description,
+          savedToDb: !!csvId,
+        });
+
+        const result = {
+          title,
+          description,
+          headers,
+          rows,
+          csvContent,
+          rowCount: rows.length,
+          columnCount: headers.length,
+          csvId: csvId || undefined,
+          csvUrl: csvId ? `/api/csvs/${csvId}` : undefined,
+          _instructions: csvId
+            ? `IMPORTANT: Include this EXACT line in your markdown response to display the table:\n\n![csv](csv:${csvId})\n\nDo not write [View Table] or any other text - use the image syntax above.`
+            : undefined,
+        };
+
+        console.log('[createCSV] Returning result with instructions:', result._instructions);
+
+        return result;
+      } catch (error: any) {
+        // Catch any unexpected errors and return error message
+        return {
+          error: true,
+          message: `❌ **CSV Creation Error**: ${error.message || 'Unknown error occurred'}`,
+          title,
+        };
+      }
     },
   }),
 
   codeExecution: tool({
     description: `Execute Python code securely in a Daytona Sandbox for financial modeling, data analysis, and calculations. CRITICAL: Always include print() statements to show results. Daytona can also capture rich artifacts (e.g., charts) when code renders images.
+
+    ⚠️ CODE LENGTH LIMIT: Maximum 10,000 characters. Keep your code concise and focused.
 
     REQUIRED FORMAT - Your Python code MUST include print statements:
     
@@ -350,7 +667,7 @@ ${execution.result || "(No output produced)"}
         if (!apiKey) {
           return "❌ Valyu API key not configured. Please add VALYU_API_KEY to your environment variables to enable financial search.";
         }
-        const valyu = new Valyu(apiKey, "https://api.valyu.network/v1");
+        const valyu = new Valyu(apiKey, "https://api.valyu.ai/v1");
 
         // Configure search based on data type
         let searchOptions: any = {
@@ -471,7 +788,7 @@ ${execution.result || "(No output produced)"}
         if (!apiKey) {
           return "❌ Valyu API key not configured. Please add VALYU_API_KEY to your environment variables to enable Wiley search.";
         }
-        const valyu = new Valyu(apiKey, "https://api.valyu.network/v1");
+        const valyu = new Valyu(apiKey, "https://api.valyu.ai/v1");
 
         // Configure search options for Wiley sources
         const searchOptions: any = {
@@ -594,7 +911,7 @@ ${execution.result || "(No output produced)"}
         // Initialize Valyu client (uses default/free tier if no API key)
         const valyu = new Valyu(
           process.env.VALYU_API_KEY,
-          "https://api.valyu.network/v1"
+          "https://api.valyu.ai/v1"
         );
 
         // Configure search options

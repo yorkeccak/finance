@@ -12,7 +12,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { AlertCircle, CheckCircle, Mail } from 'lucide-react';
+import { AlertCircle, CheckCircle, Mail, Monitor } from 'lucide-react';
+import { ThemeSelector } from '@/components/ui/theme-toggle';
 
 interface SettingsModalProps {
   open: boolean;
@@ -83,6 +84,17 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
               <p className="text-sm font-medium">{user.email?.split('@')[0]}</p>
               <p className="text-xs text-gray-500">{user.email}</p>
             </div>
+          </div>
+
+          {/* Theme Selection */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Monitor className="h-4 w-4 text-gray-500" />
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Theme
+              </label>
+            </div>
+            <ThemeSelector />
           </div>
 
           {/* Email Update Form */}

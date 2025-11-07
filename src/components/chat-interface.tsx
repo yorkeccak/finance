@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useChat } from "@ai-sdk/react";
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import {
@@ -53,6 +54,7 @@ import {
   ExternalLink,
   FileText,
   Clipboard,
+  Download,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -60,8 +62,11 @@ import rehypeRaw from "rehype-raw";
 import "katex/dist/katex.min.css";
 import katex from "katex";
 import { FinancialChart } from "@/components/financial-chart";
+import { CSVPreview } from "@/components/csv-preview";
 import { CitationTextRenderer } from "@/components/citation-text-renderer";
 import { CitationMap } from "@/lib/citation-utils";
+import { CsvRenderer } from "@/components/csv-renderer";
+import { Favicon } from "@/components/favicon";
 const JsonView = dynamic(() => import("@uiw/react-json-view"), {
   ssr: false,
   loading: () => <div className="text-xs text-gray-500">Loading JSON…</div>,
@@ -70,14 +75,19 @@ import {
   preprocessMarkdownText,
   cleanFinancialText,
 } from "@/lib/markdown-utils";
+import { parseFirstLine } from "@/lib/text-utils";
 import { motion, AnimatePresence } from "framer-motion";
 import DataSourceLogos from "./data-source-logos";
 import SocialLinks from "./social-links";
+import { calculateMessageMetrics, MessageMetrics } from "@/lib/metrics-calculator";
+import { MetricsPills } from "@/components/metrics-pills";
 
 // Debug toggles removed per request
 
 // Separate component for reasoning to avoid hook violations
-const ReasoningComponent = ({
+// Optimized to show only first line by default - prevents freezing on large reasoning text
+// PERFORMANCE FIX: Memoized to prevent re-renders during streaming
+const ReasoningComponent = memo(({
   part,
   messageId,
   index,
@@ -93,32 +103,19 @@ const ReasoningComponent = ({
   toggleToolExpansion: (id: string) => void;
 }) => {
   const reasoningId = `reasoning-${messageId}-${index}`;
-  // Check if explicitly collapsed (default is expanded for streaming)
-  const isCollapsed = expandedTools.has(`collapsed-${reasoningId}`);
+  // Check if expanded (default is EXPANDED - show full reasoning)
+  const isExpanded = !expandedTools.has(`collapsed-${reasoningId}`);
   const reasoningText = part.text || "";
-  const previewLength = 150;
-  const shouldShowToggle =
-    reasoningText.length > previewLength || status === "streaming";
-  const displayText = !isCollapsed
-    ? reasoningText
-    : reasoningText.slice(0, previewLength);
+  const hasMultipleLines = reasoningText.split("\n").length > 1;
 
   const copyReasoningTrace = () => {
     navigator.clipboard.writeText(reasoningText);
   };
 
-  const toggleCollapse = () => {
+  const toggleExpand = () => {
     const collapsedKey = `collapsed-${reasoningId}`;
     toggleToolExpansion(collapsedKey);
   };
-
-  // Auto-scroll effect for streaming reasoning
-  const reasoningRef = useRef<HTMLPreElement>(null);
-  useEffect(() => {
-    if (status === "streaming" && reasoningRef.current && !isCollapsed) {
-      reasoningRef.current.scrollTop = reasoningRef.current.scrollHeight;
-    }
-  }, [reasoningText, status, isCollapsed]);
 
   return (
     <div className="mt-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
@@ -142,22 +139,22 @@ const ReasoningComponent = ({
                 <Copy className="h-3 w-3" />
               </Button>
             )}
-            {shouldShowToggle && (
+            {hasMultipleLines && (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={toggleCollapse}
+                onClick={toggleExpand}
                 className="h-6 px-2 text-purple-700 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40"
               >
-                {isCollapsed ? (
-                  <>
-                    <ChevronDown className="h-3 w-3 mr-1" />
-                    Show
-                  </>
-                ) : (
+                {isExpanded ? (
                   <>
                     <ChevronUp className="h-3 w-3 mr-1" />
                     Hide
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-3 w-3 mr-1" />
+                    Show
                   </>
                 )}
               </Button>
@@ -165,42 +162,224 @@ const ReasoningComponent = ({
           </div>
         </div>
 
-        <div
-          className={`${
-            !isCollapsed
-              ? "max-h-96 overflow-y-auto"
-              : "max-h-20 overflow-hidden"
-          } transition-all duration-200 scroll-smooth`}
-        >
-          <pre
-            ref={reasoningRef}
-            className="text-xs text-purple-800 dark:text-purple-200 whitespace-pre-wrap font-mono leading-relaxed bg-purple-25 dark:bg-purple-950/30 p-2 rounded border"
-            style={{ scrollBehavior: "smooth" }}
-          >
-            {displayText}
-            {isCollapsed && shouldShowToggle && (
-              <span className="text-purple-500 dark:text-purple-400">...</span>
-            )}
-          </pre>
-        </div>
-
-        {status === "streaming" && (
-          <div className="mt-2 flex items-center justify-between text-xs text-purple-600 dark:text-purple-400">
-            <div className="flex items-center gap-2 italic">
-              <Clock className="h-3 w-3" />
-              Reasoning in progress...
+        <div className="text-xs prose prose-sm max-w-none bg-purple-25 dark:bg-purple-950/30 p-2 rounded border border-purple-100 dark:border-purple-800 [&_*]:text-purple-800 dark:[&_*]:text-purple-200 [&_h1]:text-purple-800 dark:[&_h1]:text-purple-200 [&_h2]:text-purple-800 dark:[&_h2]:text-purple-200 [&_h3]:text-purple-800 dark:[&_h3]:text-purple-200">
+          {isExpanded ? (
+            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+              {reasoningText}
+            </ReactMarkdown>
+          ) : (
+            <div className="text-purple-800 dark:text-purple-200">
+              <MemoizedFirstLine
+                text={reasoningText}
+                fallback="Analyzing information..."
+              />
             </div>
-            {reasoningText.length > 0 && (
-              <div className="text-xs font-mono">
-                {reasoningText.length} chars
-              </div>
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
+}, (prevProps, nextProps) => {
+  // Only re-render if these specific props change
+  return (
+    prevProps.part.text === nextProps.part.text &&
+    prevProps.messageId === nextProps.messageId &&
+    prevProps.index === nextProps.index &&
+    prevProps.status === nextProps.status &&
+    prevProps.expandedTools === nextProps.expandedTools
+  );
+});
+ReasoningComponent.displayName = 'ReasoningComponent';
+
+// ChartImageRenderer component - Fetches and renders charts from markdown references
+const ChartImageRendererComponent = ({ chartId, alt }: { chartId: string; alt?: string }) => {
+  const [chartData, setChartData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchChart = async () => {
+      try {
+        const response = await fetch(`/api/charts/${chartId}`);
+        if (cancelled) return;
+
+        if (!response.ok) {
+          setError(true);
+          setLoading(false);
+          return;
+        }
+
+        const data = await response.json();
+        if (cancelled) return;
+
+        setChartData(data);
+        setLoading(false);
+      } catch (err) {
+        if (cancelled) return;
+        console.error('[ChartImageRenderer] Error fetching chart:', err);
+        setError(true);
+        setLoading(false);
+      }
+    };
+
+    fetchChart();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chartId]);
+
+  if (loading) {
+    return (
+      <span className="block w-full border border-gray-200 dark:border-gray-700 rounded-lg p-12 my-4 text-center">
+        <span className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></span>
+        <span className="block mt-3 text-sm text-gray-500 dark:text-gray-400">Loading chart...</span>
+      </span>
+    );
+  }
+
+  if (error || !chartData) {
+    return (
+      <span className="block w-full border border-red-200 dark:border-red-700 rounded-lg p-6 my-4 text-center">
+        <span className="text-sm text-red-600 dark:text-red-400">Failed to load chart</span>
+      </span>
+    );
+  }
+
+  return (
+    <span className="block w-full my-4">
+      <FinancialChart {...chartData} key={chartId} />
+    </span>
+  );
 };
+
+// Memoize ChartImageRenderer to prevent unnecessary re-fetches and re-renders
+const ChartImageRenderer = memo(ChartImageRendererComponent, (prevProps, nextProps) => {
+  return prevProps.chartId === nextProps.chartId && prevProps.alt === nextProps.alt;
+});
+ChartImageRenderer.displayName = 'ChartImageRenderer';
+
+// CSV rendering now handled by shared CsvRenderer component
+
+// Memoized Chart Result - prevents re-rendering when props don't change
+const MemoizedChartResult = memo(function MemoizedChartResult({
+  chartData,
+  actionId,
+  expandedTools,
+  toggleToolExpansion
+}: {
+  chartData: any;
+  actionId: string;
+  expandedTools: Set<string>;
+  toggleToolExpansion: (id: string) => void;
+}) {
+  const isChartExpanded = !expandedTools.has(`collapsed-${actionId}`);
+
+  return isChartExpanded ? (
+    <div className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+      <button
+        onClick={() => toggleToolExpansion(`collapsed-${actionId}`)}
+        className="absolute right-2 top-2 z-10 p-1 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-full shadow-sm hover:bg-white dark:hover:bg-gray-900"
+      >
+        <ChevronUp className="w-4 h-4" />
+      </button>
+      <FinancialChart {...chartData} />
+    </div>
+  ) : (
+    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-800">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-sm">📈</span>
+          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{chartData.title}</span>
+        </div>
+        <button
+          onClick={() => toggleToolExpansion(`collapsed-${actionId}`)}
+          className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+        >
+          View Chart
+          <ChevronDown className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.chartData === nextProps.chartData &&
+    prevProps.actionId === nextProps.actionId &&
+    prevProps.expandedTools === nextProps.expandedTools
+  );
+});
+MemoizedChartResult.displayName = 'MemoizedChartResult';
+
+// Memoized Code Execution Result - prevents re-rendering when props don't change
+// Uses plain pre/code WITHOUT syntax highlighting to prevent browser freeze
+const MemoizedCodeExecutionResult = memo(function MemoizedCodeExecutionResult({
+  code,
+  output,
+  actionId,
+  expandedTools,
+  toggleToolExpansion
+}: {
+  code: string;
+  output: string;
+  actionId: string;
+  expandedTools: Set<string>;
+  toggleToolExpansion: (id: string) => void;
+}) {
+  const isExpanded = expandedTools.has(actionId);
+
+  // Escape HTML entities to prevent rendering <module> and other HTML-like content as actual HTML
+  const escapeHtml = (text: string) => {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  };
+
+  return (
+    <div className="border border-green-200 dark:border-green-700 rounded-lg overflow-hidden">
+      {/* Header - collapsed by default */}
+      <button
+        onClick={() => toggleToolExpansion(actionId)}
+        className="w-full px-3 py-2 bg-green-50 dark:bg-green-800 flex items-center justify-between text-xs font-medium hover:bg-green-100 dark:hover:bg-green-750"
+      >
+        <span className="text-green-700 dark:text-green-300">Code & Output</span>
+        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+      </button>
+
+      {/* Expandable content - shows code and output when expanded */}
+      {isExpanded && (
+        <div className="space-y-3 p-3 bg-white dark:bg-gray-900">
+          {/* Code Section - plain pre/code, NO syntax highlighting */}
+          <div>
+            <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Python Code</div>
+            <pre className="p-3 bg-gray-900 text-gray-100 text-xs overflow-x-auto rounded max-h-[400px] overflow-y-auto">
+              <code>{code || "No code available"}</code>
+            </pre>
+          </div>
+
+          {/* Output Section */}
+          <div>
+            <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Output</div>
+            <div className="prose prose-sm max-w-none dark:prose-invert text-xs p-3 bg-gray-50 dark:bg-gray-800 rounded max-h-[400px] overflow-y-auto">
+              <MemoizedMarkdown text={escapeHtml(output)} />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}, (prevProps, nextProps) => {
+  // Only re-render if these specific props change
+  return (
+    prevProps.code === nextProps.code &&
+    prevProps.output === nextProps.output &&
+    prevProps.actionId === nextProps.actionId &&
+    prevProps.expandedTools === nextProps.expandedTools
+  );
+});
+MemoizedCodeExecutionResult.displayName = 'MemoizedCodeExecutionResult';
 
 // Enhanced markdown components that handle both math and financial content
 const markdownComponents = {
@@ -209,23 +388,25 @@ const markdownComponents = {
     if (!src || src.trim() === "") {
       return null;
     }
-    
-    // Validate URL - must be absolute URL or start with /
+
+    console.log('[chat-interface markdownComponents] img src:', src);
+
+    // Validate URL for regular images - must be absolute URL or start with /
     try {
       // Check if it's a valid absolute URL
       new URL(src);
     } catch {
       // Check if it starts with / (valid relative path for Next.js)
-      if (!src.startsWith('/')) {
+      if (!src.startsWith('/') && !src.startsWith('csv:') && !src.match(/^\/api\/(charts|csvs)\//)) {
         console.warn(`Invalid image src: ${src}. Skipping image render.`);
         return (
-          <div className="text-xs text-gray-500 italic border border-gray-200 p-2 rounded">
-            [Image: {alt || src}] (Invalid URL - academic content)
-          </div>
+          <span className="text-xs text-gray-500 italic">
+            [Image: {alt || src}]
+          </span>
         );
       }
     }
-    
+
     return <Image src={src} alt={alt || ""} width={500} height={300} {...props} />;
   },
   iframe: ({ src, ...props }: any) => {
@@ -294,6 +475,152 @@ const markdownComponents = {
       {children}
     </div>
   ),
+  // Fix paragraph wrapping for block elements (charts) to avoid hydration errors
+  p: ({ children, ...props }: any) => {
+    // Check if this paragraph contains any React component (like charts)
+    const hasBlockContent = React.Children.toArray(children).some((child: any) => {
+      return React.isValidElement(child) && typeof child.type !== 'string';
+    });
+
+    // If paragraph contains block content (like charts), render as div to avoid hydration errors
+    if (hasBlockContent) {
+      return <div {...props}>{children}</div>;
+    }
+
+    return <p {...props}>{children}</p>;
+  },
+};
+
+// Memoized component for parsed first line to avoid repeated parsing
+const MemoizedFirstLine = memo(function MemoizedFirstLine({
+  text,
+  fallback,
+}: {
+  text: string;
+  fallback: string;
+}) {
+  const parsed = useMemo(
+    () => parseFirstLine(text, fallback),
+    [text, fallback]
+  );
+  return <>{parsed}</>;
+});
+
+// Helper function to group message parts - memoized to prevent re-computation on every render
+function groupMessageParts(parts: any[]): any[] {
+  const groupedParts: any[] = [];
+  let currentReasoningGroup: any[] = [];
+  const seenToolCallIds = new Set<string>();
+
+  console.log('[groupMessageParts] Processing', parts.length, 'parts');
+
+  parts.forEach((part, index) => {
+    // Skip step-start markers entirely - they're metadata from AI SDK
+    if (part.type === "step-start") {
+      console.log('[groupMessageParts] Skipping step-start at index', index);
+      return;
+    }
+
+    // Deduplicate tool calls by toolCallId - skip if we've already seen this tool call
+    if (part.toolCallId && seenToolCallIds.has(part.toolCallId)) {
+      console.log('[groupMessageParts] DUPLICATE toolCallId detected:', part.toolCallId, 'type:', part.type, 'at index', index);
+      return;
+    }
+
+    // Track this tool call ID
+    if (part.toolCallId) {
+      console.log('[groupMessageParts] First time seeing toolCallId:', part.toolCallId, 'type:', part.type);
+      seenToolCallIds.add(part.toolCallId);
+    }
+
+    if (
+      part.type === "reasoning" &&
+      part.text &&
+      part.text.trim() !== ""
+    ) {
+      currentReasoningGroup.push({ part, index });
+    } else {
+      if (currentReasoningGroup.length > 0) {
+        groupedParts.push({
+          type: "reasoning-group",
+          parts: currentReasoningGroup,
+        });
+        currentReasoningGroup = [];
+      }
+      groupedParts.push({ type: "single", part, index });
+    }
+  });
+
+  // Add any remaining reasoning group
+  if (currentReasoningGroup.length > 0) {
+    groupedParts.push({
+      type: "reasoning-group",
+      parts: currentReasoningGroup,
+    });
+  }
+
+  console.log('[groupMessageParts] Returning', groupedParts.length, 'grouped parts');
+  console.log('[groupMessageParts] Grouped part types:', groupedParts.map(g => g.type === 'reasoning-group' ? 'reasoning-group' : g.part?.type).join(', '));
+
+  return groupedParts;
+}
+
+// Helper to parse and extract CSV/chart references from markdown
+const parseSpecialReferences = (text: string): Array<{ type: 'text' | 'csv' | 'chart', content: string, id?: string }> => {
+  const segments: Array<{ type: 'text' | 'csv' | 'chart', content: string, id?: string }> = [];
+
+  // Pattern to match ![alt](csv:uuid) or ![alt](/api/csvs/uuid) or chart references
+  const pattern = /!\[([^\]]*)\]\((csv:[a-f0-9-]+|\/api\/csvs\/[a-f0-9-]+|\/api\/charts\/[^\/]+\/image)\)/gi;
+
+  let lastIndex = 0;
+  let match;
+
+  while ((match = pattern.exec(text)) !== null) {
+    // Add text before the reference
+    if (match.index > lastIndex) {
+      segments.push({
+        type: 'text',
+        content: text.substring(lastIndex, match.index)
+      });
+    }
+
+    const url = match[2];
+
+    // Check if it's a CSV reference
+    const csvProtocolMatch = url.match(/^csv:([a-f0-9-]+)$/i);
+    const csvApiMatch = url.match(/^\/api\/csvs\/([a-f0-9-]+)$/i);
+
+    if (csvProtocolMatch || csvApiMatch) {
+      const csvId = (csvProtocolMatch || csvApiMatch)![1];
+      segments.push({
+        type: 'csv',
+        content: match[0],
+        id: csvId
+      });
+    } else {
+      // Chart reference
+      const chartMatch = url.match(/^\/api\/charts\/([^\/]+)\/image$/);
+      if (chartMatch) {
+        segments.push({
+          type: 'chart',
+          content: match[0],
+          id: chartMatch[1]
+        });
+      }
+    }
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Add remaining text
+  if (lastIndex < text.length) {
+    segments.push({
+      type: 'text',
+      content: text.substring(lastIndex)
+    });
+  }
+
+  return segments;
 };
 
 // Memoized Markdown renderer to avoid re-parsing on unrelated state updates
@@ -302,22 +629,244 @@ const MemoizedMarkdown = memo(function MemoizedMarkdown({
 }: {
   text: string;
 }) {
+  console.log('[MemoizedMarkdown] Rendering text:', text?.substring(0, 200), '... includes csv:', text?.includes('![csv](csv:'));
   const enableRawHtml = (text?.length || 0) < 20000;
+
+  // Parse special references (CSV/charts) - MUST be before any conditional returns
+  const specialSegments = useMemo(() => parseSpecialReferences(text), [text]);
+  const hasSpecialRefs = specialSegments.some(s => s.type === 'csv' || s.type === 'chart');
+
+  // Process text for regular markdown - MUST be before any conditional returns
   const processed = useMemo(
-    () => preprocessMarkdownText(cleanFinancialText(text || "")),
+    () => {
+      const result = preprocessMarkdownText(cleanFinancialText(text || ""));
+      console.log('[MemoizedMarkdown] Processed text:', result?.substring(0, 200), '... includes csv:', result?.includes('![csv](csv:'));
+      return result;
+    },
     [text]
   );
+
+  // If we have CSV or chart references, render them separately to avoid nesting issues
+  if (hasSpecialRefs) {
+    return (
+      <>
+        {specialSegments.map((segment, idx) => {
+          if (segment.type === 'csv' && segment.id) {
+            return <CsvRenderer key={`${segment.id}-${idx}`} csvId={segment.id} />;
+          }
+          if (segment.type === 'chart' && segment.id) {
+            return <ChartImageRenderer key={`${segment.id}-${idx}`} chartId={segment.id} />;
+          }
+          // Render text segment as markdown
+          const segmentProcessed = preprocessMarkdownText(cleanFinancialText(segment.content));
+          return (
+            <ReactMarkdown
+              key={idx}
+              remarkPlugins={[remarkGfm]}
+              components={markdownComponents as any}
+              rehypePlugins={enableRawHtml ? [rehypeRaw] : []}
+              skipHtml={!enableRawHtml}
+              unwrapDisallowed={true}
+            >
+              {segmentProcessed}
+            </ReactMarkdown>
+          );
+        })}
+      </>
+    );
+  }
+
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       components={markdownComponents as any}
       rehypePlugins={enableRawHtml ? [rehypeRaw] : []}
       skipHtml={!enableRawHtml}
+      unwrapDisallowed={true}
     >
       {processed}
     </ReactMarkdown>
   );
+}, (prevProps, nextProps) => {
+  // PERFORMANCE FIX: Only re-render if text actually changes
+  return prevProps.text === nextProps.text;
 });
+
+// THIS IS THE KEY OPTIMIZATION - prevents re-renders during streaming
+// Extract citations ONLY when parts change, NOT when text streams
+const MemoizedTextPartWithCitations = memo(
+  function MemoizedTextPartWithCitations({
+    text,
+    messageParts,
+    currentPartIndex,
+    allMessages,
+    currentMessageIndex,
+  }: {
+    text: string;
+    messageParts: any[];
+    currentPartIndex: number;
+    allMessages?: any[];
+    currentMessageIndex?: number;
+  }) {
+    // Extract citations only when parts before this one change, not when text streams
+    const citations = useMemo(() => {
+      const citationMap: CitationMap = {};
+      let citationNumber = 1;
+
+      console.log('[citation extraction] Total parts:', messageParts.length, 'currentPartIndex:', currentPartIndex);
+      console.log('[citation extraction] All part types:', messageParts.map(p => p.type).join(', '));
+      console.log('[citation extraction] Text being rendered:', text.substring(0, 100));
+      console.log('[citation extraction] Scanning', allMessages?.length || 0, 'total messages, current:', currentMessageIndex);
+
+      // Scan ALL previous messages AND current message for tool results
+      if (allMessages && currentMessageIndex !== undefined) {
+        for (let msgIdx = 0; msgIdx <= currentMessageIndex; msgIdx++) {
+          const msg = allMessages[msgIdx];
+          const parts = msg.parts || (Array.isArray(msg.content) ? msg.content : []);
+
+          console.log('[citation extraction] Message', msgIdx, 'has', parts.length, 'parts, types:', parts.map((p: any) => p.type).join(', '));
+
+          for (let i = 0; i < parts.length; i++) {
+            const p = parts[i];
+
+        console.log('[citation extraction] Part', i, 'type:', p.type, 'toolName:', p.toolName, 'keys:', Object.keys(p));
+
+        // Check for search tool results - handle both live streaming and saved message formats
+        // Live: p.type = "tool-financialSearch", Saved: p.type = "tool-result" with toolName
+        const isSearchTool =
+          p.type === "tool-financialSearch" ||
+          p.type === "tool-webSearch" ||
+          p.type === "tool-wileySearch" ||
+          (p.type === "tool-result" && (
+            p.toolName === "financialSearch" ||
+            p.toolName === "webSearch" ||
+            p.toolName === "wileySearch"
+          ));
+
+        if (isSearchTool && (p.output || p.result)) {
+          try {
+            const output = typeof p.output === "string" ? JSON.parse(p.output) :
+                          typeof p.result === "string" ? JSON.parse(p.result) :
+                          p.output || p.result;
+
+            // Check if this is a search result with multiple items
+            if (output.results && Array.isArray(output.results)) {
+              output.results.forEach((item: any) => {
+                const key = `[${citationNumber}]`;
+                let description = item.content || item.summary || item.description || "";
+                if (typeof description === "object") {
+                  description = JSON.stringify(description);
+                }
+                citationMap[key] = [
+                  {
+                    number: citationNumber.toString(),
+                    title: item.title || `Source ${citationNumber}`,
+                    url: item.url || "",
+                    description: description,
+                    source: item.source,
+                    date: item.date,
+                    authors: Array.isArray(item.authors) ? item.authors : [],
+                    doi: item.doi,
+                    relevanceScore: item.relevanceScore || item.relevance_score,
+                    toolType:
+                      p.type === "tool-financialSearch" || p.toolName === "financialSearch"
+                        ? "financial"
+                        : p.type === "tool-wileySearch" || p.toolName === "wileySearch"
+                        ? "wiley"
+                        : "web",
+                  },
+                ];
+                citationNumber++;
+              });
+            }
+          } catch (error) {
+            // Ignore parse errors
+          }
+        }
+          }
+        }
+      } else {
+        // Fallback: scan current message only (for streaming messages)
+        for (let i = 0; i < messageParts.length; i++) {
+          const p = messageParts[i];
+
+          const isSearchTool =
+            p.type === "tool-financialSearch" ||
+            p.type === "tool-webSearch" ||
+            p.type === "tool-wileySearch" ||
+            (p.type === "tool-result" && (
+              p.toolName === "financialSearch" ||
+              p.toolName === "webSearch" ||
+              p.toolName === "wileySearch"
+            ));
+
+          if (isSearchTool && (p.output || p.result)) {
+            try {
+              const output = typeof p.output === "string" ? JSON.parse(p.output) :
+                            typeof p.result === "string" ? JSON.parse(p.result) :
+                            p.output || p.result;
+
+              if (output.results && Array.isArray(output.results)) {
+                output.results.forEach((item: any) => {
+                  const key = `[${citationNumber}]`;
+                  let description = item.content || item.summary || item.description || "";
+                  if (typeof description === "object") {
+                    description = JSON.stringify(description);
+                  }
+                  citationMap[key] = [
+                    {
+                      number: citationNumber.toString(),
+                      title: item.title || `Source ${citationNumber}`,
+                      url: item.url || "",
+                      description: description,
+                      source: item.source,
+                      date: item.date,
+                      authors: Array.isArray(item.authors) ? item.authors : [],
+                      doi: item.doi,
+                      relevanceScore: item.relevanceScore || item.relevance_score,
+                      toolType:
+                        p.type === "tool-financialSearch" || p.toolName === "financialSearch"
+                          ? "financial"
+                          : p.type === "tool-wileySearch" || p.toolName === "wileySearch"
+                          ? "wiley"
+                          : "web",
+                    },
+                  ];
+                  citationNumber++;
+                });
+              }
+            } catch (error) {
+              // Ignore parse errors
+            }
+          }
+        }
+      }
+
+      return citationMap;
+    }, [messageParts, currentPartIndex, allMessages, currentMessageIndex]); // Only recompute when parts array changes, not text
+
+    // Memoize whether citations exist to avoid Object.keys() on every render
+    const hasCitations = useMemo(() => {
+      return Object.keys(citations).length > 0;
+    }, [citations]);
+
+    // Render with or without citations
+    if (hasCitations) {
+      return <CitationTextRenderer text={text} citations={citations} />;
+    } else {
+      return <MemoizedMarkdown text={text} />;
+    }
+  },
+  (prevProps, nextProps) => {
+    // Custom comparison: only re-render if text changed OR parts structure changed
+    // This prevents re-rendering on every token during streaming
+    return (
+      prevProps.text === nextProps.text &&
+      prevProps.currentPartIndex === nextProps.currentPartIndex &&
+      prevProps.messageParts.length === nextProps.messageParts.length
+    );
+  }
+);
 
 // Helper function to extract search results for carousel display
 const extractSearchResults = (jsonOutput: string) => {
@@ -439,16 +988,23 @@ const SearchResultCard = ({
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs text-gray-500">
-                  <span className="truncate px-2 rounded text-xs bg-gray-100 dark:bg-gray-800 py-0.5 max-w-[150px]">
-                    {(() => {
-                      try {
-                        const url = new URL(result.url);
-                        return url.hostname.replace("www.", "");
-                      } catch {
-                        return result.source || "unknown";
-                      }
-                    })()}
-                  </span>
+                  <div className="flex items-center gap-1.5 px-2 rounded text-xs bg-gray-100 dark:bg-gray-800 py-0.5 max-w-[150px]">
+                    <Favicon
+                      url={result.url}
+                      size={16}
+                      className="w-3.5 h-3.5 flex-shrink-0"
+                    />
+                    <span className="truncate">
+                      {(() => {
+                        try {
+                          const url = new URL(result.url);
+                          return url.hostname.replace("www.", "");
+                        } catch {
+                          return result.source || "unknown";
+                        }
+                      })()}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -499,22 +1055,29 @@ const SearchResultCard = ({
                 </div>
                 <div className="flex items-center justify-between text-xs text-gray-500 pl-2">
                   {type === "wiley" ? (
-                    <img 
-                      src="/wy.svg" 
-                      alt="Wiley" 
+                    <img
+                      src="/wy.svg"
+                      alt="Wiley"
                       className="w-10 h-10 dark:invert opacity-80"
                     />
                   ) : (
-                    <span className="truncate px-2 rounded text-xs bg-gray-100 dark:bg-gray-800 py-0.5 max-w-[150px]">
-                      {(() => {
-                        try {
-                          const urlObj = new URL(result.url);
-                          return urlObj.hostname.replace(/^www\./, "");
-                        } catch {
-                          return result.url;
-                        }
-                      })()}
-                    </span>
+                    <div className="flex items-center gap-1.5 px-2 rounded text-xs bg-gray-100 dark:bg-gray-800 py-0.5 max-w-[150px]">
+                      <Favicon
+                        url={result.url}
+                        size={16}
+                        className="w-3.5 h-3.5 flex-shrink-0"
+                      />
+                      <span className="truncate">
+                        {(() => {
+                          try {
+                            const urlObj = new URL(result.url);
+                            return urlObj.hostname.replace(/^www\./, "");
+                          } catch {
+                            return result.url;
+                          }
+                        })()}
+                      </span>
+                    </div>
                   )}
                 </div>
               </div>
@@ -565,6 +1128,11 @@ const SearchResultCard = ({
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400"
               >
+                <Favicon
+                  url={result.url}
+                  size={16}
+                  className="w-3.5 h-3.5"
+                />
                 <ExternalLink className="h-3 w-3" />
                 View Source
               </a>
@@ -1211,7 +1779,8 @@ export function ChatInterface({
           role: msg.role,
           parts: msg.parts,
           toolCalls: msg.toolCalls,
-          createdAt: msg.createdAt
+          createdAt: msg.createdAt,
+          processing_time_ms: msg.processing_time_ms
         }));
         
         // Set messages in the chat
@@ -1243,22 +1812,32 @@ export function ChatInterface({
     }
   }, [user, setMessages]);
 
+  // Handle stop with error catching to prevent AbortError
+  const handleStop = useCallback(() => {
+    try {
+      // Just call stop, the SDK should handle if there's nothing to stop
+      stop();
+    } catch (error) {
+      // Silently ignore AbortError - this is expected behavior
+      // The error occurs when stop() is called but there's no active stream
+    }
+  }, [stop]);
+
   // Initialize and handle sessionId prop changes
   useEffect(() => {
-    
-    // Always update the ref to stay in sync
-    sessionIdRef.current = sessionId;
-    
     if (sessionId !== currentSessionId) {
       if (sessionId) {
+        // Update ref and load messages when sessionId prop has a value
+        sessionIdRef.current = sessionId;
         loadSessionMessages(sessionId);
-      } else {
-        
-        // Stop any ongoing streaming
-        if (status === 'streaming' || status === 'submitted') {
-          stop();
-        }
-        
+      } else if (!sessionIdRef.current) {
+        // Only clear if we don't have a locally-created session
+        // (if sessionIdRef has a value, it means handleSubmit just created a session
+        // but the prop hasn't updated yet - don't clear in this case!)
+
+        // Don't call stop() here - it causes AbortErrors
+        // The SDK will handle cleanup when we clear messages
+
         // Clear everything for fresh start
         setCurrentSessionId(undefined);
         setMessages([]);
@@ -1266,12 +1845,13 @@ export function ChatInterface({
         setIsFormAtBottom(false); // Reset form position for new chat
         setEditingMessageId(null); // Clear any editing state
         setEditingText('');
-        
+
         // Call parent's new chat handler if provided
         onNewChat?.();
       }
     }
-  }, [sessionId]); // Only sessionId prop dependency
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]); // Only sessionId prop dependency - internal state changes should not retrigger this
 
   // Check rate limit status 
   useEffect(() => {
@@ -1341,6 +1921,12 @@ export function ChatInterface({
     end: number;
   }>({ start: 0, end: 30 });
   const overscan = 8;
+  // Use ref to track visible range and avoid infinite loop (critical fix for tab switching)
+  const visibleRangeRef = useRef(visibleRange);
+  useEffect(() => {
+    visibleRangeRef.current = visibleRange;
+  }, [visibleRange]);
+
   const updateVisibleRange = useCallback(() => {
     if (!virtualizationEnabled) return;
     const c = messagesContainerRef.current;
@@ -1351,7 +1937,8 @@ export function ChatInterface({
     const start = Math.max(0, Math.floor(c.scrollTop / rowH) - overscan);
     const count = Math.ceil(containerH / rowH) + overscan * 2;
     const end = Math.min(deferredMessages.length, start + count);
-    if (start !== visibleRange.start || end !== visibleRange.end) {
+    // Use ref to compare instead of state - prevents infinite loop
+    if (start !== visibleRangeRef.current.start || end !== visibleRangeRef.current.end) {
       setVisibleRange({ start, end });
     }
   }, [
@@ -1359,20 +1946,21 @@ export function ChatInterface({
     avgRowHeight,
     overscan,
     deferredMessages.length,
-    visibleRange.start,
-    visibleRange.end,
+    // Removed visibleRange.start and visibleRange.end - this was causing infinite loop
   ]);
   useEffect(() => {
     if (virtualizationEnabled) {
       setVisibleRange({ start: 0, end: Math.min(deferredMessages.length, 30) });
       requestAnimationFrame(updateVisibleRange);
     }
-  }, [virtualizationEnabled, deferredMessages.length, updateVisibleRange]);
+    // Removed updateVisibleRange from dependencies - prevents infinite loop
+  }, [virtualizationEnabled, deferredMessages.length]);
   useEffect(() => {
     const onResize = () => updateVisibleRange();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [updateVisibleRange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - updateVisibleRange is stable now
 
   // Helper: detect if messages container scrolls or if page scroll is used
   const isContainerScrollable = () => {
@@ -1412,7 +2000,8 @@ export function ChatInterface({
   }, [messages.length, isMobile]);
 
   // Check if user is at bottom of scroll (container only)
-  const isAtBottom = () => {
+  // Wrap in useCallback to prevent re-renders (doc line 1386)
+  const isAtBottom = useCallback(() => {
     const container = messagesContainerRef.current;
     if (!container) return false;
     const threshold = 5;
@@ -1420,7 +2009,7 @@ export function ChatInterface({
       container.scrollHeight - container.scrollTop - container.clientHeight;
     const atBottom = distanceFromBottom <= threshold;
     return atBottom;
-  };
+  }, []);
 
   // Auto-scroll ONLY if already at bottom when new content arrives
   useEffect(() => {
@@ -1534,7 +2123,8 @@ export function ChatInterface({
       document.removeEventListener("wheel", handleGlobalWheel);
       // No window scroll listener to remove
     };
-  }, [updateVisibleRange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - prevent infinite loop on tab switch
 
   // Observe bottom anchor visibility relative to the scroll container
   useEffect(() => {
@@ -1681,7 +2271,8 @@ export function ChatInterface({
     setEditingText("");
   };
 
-  const toggleToolExpansion = (toolId: string) => {
+  // Wrap in useCallback to prevent re-renders (doc line 625)
+  const toggleToolExpansion = useCallback((toolId: string) => {
     setExpandedTools((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(toolId)) {
@@ -1691,9 +2282,9 @@ export function ChatInterface({
       }
       return newSet;
     });
-  };
+  }, []);
 
-  const toggleChartExpansion = (toolId: string) => {
+  const toggleChartExpansion = useCallback((toolId: string) => {
     setExpandedTools((prev) => {
       const newSet = new Set(prev);
       const collapsedKey = `collapsed-${toolId}`;
@@ -1704,16 +2295,74 @@ export function ChatInterface({
       }
       return newSet;
     });
-  };
+  }, []);
 
-  const copyToClipboard = async (text: string) => {
+  // Wrap in useCallback to prevent re-renders (doc line 619)
+  const copyToClipboard = useCallback(async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
       // You could add a toast notification here if desired
     } catch (err) {
       console.error("Failed to copy text: ", err);
     }
-  };
+  }, []);
+
+  // Download professional PDF report with charts and citations
+  const handleDownloadPDF = useCallback(async () => {
+    if (!sessionIdRef.current) {
+      console.warn('No session ID available for PDF generation');
+      return;
+    }
+
+    try {
+      console.log('[PDF Download] Starting PDF generation for session:', sessionIdRef.current);
+
+      // Call server-side PDF generation API
+      const response = await fetch('/api/reports/generate-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId: sessionIdRef.current,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to generate PDF');
+      }
+
+      // Get PDF blob
+      const blob = await response.blob();
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+
+      // Get filename from response header or use default
+      const contentDisposition = response.headers.get('Content-Disposition');
+      const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
+      const filename = filenameMatch ? filenameMatch[1] : `report-${Date.now()}.pdf`;
+
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      console.log('[PDF Download] PDF downloaded successfully');
+
+      track('PDF Downloaded', {
+        sessionId: sessionIdRef.current,
+        messageCount: messages.length,
+      });
+    } catch (err) {
+      console.error('Failed to generate PDF:', err);
+      alert('Failed to generate PDF. Please try again.');
+    }
+  }, [messages]);
 
   const updateUrlWithQuery = (query: string) => {
     if (query.trim()) {
@@ -1764,9 +2413,60 @@ export function ChatInterface({
   const canRegenerate =
     (status === "ready" || status === "error") && messages.length > 0;
 
+  // Calculate cumulative metrics from all assistant messages
+  const cumulativeMetrics = useMemo(() => {
+    let totalMetrics: MessageMetrics = {
+      sourcesAnalyzed: 0,
+      wordsProcessed: 0,
+      timeSavedMinutes: 0,
+      moneySaved: 0,
+      processingTimeMs: 0,
+      breakdown: {
+        sourceReadingMinutes: 0,
+        sourceFindingMinutes: 0,
+        writingMinutes: 0,
+        csvCreationMinutes: 0,
+        chartCreationMinutes: 0,
+        analysisMinutes: 0,
+        dataProcessingMinutes: 0,
+      },
+    };
+
+    messages.filter(m => m.role === 'assistant').forEach(message => {
+      // Extract message parts from different possible formats
+      let messageParts: any[] = [];
+
+      if (Array.isArray((message as any).content)) {
+        messageParts = (message as any).content;
+      } else if ((message as any).parts) {
+        messageParts = (message as any).parts;
+      }
+
+      const messageMetrics = calculateMessageMetrics(messageParts);
+
+      // Accumulate metrics
+      totalMetrics.sourcesAnalyzed += messageMetrics.sourcesAnalyzed;
+      totalMetrics.wordsProcessed += messageMetrics.wordsProcessed;
+      totalMetrics.timeSavedMinutes += messageMetrics.timeSavedMinutes;
+      totalMetrics.moneySaved += messageMetrics.moneySaved;
+
+      // Accumulate processing time from message metadata
+      if ((message as any).processing_time_ms || (message as any).processingTimeMs) {
+        totalMetrics.processingTimeMs += (message as any).processing_time_ms || (message as any).processingTimeMs || 0;
+      }
+
+      // Accumulate breakdown
+      Object.keys(messageMetrics.breakdown).forEach((key) => {
+        const breakdownKey = key as keyof typeof messageMetrics.breakdown;
+        totalMetrics.breakdown[breakdownKey] += messageMetrics.breakdown[breakdownKey];
+      });
+    });
+
+    return totalMetrics;
+  }, [messages]);
+
   return (
     <div className="w-full max-w-3xl mx-auto relative min-h-0">
-
       {/* Removed duplicate New Chat button - handled by parent page */}
       {process.env.NEXT_PUBLIC_APP_MODE === 'development' && (
         <div className="fixed top-4 left-4 z-50">
@@ -1941,6 +2641,13 @@ export function ChatInterface({
             transition={{ delay: 0.9, duration: 0.5 }}
           >
             <div className="w-full max-w-3xl mx-auto px-4 sm:px-6">
+              {/* Metrics Pills - connected to input box */}
+              {messages.length > 0 && (
+                <div className="mb-2">
+                  <MetricsPills metrics={cumulativeMetrics} />
+                </div>
+              )}
+
               <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
                 <div className="relative flex items-end">
                   <Textarea
@@ -1960,7 +2667,7 @@ export function ChatInterface({
                   />
                   <Button
                     type={canStop ? "button" : "submit"}
-                    onClick={canStop ? stop : undefined}
+                    onClick={canStop ? handleStop : undefined}
                     disabled={
                       !canStop &&
                       (isLoading || !input.trim() || status === "error")
@@ -2103,35 +2810,9 @@ export function ChatInterface({
                     <div className="space-y-4">
                       {(() => {
                         // Group consecutive reasoning steps together
-                        const groupedParts: any[] = [];
-                        let currentReasoningGroup: any[] = [];
-
-                        message.parts.forEach((part, index) => {
-                          if (
-                            part.type === "reasoning" &&
-                            part.text &&
-                            part.text.trim() !== ""
-                          ) {
-                            currentReasoningGroup.push({ part, index });
-                          } else {
-                            if (currentReasoningGroup.length > 0) {
-                              groupedParts.push({
-                                type: "reasoning-group",
-                                parts: currentReasoningGroup,
-                              });
-                              currentReasoningGroup = [];
-                            }
-                            groupedParts.push({ type: "single", part, index });
-                          }
-                        });
-
-                        // Add any remaining reasoning group
-                        if (currentReasoningGroup.length > 0) {
-                          groupedParts.push({
-                            type: "reasoning-group",
-                            parts: currentReasoningGroup,
-                          });
-                        }
+                        // Note: This runs on every render, but it's a simple grouping operation
+                        // The real performance fix is in removing expensive operations during input-available state
+                        const groupedParts = groupMessageParts(message.parts);
 
                         return groupedParts.map((group, groupIndex) => {
                           if (group.type === "reasoning-group") {
@@ -2162,75 +2843,25 @@ export function ChatInterface({
                             const { part, index } = group;
 
                             switch (part.type) {
+                              // Skip step-start markers (metadata from AI SDK)
+                              case "step-start":
+                                return null;
+
                               // Text parts
                               case "text":
+                                // Use index directly instead of findIndex to avoid extra computation
                                 return (
                                   <div
                                     key={index}
                                     className="prose prose-sm max-w-none dark:prose-invert"
                                   >
-                                    {(() => {
-                                      // Collect citations from tool results that appear BEFORE this text part
-                                      const citations: CitationMap = {};
-                                      let citationNumber = 1;
-                                      
-                                      // Find the current part's index
-                                      const currentPartIndex = message.parts.findIndex((p: any) => p === part);
-                                      
-                                      // Look for tool results that come BEFORE this text part
-                                      // This ensures citations match the order the AI references them
-                                      for (let i = 0; i < currentPartIndex; i++) {
-                                        const p = message.parts[i];
-                                        
-                                        // Check for search tool results (financial, web, wiley)
-                                        if ((p.type === 'tool-financialSearch' || 
-                                             p.type === 'tool-webSearch' || 
-                                             p.type === 'tool-wileySearch') &&
-                                            p.state === 'output-available' && 
-                                            p.output) {
-                                          try {
-                                            const output = typeof p.output === 'string' 
-                                              ? JSON.parse(p.output) 
-                                              : (p as any).output; // lol sorry
-                                            
-                                            // Check if this is a search result with multiple items
-                                            if (output.results && Array.isArray(output.results)) {
-                                              output.results.forEach((item: any) => {
-                                                const key = `[${citationNumber}]`;
-                                                // Ensure description is a string, not an object
-                                                let description = item.content || item.summary || item.description || '';
-                                                if (typeof description === 'object') {
-                                                  description = JSON.stringify(description);
-                                                }
-                                                citations[key] = [{
-                                                  number: citationNumber.toString(),
-                                                  title: item.title || `Source ${citationNumber}`,
-                                                  url: item.url || '',
-                                                  description: description,
-                                                  source: item.source,
-                                                  date: item.date,
-                                                  authors: Array.isArray(item.authors) ? item.authors : [],
-                                                  doi: item.doi,
-                                                  relevanceScore: item.relevanceScore || item.relevance_score,
-                                                  toolType: p.type === 'tool-financialSearch' ? 'financial' : 
-                                                           p.type === 'tool-wileySearch' ? 'wiley' : 'web'
-                                                }];
-                                                citationNumber++;
-                                              });
-                                            }
-                                          } catch (error) {
-                                            console.error('Error extracting citations from tool:', p.type, error);
-                                          }
-                                        }
-                                      }
-                                      
-                                      // If we have citations, use the citation renderer, otherwise use regular markdown
-                                      if (Object.keys(citations).length > 0) {
-                                        return <CitationTextRenderer text={part.text} citations={citations} />;
-                                      } else {
-                                        return <MemoizedMarkdown text={part.text} />;
-                                      }
-                                    })()}
+                                    <MemoizedTextPartWithCitations
+                                      text={part.text}
+                                      messageParts={message.parts}
+                                      currentPartIndex={index}
+                                      allMessages={deferredMessages}
+                                      currentMessageIndex={realIndex}
+                                    />
                                   </div>
                                 );
 
@@ -2263,6 +2894,8 @@ export function ChatInterface({
                                       </div>
                                     );
                                   case "input-available":
+                                    // PERFORMANCE FIX: Don't render code during streaming
+                                    // Rendering large code blocks causes re-renders on every character
                                     return (
                                       <div
                                         key={callId}
@@ -2276,60 +2909,20 @@ export function ChatInterface({
                                           <Clock className="h-3 w-3 animate-spin" />
                                         </div>
                                         <div className="text-sm text-blue-600 dark:text-blue-300">
-                                          <div className="bg-blue-100 dark:bg-blue-800/30 p-2 rounded">
-                                            <div className="flex items-center justify-between mb-2">
-                                              <span className="font-medium">
-                                                {part.input.description ||
-                                                  "Executing Python code..."}
-                                              </span>
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() =>
-                                                  toggleToolExpansion(callId)
-                                                }
-                                                className="h-6 w-6 p-0 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200"
-                                              >
-                                                {isExpanded ? (
-                                                  <ChevronUp className="h-3 w-3" />
-                                                ) : (
-                                                  <ChevronDown className="h-3 w-3" />
-                                                )}
-                                              </Button>
-                                            </div>
-                                            {isExpanded ? (
-                                              <pre className="font-mono text-xs whitespace-pre-wrap bg-white dark:bg-gray-800 p-2 rounded border max-h-48 overflow-y-auto">
-                                                {part.input.code}
-                                              </pre>
-                                            ) : (
-                                              <div className="font-mono text-xs text-blue-700 dark:text-blue-300 line-clamp-2">
-                                                {part.input.code.split("\n")[0]}
-                                                ...
-                                              </div>
-                                            )}
-                                          </div>
+                                          {part.input?.description || "Executing Python code..."}
                                         </div>
                                       </div>
                                     );
                                   case "output-available":
                                     return (
-                                      <div
-                                        key={callId}
-                                        className="mt-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded p-2 sm:p-3"
-                                      >
-                                        <div className="flex items-center gap-2 text-green-700 dark:text-green-400 mb-2">
-                                          <CheckCircle className="h-4 w-4" />
-                                          <span className="font-medium">
-                                            Python Execution Result
-                                          </span>
-                                        </div>
-                                        <div className="text-sm text-green-600 dark:text-green-300">
-                                          <div className="prose prose-sm max-w-none dark:prose-invert">
-                                            <MemoizedMarkdown
-                                              text={part.output}
-                                            />
-                                          </div>
-                                        </div>
+                                      <div key={callId} className="mt-2">
+                                        <MemoizedCodeExecutionResult
+                                          code={part.input?.code || ""}
+                                          output={part.output}
+                                          actionId={callId}
+                                          expandedTools={expandedTools}
+                                          toggleToolExpansion={toggleToolExpansion}
+                                        />
                                       </div>
                                     );
                                   case "output-error":
@@ -2693,6 +3286,8 @@ export function ChatInterface({
                                       </div>
                                     );
                                   case "input-available":
+                                    // PERFORMANCE FIX: Don't render input details during streaming
+                                    // Accessing part.input.dataSeries?.length causes re-renders
                                     return (
                                       <div
                                         key={callId}
@@ -2706,31 +3301,112 @@ export function ChatInterface({
                                           <Clock className="h-3 w-3 animate-spin" />
                                         </div>
                                         <div className="text-sm text-emerald-600 dark:text-emerald-300">
-                                          <div className="bg-emerald-100 dark:bg-emerald-800/30 p-2 rounded">
-                                            <div className="font-mono text-xs">
-                                              Creating {part.input.type} chart:
-                                              &quot;{part.input.title}&quot;
-                                              <br />
-                                              Data Series:{" "}
-                                              {part.input.dataSeries?.length ||
-                                                0}
-                                            </div>
-                                          </div>
-                                          <div className="mt-2 text-xs">
-                                            Generating interactive
-                                            visualization...
-                                          </div>
+                                          Generating interactive visualization...
                                         </div>
                                       </div>
                                     );
                                   case "output-available":
-                                    // Charts are expanded by default, collapsed only if explicitly set
-                                    const isChartExpanded = !expandedTools.has(
+                                    return (
+                                      <div key={callId} className="mt-2">
+                                        <MemoizedChartResult
+                                          chartData={part.output}
+                                          actionId={callId}
+                                          expandedTools={expandedTools}
+                                          toggleToolExpansion={toggleToolExpansion}
+                                        />
+                                      </div>
+                                    );
+                                  case "output-error":
+                                    return (
+                                      <div
+                                        key={callId}
+                                        className="mt-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-2 sm:p-3"
+                                      >
+                                        <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+                                          <AlertCircle className="h-4 w-4" />
+                                          <span className="font-medium">
+                                            Chart Creation Error
+                                          </span>
+                                        </div>
+                                        <div className="text-sm text-red-600 dark:text-red-300">
+                                          {part.errorText}
+                                        </div>
+                                      </div>
+                                    );
+                                }
+                                break;
+                              }
+
+                              // CSV Creation Tool
+                              case "tool-createCSV": {
+                                const callId = part.toolCallId;
+                                switch (part.state) {
+                                  case "input-streaming":
+                                    return (
+                                      <div
+                                        key={callId}
+                                        className="mt-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded p-2 sm:p-3"
+                                      >
+                                        <div className="flex items-center gap-2 text-purple-700 dark:text-purple-400 mb-2">
+                                          <span className="text-lg">📊</span>
+                                          <span className="font-medium">
+                                            Creating CSV
+                                          </span>
+                                          <Clock className="h-3 w-3 animate-spin" />
+                                        </div>
+                                        <div className="text-sm text-purple-600 dark:text-purple-300">
+                                          Preparing CSV data table...
+                                        </div>
+                                      </div>
+                                    );
+                                  case "input-available":
+                                    // PERFORMANCE FIX: Don't render input details during streaming
+                                    // Accessing part.input.rows?.length with 75 rows causes massive re-renders
+                                    return (
+                                      <div
+                                        key={callId}
+                                        className="mt-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded p-2 sm:p-3"
+                                      >
+                                        <div className="flex items-center gap-2 text-purple-700 dark:text-purple-400 mb-2">
+                                          <span className="text-lg">📊</span>
+                                          <span className="font-medium">
+                                            Creating CSV
+                                          </span>
+                                          <Clock className="h-3 w-3 animate-spin" />
+                                        </div>
+                                        <div className="text-sm text-purple-600 dark:text-purple-300">
+                                          Generating data table...
+                                        </div>
+                                      </div>
+                                    );
+                                  case "output-available":
+                                    // Check if output contains an error
+                                    if (part.output?.error) {
+                                      return (
+                                        <div
+                                          key={callId}
+                                          className="mt-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-2 sm:p-3"
+                                        >
+                                          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+                                            <AlertCircle className="h-4 w-4" />
+                                            <span className="font-medium">
+                                              CSV Creation Error
+                                            </span>
+                                          </div>
+                                          <div className="text-sm text-red-600 dark:text-red-300">
+                                            {part.output.message}
+                                          </div>
+                                        </div>
+                                      );
+                                    }
+
+                                    // CSVs are expanded by default, collapsed only if explicitly set
+                                    const isCSVExpanded = !expandedTools.has(
                                       `collapsed-${callId}`
                                     );
                                     return (
                                       <div key={callId} className="mt-2">
-                                        {isChartExpanded ? (
+                                        {isCSVExpanded ? (
                                           <div className="relative">
                                             <Button
                                               variant="ghost"
@@ -2742,14 +3418,14 @@ export function ChatInterface({
                                             >
                                               <ChevronUp className="h-4 w-4" />
                                             </Button>
-                                            <FinancialChart {...part.output} />
+                                            <CSVPreview {...part.output} />
                                           </div>
                                         ) : (
                                           <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
                                             <div className="flex items-center justify-between mb-2">
                                               <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
                                                 <span className="text-lg">
-                                                  📈
+                                                  📊
                                                 </span>
                                                 <span className="font-medium">
                                                   {part.output.title}
@@ -2768,16 +3444,13 @@ export function ChatInterface({
                                             </div>
                                             <div className="text-sm text-gray-500 dark:text-gray-400 space-y-1">
                                               <div>
-                                                Chart Type:{" "}
-                                                {part.output.chartType}
+                                                Rows: {part.output.rowCount || 0}
                                               </div>
                                               <div>
-                                                Data Series:{" "}
-                                                {part.output.dataSeries
-                                                  ?.length || 0}
+                                                Columns: {part.output.columnCount || 0}
                                               </div>
                                               {part.output.description && (
-                                                <div className="text-xs">
+                                                <div className="text-xs mt-2">
                                                   {part.output.description}
                                                 </div>
                                               )}
@@ -2789,7 +3462,7 @@ export function ChatInterface({
                                                 }
                                                 className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200 underline"
                                               >
-                                                View Chart
+                                                View CSV Table
                                               </button>
                                             </div>
                                           </div>
@@ -2805,7 +3478,7 @@ export function ChatInterface({
                                         <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
                                           <AlertCircle className="h-4 w-4" />
                                           <span className="font-medium">
-                                            Chart Creation Error
+                                            CSV Creation Error
                                           </span>
                                         </div>
                                         <div className="text-sm text-red-600 dark:text-red-300">
@@ -2862,13 +3535,13 @@ export function ChatInterface({
                   {/* Message Actions */}
                   {message.role === "assistant" && (
                     <div className="flex justify-end gap-1 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {messages[messages.length - 1]?.id === message.id &&
+                      {deferredMessages[deferredMessages.length - 1]?.id === message.id &&
                         canRegenerate && (
                           <Button
                             onClick={() => {
                               track('Message Regenerated', {
-                                messageCount: messages.length,
-                                lastMessageRole: messages[messages.length - 1]?.role
+                                messageCount: deferredMessages.length,
+                                lastMessageRole: deferredMessages[deferredMessages.length - 1]?.role
                               });
                               regenerate();
                             }}
@@ -2882,16 +3555,28 @@ export function ChatInterface({
                         )}
 
                       {!isLoading && (
-                        <Button
-                          onClick={() =>
-                            copyToClipboard(getMessageText(message))
-                          }
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                        >
-                          <Copy className="h-3 w-3" />
-                        </Button>
+                        <>
+                          <Button
+                            onClick={() =>
+                              copyToClipboard(getMessageText(message))
+                            }
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                            title="Copy to clipboard"
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            onClick={handleDownloadPDF}
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                            title="Download Full Report as PDF"
+                          >
+                            <Download className="h-3 w-3" />
+                          </Button>
+                        </>
                       )}
                     </div>
                   )}
@@ -2919,8 +3604,8 @@ export function ChatInterface({
         {/* Coffee Loading Message */}
         <AnimatePresence>
           {status === "submitted" &&
-            messages.length > 0 &&
-            messages[messages.length - 1]?.role === "user" && (
+            deferredMessages.length > 0 &&
+            deferredMessages[deferredMessages.length - 1]?.role === "user" && (
               <motion.div
                 className="mb-6"
                 initial={{ opacity: 0, y: 10 }}
@@ -3025,22 +3710,29 @@ export function ChatInterface({
       <AnimatePresence>
         {(isFormAtBottom || isMobile) && (
           <motion.div
-            className="fixed left-1/2 -translate-x-1/2 bottom-0 w-full max-w-3xl px-3 sm:px-6 pt-4 sm:pt-5 pb-6 sm:pb-7 z-50"
+            className="fixed left-1/2 -translate-x-1/2 bottom-0 w-full max-w-3xl px-3 sm:px-6 pt-4 pb-5 sm:pb-6 z-50"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
           >
+            {/* Metrics Pills - connected to input box */}
+            {messages.length > 0 && (
+              <div className="mb-2">
+                <MetricsPills metrics={cumulativeMetrics} />
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
-              <div className="relative flex items-end">
+              <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 px-4 py-2.5 relative flex items-center">
                 <Textarea
                   value={input}
                   onChange={handleInputChange}
                   placeholder="Ask a question..."
-                  className="w-full resize-none border-gray-200 dark:border-gray-700 rounded-2xl px-4 sm:px-4 py-3 sm:py-3 pr-14 sm:pr-16 min-h-[44px] sm:min-h-[48px] max-h-28 sm:max-h-32 focus:border-gray-300 dark:focus:border-gray-600 focus:ring-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm overflow-y-auto text-base shadow-lg border"
+                  className="w-full resize-none border-0 px-0 py-2 pr-12 min-h-[36px] max-h-24 focus:ring-0 bg-transparent overflow-y-auto text-base placeholder:text-gray-400 dark:placeholder:text-gray-500"
                   disabled={status === "error" || isLoading}
                   rows={1}
-                  style={{ lineHeight: "1.5" }}
+                  style={{ lineHeight: "1.5", paddingTop: "0.5rem", paddingBottom: "0.5rem" }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
@@ -3050,35 +3742,35 @@ export function ChatInterface({
                 />
                 <Button
                   type={canStop ? "button" : "submit"}
-                  onClick={canStop ? stop : undefined}
+                  onClick={canStop ? handleStop : undefined}
                   disabled={
                     !canStop &&
                     (isLoading || !input.trim() || status === "error")
                   }
-                  className="absolute right-2 sm:right-2 top-1/2 -translate-y-1/2 rounded-xl h-8 w-8 sm:h-9 sm:w-9 p-0 bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 dark:text-gray-900 shadow-lg"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl h-8 w-8 p-0 bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 dark:text-gray-900 shadow-sm transition-colors"
                 >
-                  {canStop ? (
-                    <Square className="h-4 w-4" />
-                  ) : isLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 12l14 0m-7-7l7 7-7 7"
-                      />
-                    </svg>
-                  )}
-                </Button>
-              </div>
-            </form>
+                    {canStop ? (
+                      <Square className="h-4 w-4" />
+                    ) : isLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 12l14 0m-7-7l7 7-7 7"
+                        />
+                      </svg>
+                    )}
+                  </Button>
+                </div>
+              </form>
 
             {/* Mobile Bottom Bar - Social links and disclaimer below input */}
             <motion.div 

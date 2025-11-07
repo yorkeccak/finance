@@ -54,7 +54,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ sessionI
       role: msg.role,
       parts: msg.content,
       toolCalls: msg.tool_calls,
-      createdAt: msg.created_at
+      createdAt: msg.created_at,
+      processing_time_ms: msg.processing_time_ms
     }))
   }));
 }

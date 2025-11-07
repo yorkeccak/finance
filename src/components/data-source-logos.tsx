@@ -50,7 +50,7 @@ response.results.forEach(result => {
       },
       {
         language: "cURL",
-        code: `curl -X POST https://api.valyu.network/v1/deepsearch \\
+        code: `curl -X POST https://api.valyu.ai/v1/deepsearch \\
   -H "x-api-key: <your_api_key>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -104,7 +104,7 @@ response.results.forEach(paper => {
       },
       {
         language: "cURL",
-        code: `curl -X POST https://api.valyu.network/v1/deepsearch \\
+        code: `curl -X POST https://api.valyu.ai/v1/deepsearch \\
   -H "x-api-key: <your_api_key>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -174,7 +174,7 @@ response.results.forEach(statement => {
       },
       {
         language: "cURL",
-        code: `curl -X POST https://api.valyu.network/v1/deepsearch \\
+        code: `curl -X POST https://api.valyu.ai/v1/deepsearch \\
   -H "x-api-key: <your_api_key>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -246,7 +246,7 @@ response.results.forEach(item => {
       },
       {
         language: "cURL",
-        code: `curl -X POST https://api.valyu.network/v1/deepsearch \\
+        code: `curl -X POST https://api.valyu.ai/v1/deepsearch \\
   -H "x-api-key: <your_api_key>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -305,7 +305,7 @@ response.results.forEach(result => {
       },
       {
         language: "cURL",
-        code: `curl -X POST https://api.valyu.network/v1/deepsearch \\
+        code: `curl -X POST https://api.valyu.ai/v1/deepsearch \\
   -H "x-api-key: <your_api_key>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -364,7 +364,7 @@ response.results.forEach(paper => {
       },
       {
         language: "cURL",
-        code: `curl -X POST https://api.valyu.network/v1/deepsearch \\
+        code: `curl -X POST https://api.valyu.ai/v1/deepsearch \\
   -H "x-api-key: <your_api_key>" \\
   -H "Content-Type: application/json" \\
   -d '{

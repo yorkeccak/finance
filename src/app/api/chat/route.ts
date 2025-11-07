@@ -237,7 +237,7 @@ export async function POST(req: Request) {
     console.log("[Chat API] Model selected:", modelInfo);
 
     // No need for usage tracker - Polar LLM Strategy handles everything automatically
-    
+
     // User tier is already determined above in model selection
     let userTier = 'free';
     if (user) {
@@ -249,6 +249,9 @@ export async function POST(req: Request) {
       userTier = userData?.subscription_tier || 'free';
       console.log("[Chat API] User tier:", userTier);
     }
+
+    // Track processing start time
+    const processingStartTime = Date.now();
 
     // Save message to database before processing
     if (user && sessionId) {
@@ -305,10 +308,16 @@ export async function POST(req: Request) {
          - Execute Python code for financial modeling, complex calculations, data analysis, and mathematical computations using the codeExecution tool (runs in a secure Daytona Sandbox)
          - The Python environment can install packages via pip at runtime inside the sandbox (e.g., numpy, pandas, scikit-learn)
          - Visualization libraries (matplotlib, seaborn, plotly) may work inside Daytona. However, by default, prefer the built-in chart creation tool for standard time series and comparisons. Use Daytona for advanced or custom visualizations only when necessary.
-         - Search for real-time financial data using the financial search tool (market data, earnings reports, SEC filings, financial news, regulatory updates)  
+         - Search for real-time financial data using the financial search tool (market data, earnings reports, SEC filings, financial news, regulatory updates)
          - Search academic finance literature using the Wiley search tool (peer-reviewed papers, academic journals, textbooks, and scholarly research)
          - Search the web for general information using the web search tool (any topic with relevance scoring and cost control)
-         - Create interactive charts and visualizations using the chart creation tool (line charts, bar charts, area charts with multiple data series)
+         - Create interactive charts and visualizations using the chart creation tool:
+           • Line charts: Time series trends (stock prices, revenue over time)
+           • Bar charts: Categorical comparisons (quarterly earnings, company comparisons)
+           • Area charts: Cumulative data (stacked metrics, composition)
+           • Scatter/Bubble charts: Correlation analysis, positioning maps, investor mapping
+           • Quadrant charts: 2x2 strategic matrices (BCG matrix, Edge Zone analysis)
+           • Candlestick charts: OHLC + Volume data for stock/crypto price movements with professional candlestick visualization
 
       **CRITICAL NOTE**: You must only make max 5 parallel tool calls at a time.
 
@@ -339,13 +348,26 @@ export async function POST(req: Request) {
          • General knowledge across all domains
          
          For data visualization, you can create charts when users want to:
-         • Compare multiple stocks, cryptocurrencies, or financial metrics
-         • Visualize historical trends over time (earnings, revenue, stock prices)
-         • Display portfolio performance or asset allocation
-         • Show relationships between different data series
+         • Compare multiple stocks, cryptocurrencies, or financial metrics (line/bar charts)
+         • Visualize historical trends over time (line/area charts for stock prices, revenue)
+         • Display portfolio performance or asset allocation (area charts)
+         • Show relationships between different data series (scatter charts for correlation)
+         • Map strategic positioning (scatter charts for investor mapping, competitive analysis)
+         • Create 2x2 strategic matrices (quadrant charts for BCG, Edge Zone frameworks)
          • Present financial data in an easy-to-understand visual format
 
-         Whenever you have time series data for the user (such as stock prices, historical financial metrics, or any data with values over time), always visualize it using the chart creation tool. Use a line chart by default for time series data, unless another chart type is more appropriate for the context. If you retrieve or generate time series data, automatically create a chart to help the user understand trends and patterns.
+         **Chart Type Selection Guidelines**:
+         • Use LINE charts for time series trends (simple closing prices, revenue over time, basic metrics)
+         • Use BAR charts for categorical comparisons (quarterly earnings, company comparisons)
+         • Use AREA charts for cumulative data (stacked metrics, composition analysis)
+         • Use SCATTER charts for correlation, positioning maps, or bubble charts with size representing a third metric
+         • Use QUADRANT charts for 2x2 strategic analysis (divides chart into 4 quadrants with reference lines)
+         • Use CANDLESTICK charts for detailed stock/crypto price analysis when you have OHLC (Open/High/Low/Close) data + Volume
+           - Candlestick charts show price movements with green (up) and red (down) candles
+           - Includes volume bars for trading activity analysis
+           - Perfect for technical analysis, intraday movements, and detailed price action
+
+         Whenever you have time series data for the user (such as stock prices, historical financial metrics, or any data with values over time), always visualize it using the chart creation tool. For scatter/quadrant charts, each series represents a category (for color coding), and each data point represents an individual entity with x, y, optional size (for bubbles), and optional label (entity name).
 
          CRITICAL: When using the createChart tool, you MUST format the dataSeries exactly like this:
          dataSeries: [
@@ -360,6 +382,23 @@ export async function POST(req: Request) {
          ]
          
          Each data point requires an x field (date/label) and y field (numeric value). Do NOT use other formats like "datasets" or "labels" - only use the dataSeries format shown above.
+
+         CRITICAL CHART EMBEDDING REQUIREMENTS:
+         - Charts are automatically displayed in the Action Tracker section when created
+         - Charts are ALSO saved to the database and MUST be referenced in your markdown response
+         - The createChart tool returns a chartId and imageUrl for every chart created
+         - YOU MUST ALWAYS embed charts in your response using markdown image syntax: ![Chart Title](/api/charts/{chartId}/image)
+         - Embed charts at appropriate locations within your response, just like a professional investment banking report
+         - Place charts AFTER the relevant analysis section that discusses the data shown in the chart
+         - Charts should enhance and support your written analysis - they are not optional
+         - Professional reports always integrate visual data with written analysis
+
+         Example of proper chart embedding in a response:
+         "Tesla's revenue has shown exceptional growth over the past five years, driven by increasing vehicle deliveries and expanding energy storage operations. The company's automotive segment remains the primary revenue driver, while energy generation and storage continue to gain momentum.
+
+         ![Tesla Revenue Growth 2019-2024](/api/charts/abc-123-def/image)
+
+         This growth trajectory demonstrates Tesla's successful execution of its production scaling strategy..."
 
          When creating charts:
          • Use line charts for time series data (stock prices, trends over time)
@@ -526,15 +565,20 @@ export async function POST(req: Request) {
     const streamResponse = result.toUIMessageStreamResponse({
       sendReasoning: true,
       onFinish: async (completion) => {
+        // Calculate processing time
+        const processingEndTime = Date.now();
+        const processingTimeMs = processingEndTime - processingStartTime;
+        console.log('[Chat API] Processing completed in', processingTimeMs, 'ms');
+
         // Save assistant response
         console.log('[Chat API] onFinish called - user:', !!user, 'sessionId:', sessionId);
         if (user && sessionId) {
           console.log('[Chat API] Saving assistant response to session:', sessionId);
-          
+
           // Extract the content from the completion
           let messageContent = [];
           const responseMsg = completion.responseMessage;
-          
+
           if (responseMsg && 'content' in responseMsg) {
             if (typeof (responseMsg as any).content === 'string') {
               messageContent = [{ type: 'text', text: (responseMsg as any).content }];
@@ -544,14 +588,19 @@ export async function POST(req: Request) {
           } else if (responseMsg && 'parts' in responseMsg) {
             messageContent = (responseMsg as any).parts;
           }
-          
+
+          console.log('[Chat API] About to save message with', messageContent.length, 'parts');
+          console.log('[Chat API] First 30 part types:', messageContent.map((p: any) => p.type).slice(0, 30).join(', '));
+          console.log('[Chat API] Sample toolCallIds:', messageContent.filter((p: any) => p.toolCallId).slice(0, 10).map((p: any) => `${p.type}:${p.toolCallId}`).join(', '));
+
           await saveMessageToSession(supabase, sessionId, {
             role: 'assistant',
             content: messageContent,
-            tool_calls: (responseMsg as any)?.toolCalls || null
+            tool_calls: (responseMsg as any)?.toolCalls || null,
+            processing_time_ms: processingTimeMs
           });
         }
-        
+
         // No manual usage tracking needed - Polar LLM Strategy handles this automatically!
         console.log('[Chat API] AI usage automatically tracked by Polar LLM Strategy');
       }
@@ -584,26 +633,46 @@ export async function POST(req: Request) {
 
     return streamResponse;
   } catch (error) {
-    console.error("Chat API error:", error);
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
+    console.error("[Chat API] Error:", error);
+
+    // Extract meaningful error message
+    const errorMessage = error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : 'An unexpected error occurred';
+
+    // Log full error details for debugging
+    console.error("[Chat API] Error details:", {
+      message: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+      error: error
     });
+
+    return new Response(
+      JSON.stringify({
+        error: "CHAT_ERROR",
+        message: errorMessage,
+        details: error instanceof Error ? error.stack : undefined
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 }
 
 async function saveMessageToSession(supabase: any, sessionId: string, message: any) {
   try {
-    console.log('[saveMessageToSession] Raw message:', JSON.stringify(message, null, 2));
-    
+    console.log('[saveMessageToSession] Saving message for session:', sessionId, 'role:', message.role);
+
     // Handle different message formats
     let content = [];
-    
+
     if (message.parts) {
-      console.log('[saveMessageToSession] Using message.parts');
       content = message.parts;
     } else if (message.content) {
-      console.log('[saveMessageToSession] Using message.content');
       // If content is a string, wrap it in a text part
       if (typeof message.content === 'string') {
         content = [{ type: 'text', text: message.content }];
@@ -611,20 +680,22 @@ async function saveMessageToSession(supabase: any, sessionId: string, message: a
         content = message.content;
       }
     } else if (message.text) {
-      console.log('[saveMessageToSession] Using message.text');
       content = [{ type: 'text', text: message.text }];
-    } else {
-      console.log('[saveMessageToSession] No recognized content field found');
     }
 
-    const insertData = {
+    const insertData: any = {
       session_id: sessionId,
       role: message.role,
       content: content,
       tool_calls: message.tool_calls || message.toolCalls || null
     };
-    
-    console.log('[saveMessageToSession] Inserting data:', JSON.stringify(insertData, null, 2));
+
+    // Add processing_time_ms if provided (only for assistant messages)
+    if (message.processing_time_ms !== undefined) {
+      insertData.processing_time_ms = message.processing_time_ms;
+    }
+
+    console.log('[saveMessageToSession] Inserting message with', content.length, 'parts');
 
     const { data, error } = await supabase
       .from('chat_messages')
@@ -633,9 +704,8 @@ async function saveMessageToSession(supabase: any, sessionId: string, message: a
 
     if (error) {
       console.error('[saveMessageToSession] Database error:', error);
-      console.error('[saveMessageToSession] Error details:', JSON.stringify(error, null, 2));
     } else {
-      console.log('[saveMessageToSession] Successfully saved message:', data);
+      console.log('[saveMessageToSession] Successfully saved message');
     }
   } catch (error) {
     console.error('[saveMessageToSession] Exception:', error);

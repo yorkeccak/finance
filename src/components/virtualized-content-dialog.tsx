@@ -39,7 +39,7 @@ export function VirtualizedContentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`max-w-4xl max-h-[80vh] overflow-hidden flex flex-col ${className}`}>
+      <DialogContent className={`w-[95vw] sm:w-[90vw] !max-w-6xl max-h-[80vh] overflow-hidden flex flex-col ${className}`}>
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>{title}</span>

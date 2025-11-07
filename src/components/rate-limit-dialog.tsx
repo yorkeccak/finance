@@ -187,7 +187,7 @@ export function RateLimitDialog({ open, onOpenChange, resetTime, onShowAuth }: R
     onOpenChange(false);
   };
 
-  const codeSnippet = `curl -X POST "https://api.valyu.network/v1/search" \\
+  const codeSnippet = `curl -X POST "https://api.valyu.ai/v1/search" \\
   -H "Authorization: x-api-key your_api_key" \\
   -H "Content-Type: application/json" \\
   -d '{"query": "latest tesla MD&A 10-k", "max_results": 2}'`;

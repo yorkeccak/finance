@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/carousel";
 import { cn } from "@/lib/utils";
 import { ExternalLink, FileText, ChevronLeft, ChevronRight } from "lucide-react";
+import { Favicon } from "@/components/favicon";
 
 // Container for citation text and card
 export const InlineCitation = React.forwardRef<
@@ -81,9 +82,9 @@ export const InlineCitationCardTrigger = React.forwardRef<
     if (isValyu) {
       return (
         <>
-          <img 
-            src="/valyu.svg" 
-            alt="Valyu" 
+          <img
+            src="/valyu.svg"
+            alt="Valyu"
             className="h-6 w-6 inline-block"
             loading="eager"
             decoding="async"
@@ -95,9 +96,9 @@ export const InlineCitationCardTrigger = React.forwardRef<
     if (isWiley) {
       return (
         <>
-          <img 
-            src="/wy.svg" 
-            alt="Wiley" 
+          <img
+            src="/wy.svg"
+            alt="Wiley"
             className="h-6 w-6 inline-block opacity-80"
             loading="eager"
             decoding="async"
@@ -107,8 +108,18 @@ export const InlineCitationCardTrigger = React.forwardRef<
         </>
       );
     }
-    return <>{hostname}{count}</>;
-  }, [isValyu, isWiley, hostname, count]);
+    // For all other sources, show favicon with hostname
+    return (
+      <>
+        <Favicon
+          url={firstSource}
+          size={16}
+          className="w-3.5 h-3.5 inline-block"
+        />
+        <span className="ml-0.5">{hostname}{count}</span>
+      </>
+    );
+  }, [isValyu, isWiley, hostname, count, firstSource]);
 
   return (
     <HoverCardPrimitive.Trigger asChild>
@@ -306,13 +317,20 @@ export const InlineCitationSource = React.forwardRef<
       {...props}
     >
       <div className="space-y-1">
-        <div className="flex items-start justify-between gap-2">
-          <h4 className="text-xs font-medium leading-tight line-clamp-2 flex-1">
-            {title}
-          </h4>
-          <FileText className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2">
+          <Favicon
+            url={url}
+            size={16}
+            className="w-4 h-4 flex-shrink-0 mt-0.5"
+          />
+          <div className="flex-1 flex items-start justify-between gap-2">
+            <h4 className="text-xs font-medium leading-tight line-clamp-2 flex-1">
+              {title}
+            </h4>
+            <FileText className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-0.5" />
+          </div>
         </div>
-        
+
         {description && (
           <p className="text-[10px] text-muted-foreground line-clamp-2 leading-snug">
             {description}
@@ -321,6 +339,11 @@ export const InlineCitationSource = React.forwardRef<
       </div>
 
       <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground flex-wrap">
+        <Favicon
+          url={url}
+          size={12}
+          className="w-3 h-3 flex-shrink-0"
+        />
         <span className="truncate max-w-[100px]">{getHostname(url)}</span>
         {date && (
           <>

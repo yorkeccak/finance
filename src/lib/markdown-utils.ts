@@ -13,6 +13,19 @@ export function preprocessMarkdownText(text: string): string {
 
   let processedText = text;
 
+  // Escape standalone $ symbols that aren't part of LaTeX expressions
+  // This prevents them from being interpreted as math delimiters
+  // Match $ that isn't followed/preceded by another $ (inline math) or \\ (LaTeX)
+  processedText = processedText
+    // Protect existing math expressions first by temporarily replacing them
+    .replace(/\$\$[\s\S]+?\$\$/g, (match) => `__DISPLAY_MATH__${Buffer.from(match).toString('base64')}__`)
+    .replace(/\$[^$\n]+?\$/g, (match) => `__INLINE_MATH__${Buffer.from(match).toString('base64')}__`)
+    // Now escape remaining standalone $ symbols by wrapping them in backticks to prevent interpretation
+    .replace(/\$/g, '\\$')
+    // Restore protected math expressions
+    .replace(/__DISPLAY_MATH__([A-Za-z0-9+/=]+)__/g, (_, base64) => Buffer.from(base64, 'base64').toString())
+    .replace(/__INLINE_MATH__([A-Za-z0-9+/=]+)__/g, (_, base64) => Buffer.from(base64, 'base64').toString());
+
   // Convert any stray LaTeX expressions to <math> tags
   processedText = processedText
     // Convert standalone \frac{...}{...} to <math>\frac{...}{...}</math>

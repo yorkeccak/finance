@@ -61,12 +61,12 @@ function CSVPreviewComponent({
   };
 
   return (
-    <div className="w-full bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-      {/* Header - matching chart style */}
-      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
+    <div className="w-full bg-gradient-to-br from-white to-gray-50/50 dark:from-gray-900 dark:to-gray-900/80 rounded-xl border border-gray-200/80 dark:border-gray-700/50 overflow-hidden shadow-sm">
+      {/* Header - elegant and clean */}
+      <div className="px-5 py-4 border-b border-gray-200/60 dark:border-gray-700/50">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-1.5">
               {title}
             </h3>
             {description && (
@@ -74,57 +74,57 @@ function CSVPreviewComponent({
                 {description}
               </p>
             )}
+
+            {/* Metadata Badges - minimal and refined */}
+            <div className="flex gap-2 mt-2.5">
+              <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                {rowCount} Row{rowCount !== 1 ? 's' : ''}
+              </span>
+              <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                {columnCount} Column{columnCount !== 1 ? 's' : ''}
+              </span>
+            </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-2 ml-4">
+          {/* Action Buttons - refined styling */}
+          <div className="flex gap-1.5 flex-shrink-0">
             <Button
               onClick={handleCopy}
-              variant="outline"
+              variant="ghost"
               size="sm"
-              className="h-8 px-2.5 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
+              className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-800"
               title="Copy CSV to clipboard"
             >
               {copied ? (
-                <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
               ) : (
-                <Copy className="w-3.5 h-3.5" />
+                <Copy className="w-3.5 h-3.5 text-gray-500" />
               )}
             </Button>
             <Button
               onClick={handleDownload}
-              variant="outline"
+              variant="ghost"
               size="sm"
-              className="h-8 px-2.5 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
+              className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-800"
               title="Download CSV file"
             >
-              <Download className="w-3.5 h-3.5" />
+              <Download className="w-3.5 h-3.5 text-gray-500" />
             </Button>
           </div>
         </div>
-
-        {/* Metadata Badges */}
-        <div className="flex gap-2 mt-3">
-          <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-            {rowCount} Row{rowCount !== 1 ? 's' : ''}
-          </span>
-          <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-            {columnCount} Column{columnCount !== 1 ? 's' : ''}
-          </span>
-        </div>
       </div>
 
-      {/* Table Container - more zoomed out with smaller text */}
+      {/* Table Container - elegant typography */}
       <div className="overflow-hidden">
-        <div className="max-h-[600px] overflow-auto">
-          <table className="w-full border-collapse text-[11px]">
-            {/* Header */}
-            <thead className="sticky top-0 z-10 bg-gray-100 dark:bg-gray-800">
-              <tr className="border-b border-gray-300 dark:border-gray-600">
+        <div className="max-h-[500px] overflow-auto">
+          <table className="w-full border-collapse text-xs">
+            {/* Header - refined styling */}
+            <thead className="sticky top-0 z-10 bg-gradient-to-b from-gray-50 to-gray-100/80 dark:from-gray-800 dark:to-gray-850/80 backdrop-blur-sm">
+              <tr className="border-b-2 border-gray-200 dark:border-gray-700">
                 {headers.map((header, index) => (
                   <th
                     key={index}
-                    className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap border-r border-gray-200 dark:border-gray-700 last:border-r-0"
+                    className="px-4 py-2.5 text-left font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap"
                   >
                     {header}
                   </th>
@@ -132,21 +132,17 @@ function CSVPreviewComponent({
               </tr>
             </thead>
 
-            {/* Body */}
+            {/* Body - clean rows with subtle hover */}
             <tbody>
               {rows.map((row, rowIndex) => (
                 <tr
                   key={rowIndex}
-                  className={`
-                    ${rowIndex % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-850'}
-                    hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors
-                    border-b border-gray-100 dark:border-gray-700/50 last:border-b-0
-                  `}
+                  className="border-b border-gray-100 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors"
                 >
                   {row.map((cell, cellIndex) => (
                     <td
                       key={cellIndex}
-                      className="px-3 py-1.5 text-gray-700 dark:text-gray-300 border-r border-gray-100 dark:border-gray-700/50 last:border-r-0 whitespace-nowrap"
+                      className="px-4 py-2 text-gray-700 dark:text-gray-300 whitespace-nowrap"
                     >
                       {cell}
                     </td>

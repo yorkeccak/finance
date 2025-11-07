@@ -50,12 +50,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ sessionI
   return new Response(JSON.stringify({
     session,
     messages: messages.map(msg => ({
+      // Use database ID as message ID
       id: msg.id,
       role: msg.role,
-      parts: msg.content,
-      toolCalls: msg.tool_calls,
+      // AI SDK v5 uses 'parts' for UIMessage
+      // The 'content' column in DB stores the parts array
+      parts: msg.content || [],
       createdAt: msg.created_at,
-      processing_time_ms: msg.processing_time_ms
     }))
   }));
 }

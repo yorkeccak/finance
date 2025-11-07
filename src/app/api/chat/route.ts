@@ -253,14 +253,9 @@ export async function POST(req: Request) {
     // Track processing start time
     const processingStartTime = Date.now();
 
-    // Save message to database before processing
-    if (user && sessionId) {
-      console.log('[Chat API] Attempting to save user message to session:', sessionId);
-      console.log('[Chat API] Message to save:', messages[messages.length - 1]);
-      await saveMessageToSession(supabase, sessionId, messages[messages.length - 1]);
-    } else {
-      console.log('[Chat API] Not saving message - user:', !!user, 'sessionId:', sessionId);
-    }
+    // Note: We don't save individual messages here anymore.
+    // The entire conversation is saved in onFinish callback after streaming completes.
+    // This follows the Vercel AI SDK v5 recommended pattern.
 
     console.log(`[Chat API] About to call streamText with model:`, selectedModel);
     console.log(`[Chat API] Model info:`, modelInfo);
@@ -564,41 +559,23 @@ export async function POST(req: Request) {
     // Create the streaming response with chat persistence
     const streamResponse = result.toUIMessageStreamResponse({
       sendReasoning: true,
-      onFinish: async (completion) => {
+      originalMessages: messages,
+      onFinish: async ({ messages: allMessages }) => {
         // Calculate processing time
         const processingEndTime = Date.now();
         const processingTimeMs = processingEndTime - processingStartTime;
         console.log('[Chat API] Processing completed in', processingTimeMs, 'ms');
 
-        // Save assistant response
+        // Save all messages to database
         console.log('[Chat API] onFinish called - user:', !!user, 'sessionId:', sessionId);
+        console.log('[Chat API] Total messages in conversation:', allMessages.length);
+
         if (user && sessionId) {
-          console.log('[Chat API] Saving assistant response to session:', sessionId);
+          console.log('[Chat API] Saving messages to session:', sessionId);
 
-          // Extract the content from the completion
-          let messageContent = [];
-          const responseMsg = completion.responseMessage;
-
-          if (responseMsg && 'content' in responseMsg) {
-            if (typeof (responseMsg as any).content === 'string') {
-              messageContent = [{ type: 'text', text: (responseMsg as any).content }];
-            } else {
-              messageContent = (responseMsg as any).content;
-            }
-          } else if (responseMsg && 'parts' in responseMsg) {
-            messageContent = (responseMsg as any).parts;
-          }
-
-          console.log('[Chat API] About to save message with', messageContent.length, 'parts');
-          console.log('[Chat API] First 30 part types:', messageContent.map((p: any) => p.type).slice(0, 30).join(', '));
-          console.log('[Chat API] Sample toolCallIds:', messageContent.filter((p: any) => p.toolCallId).slice(0, 10).map((p: any) => `${p.type}:${p.toolCallId}`).join(', '));
-
-          await saveMessageToSession(supabase, sessionId, {
-            role: 'assistant',
-            content: messageContent,
-            tool_calls: (responseMsg as any)?.toolCalls || null,
-            processing_time_ms: processingTimeMs
-          });
+          // The correct pattern: Save ALL messages from the conversation
+          // This replaces all messages in the session with the complete, up-to-date conversation
+          await saveMessagesToSession(supabase, sessionId, allMessages, processingTimeMs);
         }
 
         // No manual usage tracking needed - Polar LLM Strategy handles this automatically!
@@ -663,51 +640,76 @@ export async function POST(req: Request) {
   }
 }
 
-async function saveMessageToSession(supabase: any, sessionId: string, message: any) {
+async function saveMessagesToSession(
+  supabase: any,
+  sessionId: string,
+  messages: any[],
+  processingTimeMs?: number
+) {
   try {
-    console.log('[saveMessageToSession] Saving message for session:', sessionId, 'role:', message.role);
+    console.log('[saveMessagesToSession] Saving', messages.length, 'messages for session:', sessionId);
 
-    // Handle different message formats
-    let content = [];
-
-    if (message.parts) {
-      content = message.parts;
-    } else if (message.content) {
-      // If content is a string, wrap it in a text part
-      if (typeof message.content === 'string') {
-        content = [{ type: 'text', text: message.content }];
-      } else {
-        content = message.content;
-      }
-    } else if (message.text) {
-      content = [{ type: 'text', text: message.text }];
-    }
-
-    const insertData: any = {
-      session_id: sessionId,
-      role: message.role,
-      content: content,
-      tool_calls: message.tool_calls || message.toolCalls || null
-    };
-
-    // Add processing_time_ms if provided (only for assistant messages)
-    if (message.processing_time_ms !== undefined) {
-      insertData.processing_time_ms = message.processing_time_ms;
-    }
-
-    console.log('[saveMessageToSession] Inserting message with', content.length, 'parts');
-
-    const { data, error } = await supabase
+    // Delete all existing messages for this session first
+    const { error: deleteError } = await supabase
       .from('chat_messages')
-      .insert(insertData)
-      .select();
+      .delete()
+      .eq('session_id', sessionId);
 
-    if (error) {
-      console.error('[saveMessageToSession] Database error:', error);
+    if (deleteError) {
+      console.error('[saveMessagesToSession] Error deleting old messages:', deleteError);
+      return;
+    }
+
+    // Prepare all messages for insertion
+    const messagesToInsert = messages.map((message, index) => {
+      // AI SDK v5 uses 'parts' array for UIMessage
+      // Store it in the 'content' JSONB column in database
+      let partsToSave = [];
+
+      if (message.parts && Array.isArray(message.parts)) {
+        partsToSave = message.parts;
+      } else if (message.content) {
+        // Fallback for older format
+        if (typeof message.content === 'string') {
+          partsToSave = [{ type: 'text', text: message.content }];
+        } else if (Array.isArray(message.content)) {
+          partsToSave = message.content;
+        }
+      }
+
+      const messageData: any = {
+        session_id: sessionId,
+        role: message.role,
+        content: partsToSave, // Store parts array in content column
+        created_at: message.createdAt || new Date().toISOString(),
+      };
+
+      // Add processing time to the last assistant message (the new one)
+      if (
+        message.role === 'assistant' &&
+        index === messages.length - 1 &&
+        processingTimeMs !== undefined
+      ) {
+        messageData.processing_time_ms = processingTimeMs;
+      }
+
+      return messageData;
+    });
+
+    console.log('[saveMessagesToSession] Inserting', messagesToInsert.length, 'messages');
+    console.log('[saveMessagesToSession] Message roles:', messagesToInsert.map(m => m.role).join(', '));
+
+    // Insert all messages in a single operation
+    const { error: insertError } = await supabase
+      .from('chat_messages')
+      .insert(messagesToInsert);
+
+    if (insertError) {
+      console.error('[saveMessagesToSession] Database insert error:', insertError);
     } else {
-      console.log('[saveMessageToSession] Successfully saved message');
+      console.log('[saveMessagesToSession] Successfully saved all messages');
     }
   } catch (error) {
-    console.error('[saveMessageToSession] Exception:', error);
+    console.error('[saveMessagesToSession] Exception:', error);
   }
 }

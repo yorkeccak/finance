@@ -621,80 +621,80 @@ function FinancialChartComponent({
   };
 
   return (
-    <div ref={chartRef} className="w-full bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm">
-      {/* Download Button - Top Right */}
+    <div className="w-full">
+      <div ref={chartRef} className="w-full bg-gradient-to-br from-white to-gray-50/30 dark:from-gray-900 dark:to-gray-900/80 rounded-xl border border-gray-200/80 dark:border-gray-700/50 overflow-hidden shadow-sm">
+        {/* Elegant Header */}
+        <div className="px-6 pt-5 pb-4 border-b border-gray-200/60 dark:border-gray-700/50">
+          <div className="flex gap-4 items-start justify-between">
+            {/* Left: Title + Description */}
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1.5">
+                {title}
+              </h3>
+              {description && (
+                <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                  {description}
+                </p>
+              )}
+
+              {/* Metadata Badges - Refined */}
+              {metadata && (
+                <div className="flex flex-wrap gap-1.5 mt-2.5">
+                  <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                    {metadata.totalSeries} {metadata.totalSeries === 1 ? 'Series' : 'Series'}
+                  </span>
+                  <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                    {metadata.totalDataPoints} Points
+                  </span>
+                  {metadata.dateRange && (
+                    <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                      {metadata.dateRange.start} → {metadata.dateRange.end}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Right: Logo */}
+            <div className="flex items-center justify-center flex-shrink-0">
+              <Image
+                src="/valyu.svg"
+                alt="Valyu"
+                width={70}
+                height={70}
+                className="opacity-80"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Chart Container - Spacious and clean */}
+        <div className="p-6">
+          <div className="h-[400px] w-full">
+            <ChartContainer config={chartConfig} className="h-full w-full">
+              {renderChart()}
+            </ChartContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* Download Button - Below chart, OUTSIDE the ref */}
       {!hideDownloadButton && (
-        <button
-          onClick={handleDownload}
-          disabled={isDownloading}
-          className="absolute top-4 right-4 z-20 p-2 rounded-lg bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700
-                     border border-gray-200 dark:border-gray-700 shadow-sm transition-all hover:scale-105
-                     disabled:opacity-50 disabled:cursor-not-allowed group"
-          title="Download chart as image"
-        >
-          <Download className="w-4 h-4 text-gray-700 dark:text-gray-300 group-hover:text-blue-600" />
-        </button>
+        <div className="mt-3 px-2">
+          <button
+            onClick={handleDownload}
+            disabled={isDownloading}
+            className="w-full py-2 px-4 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700
+                       border border-gray-200 dark:border-gray-700 transition-colors
+                       disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            <Download className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {isDownloading ? 'Downloading...' : 'Download Chart'}
+            </span>
+          </button>
+        </div>
       )}
-
-      {/* Professional Header - Minimal Design */}
-      <div className="px-6 pt-6 pb-4 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-900">
-        <div className="flex gap-4 items-start justify-between">
-          {/* Left: Title + Description */}
-          <div className="flex-1">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 tracking-tight mb-1">
-              {title}
-            </h3>
-            {description && (
-              <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                {description}
-              </p>
-            )}
-          </div>
-
-          {/* Right: Logo */}
-          <div className="flex items-center justify-center">
-            <Image
-              src="/valyu.svg"
-              alt="Valyu"
-              width={80}
-              height={80}
-              className="opacity-90"
-            />
-          </div>
-        </div>
-
-        {/* Metadata Badges - Minimal */}
-        {metadata && (
-          <div className="flex flex-wrap gap-2 mt-4">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                {metadata.totalSeries} {metadata.totalSeries === 1 ? 'Series' : 'Series'}
-              </span>
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                {metadata.totalDataPoints} Points
-              </span>
-            </span>
-            {metadata.dateRange && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                  {metadata.dateRange.start} → {metadata.dateRange.end}
-                </span>
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Chart Container */}
-      <div className="p-6">
-        <div className="h-[420px] w-full">
-          <ChartContainer config={chartConfig} className="h-full w-full">
-            {renderChart()}
-          </ChartContainer>
-        </div>
-      </div>
     </div>
   );
 }

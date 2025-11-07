@@ -55,6 +55,14 @@ import {
   FileText,
   Clipboard,
   Download,
+  Brain,
+  Search,
+  Globe,
+  BookOpen,
+  Code2,
+  Table,
+  BarChart3,
+  Check,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -84,9 +92,131 @@ import { MetricsPills } from "@/components/metrics-pills";
 
 // Debug toggles removed per request
 
-// Separate component for reasoning to avoid hook violations
-// Optimized to show only first line by default - prevents freezing on large reasoning text
-// PERFORMANCE FIX: Memoized to prevent re-renders during streaming
+// Professional Finance UI - Workflow-inspired with checkmarks and clean cards
+const TimelineStep = memo(({
+  part,
+  messageId,
+  index,
+  status,
+  type = 'reasoning',
+  title,
+  subtitle,
+  icon,
+  expandedTools,
+  toggleToolExpansion,
+  children,
+}: {
+  part: any;
+  messageId: string;
+  index: number;
+  status: string;
+  type?: 'reasoning' | 'search' | 'action' | 'tool';
+  title: string;
+  subtitle?: string;
+  icon?: React.ReactNode;
+  expandedTools: Set<string>;
+  toggleToolExpansion: (id: string) => void;
+  children?: React.ReactNode;
+}) => {
+  const stepId = `step-${type}-${messageId}-${index}`;
+  const isExpanded = expandedTools.has(stepId);
+  const hasContent = children || (part.text && part.text.length > 0);
+
+  const toggleExpand = () => {
+    toggleToolExpansion(stepId);
+  };
+
+  const isComplete = status === 'complete';
+  const isStreaming = status === 'streaming';
+  const isError = status === 'error';
+
+  return (
+    <div className="group relative py-0.5 animate-in fade-in duration-200">
+      {/* Minimal, refined design */}
+      <div
+        className={`relative flex items-start gap-3 py-2 px-2 -mx-2 rounded-md transition-all duration-150 ${
+          isStreaming ? 'bg-blue-50/50 dark:bg-blue-950/10' : ''
+        } ${
+          hasContent ? 'hover:bg-gray-50 dark:hover:bg-white/[0.02] cursor-pointer' : ''
+        }`}
+        onClick={hasContent ? toggleExpand : undefined}
+      >
+        {/* Minimal status indicator */}
+        <div className="flex-shrink-0">
+          {isComplete ? (
+            <div className="w-4 h-4 rounded-full bg-emerald-500/15 dark:bg-emerald-500/25 flex items-center justify-center">
+              <Check className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-500 stroke-[2.5]" />
+            </div>
+          ) : isStreaming ? (
+            <div className="relative w-4 h-4">
+              <div className="absolute inset-0 rounded-full border border-blue-300/40 dark:border-blue-700/40" />
+              <div className="absolute inset-0 rounded-full border border-transparent border-t-blue-500 dark:border-t-blue-400 animate-spin" />
+            </div>
+          ) : isError ? (
+            <div className="w-4 h-4 rounded-full bg-red-500/15 dark:bg-red-500/25 flex items-center justify-center">
+              <AlertCircle className="w-2.5 h-2.5 text-red-600 dark:text-red-500" />
+            </div>
+          ) : (
+            <div className="w-4 h-4 rounded-full border border-gray-300 dark:border-gray-700" />
+          )}
+        </div>
+
+        {/* Clean icon */}
+        {icon && (
+          <div className={`flex-shrink-0 w-4 h-4 ${
+            isStreaming ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-500'
+          }`}>
+            {icon}
+          </div>
+        )}
+
+        {/* Clean typography */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-2">
+            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+              {title}
+            </span>
+          </div>
+          {subtitle && !isExpanded && (
+            <div className="text-xs text-gray-500 dark:text-gray-500 line-clamp-1 mt-0.5">
+              {subtitle}
+            </div>
+          )}
+        </div>
+
+        {/* Minimal chevron */}
+        {hasContent && !isStreaming && (
+          <ChevronDown className={`h-3.5 w-3.5 text-gray-400 dark:text-gray-600 flex-shrink-0 transition-transform duration-150 ${
+            isExpanded ? 'rotate-180' : ''
+          }`} />
+        )}
+      </div>
+
+      {/* Clean expanded content */}
+      {isExpanded && hasContent && (
+        <div className="mt-1.5 ml-6 mr-2 animate-in fade-in duration-150">
+          {children || (
+            <div className="text-sm leading-relaxed text-gray-700 dark:text-gray-300 bg-gray-50/50 dark:bg-white/[0.02] rounded-lg px-3 py-2.5 border-l-2 border-gray-200 dark:border-gray-800">
+              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                {part.text || ''}
+              </ReactMarkdown>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.part === nextProps.part &&
+    prevProps.status === nextProps.status &&
+    prevProps.expandedTools === nextProps.expandedTools &&
+    prevProps.children === nextProps.children
+  );
+});
+TimelineStep.displayName = 'TimelineStep';
+
+// Reasoning component - wraps TimelineStep
 const ReasoningComponent = memo(({
   part,
   messageId,
@@ -102,85 +232,28 @@ const ReasoningComponent = memo(({
   expandedTools: Set<string>;
   toggleToolExpansion: (id: string) => void;
 }) => {
-  const reasoningId = `reasoning-${messageId}-${index}`;
-  // Check if expanded (default is EXPANDED - show full reasoning)
-  const isExpanded = !expandedTools.has(`collapsed-${reasoningId}`);
   const reasoningText = part.text || "";
-  const hasMultipleLines = reasoningText.split("\n").length > 1;
-
-  const copyReasoningTrace = () => {
-    navigator.clipboard.writeText(reasoningText);
-  };
-
-  const toggleExpand = () => {
-    const collapsedKey = `collapsed-${reasoningId}`;
-    toggleToolExpansion(collapsedKey);
-  };
+  // Extract the first meaningful line as the title and strip markdown
+  const firstLine = reasoningText.split('\n').find((line: string) => line.trim().length > 0) || "";
+  // Remove markdown formatting like **, *, _, etc.
+  const cleanedLine = firstLine.replace(/\*\*/g, '').replace(/\*/g, '').replace(/_/g, '').trim();
+  const title = cleanedLine.length > 50 ? cleanedLine.slice(0, 50) + '...' : cleanedLine || "Thinking";
 
   return (
-    <div className="mt-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
-      <div className="p-2.5 sm:p-3">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2 text-purple-700 dark:text-purple-400">
-            <span className="text-lg">🧠</span>
-            <span className="font-medium text-sm">AI Reasoning Process</span>
-            {status === "streaming" && (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            {reasoningText && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={copyReasoningTrace}
-                className="h-6 px-2 text-purple-700 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40"
-              >
-                <Copy className="h-3 w-3" />
-              </Button>
-            )}
-            {hasMultipleLines && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleExpand}
-                className="h-6 px-2 text-purple-700 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40"
-              >
-                {isExpanded ? (
-                  <>
-                    <ChevronUp className="h-3 w-3 mr-1" />
-                    Hide
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="h-3 w-3 mr-1" />
-                    Show
-                  </>
-                )}
-              </Button>
-            )}
-          </div>
-        </div>
-
-        <div className="text-xs prose prose-sm max-w-none bg-purple-25 dark:bg-purple-950/30 p-2 rounded border border-purple-100 dark:border-purple-800 [&_*]:text-purple-800 dark:[&_*]:text-purple-200 [&_h1]:text-purple-800 dark:[&_h1]:text-purple-200 [&_h2]:text-purple-800 dark:[&_h2]:text-purple-200 [&_h3]:text-purple-800 dark:[&_h3]:text-purple-200">
-          {isExpanded ? (
-            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-              {reasoningText}
-            </ReactMarkdown>
-          ) : (
-            <div className="text-purple-800 dark:text-purple-200">
-              <MemoizedFirstLine
-                text={reasoningText}
-                fallback="Analyzing information..."
-              />
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+    <TimelineStep
+      part={part}
+      messageId={messageId}
+      index={index}
+      status={status}
+      type="reasoning"
+      title={title}
+      subtitle={undefined}
+      icon={<Brain />}
+      expandedTools={expandedTools}
+      toggleToolExpansion={toggleToolExpansion}
+    />
   );
 }, (prevProps, nextProps) => {
-  // Only re-render if these specific props change
   return (
     prevProps.part.text === nextProps.part.text &&
     prevProps.messageId === nextProps.messageId &&
@@ -275,33 +348,9 @@ const MemoizedChartResult = memo(function MemoizedChartResult({
   expandedTools: Set<string>;
   toggleToolExpansion: (id: string) => void;
 }) {
-  const isChartExpanded = !expandedTools.has(`collapsed-${actionId}`);
-
-  return isChartExpanded ? (
-    <div className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-      <button
-        onClick={() => toggleToolExpansion(`collapsed-${actionId}`)}
-        className="absolute right-2 top-2 z-10 p-1 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-full shadow-sm hover:bg-white dark:hover:bg-gray-900"
-      >
-        <ChevronUp className="w-4 h-4" />
-      </button>
+  return (
+    <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
       <FinancialChart {...chartData} />
-    </div>
-  ) : (
-    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-800">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-sm">📈</span>
-          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{chartData.title}</span>
-        </div>
-        <button
-          onClick={() => toggleToolExpansion(`collapsed-${actionId}`)}
-          className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-        >
-          View Chart
-          <ChevronDown className="w-4 h-4" />
-        </button>
-      </div>
     </div>
   );
 }, (prevProps, nextProps) => {
@@ -338,36 +387,22 @@ const MemoizedCodeExecutionResult = memo(function MemoizedCodeExecutionResult({
   };
 
   return (
-    <div className="border border-green-200 dark:border-green-700 rounded-lg overflow-hidden">
-      {/* Header - collapsed by default */}
-      <button
-        onClick={() => toggleToolExpansion(actionId)}
-        className="w-full px-3 py-2 bg-green-50 dark:bg-green-800 flex items-center justify-between text-xs font-medium hover:bg-green-100 dark:hover:bg-green-750"
-      >
-        <span className="text-green-700 dark:text-green-300">Code & Output</span>
-        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-      </button>
+    <div className="space-y-4">
+      {/* Code Section - clean monospace display */}
+      <div>
+        <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wide">Python Code</div>
+        <pre className="p-4 bg-gray-900 dark:bg-black/40 text-gray-100 text-xs overflow-x-auto rounded-lg max-h-[400px] overflow-y-auto border border-gray-800 dark:border-gray-800/50 shadow-inner">
+          <code>{code || "No code available"}</code>
+        </pre>
+      </div>
 
-      {/* Expandable content - shows code and output when expanded */}
-      {isExpanded && (
-        <div className="space-y-3 p-3 bg-white dark:bg-gray-900">
-          {/* Code Section - plain pre/code, NO syntax highlighting */}
-          <div>
-            <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Python Code</div>
-            <pre className="p-3 bg-gray-900 text-gray-100 text-xs overflow-x-auto rounded max-h-[400px] overflow-y-auto">
-              <code>{code || "No code available"}</code>
-            </pre>
-          </div>
-
-          {/* Output Section */}
-          <div>
-            <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Output</div>
-            <div className="prose prose-sm max-w-none dark:prose-invert text-xs p-3 bg-gray-50 dark:bg-gray-800 rounded max-h-[400px] overflow-y-auto">
-              <MemoizedMarkdown text={escapeHtml(output)} />
-            </div>
-          </div>
+      {/* Output Section - elegant typography */}
+      <div>
+        <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wide">Output</div>
+        <div className="prose prose-sm max-w-none dark:prose-invert text-sm p-4 bg-white dark:bg-gray-800/50 rounded-lg max-h-[400px] overflow-y-auto border border-gray-200 dark:border-gray-700/50">
+          <MemoizedMarkdown text={escapeHtml(output)} />
         </div>
-      )}
+      </div>
     </div>
   );
 }, (prevProps, nextProps) => {
@@ -960,25 +995,51 @@ const SearchResultCard = ({
           className="cursor-pointer hover:shadow-md transition-shadow min-w-[240px] sm:min-w-[280px] max-w-[280px] sm:max-w-[320px] flex-shrink-0"
           onClick={() => setIsDialogOpen(true)}
         >
-          <CardContent className="h-full">
-            <div className="flex flex-col justify-between space-y-2 h-full">
-              <div>
-                <div className="flex items-start justify-between gap-2">
-                  <h4 className="font-medium text-sm line-clamp-2 text-gray-900 dark:text-gray-100">
-                    {result.title}
-                  </h4>
-                  <ExternalLink className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                </div>
-
-                <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-3">
-                  {result.summary}
-                </div>
+          <CardContent className="h-full p-3">
+            <div className="flex gap-2.5 h-full">
+              {/* Favicon on left */}
+              <div className="flex-shrink-0 pt-0.5">
+                {type === "wiley" ? (
+                  <div className="w-5 h-5 rounded bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+                    <img
+                      src="/wy.svg"
+                      alt="Wiley"
+                      className="w-3.5 h-3.5 dark:invert opacity-80"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-5 h-5 rounded bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+                    <Favicon
+                      url={result.url}
+                      size={12}
+                      className="w-3 h-3"
+                    />
+                  </div>
+                )}
               </div>
 
-              <div className="flex items-center space-x-1">
-                <div className="flex items-center gap-2">
+              {/* Content on right */}
+              <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                {/* Title and external link */}
+                <div className="flex items-start justify-between gap-2">
+                  <h4 className="font-semibold text-sm leading-tight line-clamp-2 text-gray-900 dark:text-gray-100">
+                    {result.title}
+                  </h4>
+                  <ExternalLink className="h-3 w-3 text-gray-400 flex-shrink-0 mt-0.5" />
+                </div>
+
+                {/* Markdown preview with separator */}
+                <div className="flex flex-col gap-1">
+                  <div className="h-px bg-gray-200 dark:bg-gray-800" />
+                  <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 leading-snug">
+                    {result.summary?.slice(0, 120) || ''}
+                  </div>
+                </div>
+
+                {/* Metadata badges */}
+                <div className="flex items-center gap-1.5 mt-auto">
                   <span
-                    className={`px-2 py-0.5 rounded text-xs ${
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
                       result.isStructured
                         ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
                         : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
@@ -986,25 +1047,16 @@ const SearchResultCard = ({
                   >
                     {result.dataType}
                   </span>
-                </div>
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                  <div className="flex items-center gap-1.5 px-2 rounded text-xs bg-gray-100 dark:bg-gray-800 py-0.5 max-w-[150px]">
-                    <Favicon
-                      url={result.url}
-                      size={16}
-                      className="w-3.5 h-3.5 flex-shrink-0"
-                    />
-                    <span className="truncate">
-                      {(() => {
-                        try {
-                          const url = new URL(result.url);
-                          return url.hostname.replace("www.", "");
-                        } catch {
-                          return result.source || "unknown";
-                        }
-                      })()}
-                    </span>
-                  </div>
+                  <span className="text-[10px] text-gray-500 dark:text-gray-500 truncate">
+                    {(() => {
+                      try {
+                        const url = new URL(result.url);
+                        return url.hostname.replace("www.", "");
+                      } catch {
+                        return result.source || "unknown";
+                      }
+                    })()}
+                  </span>
                 </div>
               </div>
             </div>
@@ -1026,25 +1078,51 @@ const SearchResultCard = ({
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
         <Card className="cursor-pointer hover:shadow-md transition-shadow min-w-[240px] sm:min-w-[280px] max-w-[280px] sm:max-w-[320px] flex-shrink-0">
-          <CardContent className="h-full">
-            <div className="flex flex-col justify-between space-y-2 h-full">
-              <div>
-                <div className="flex items-start justify-between gap-2">
-                  <h4 className="font-medium text-sm line-clamp-2 text-gray-900 dark:text-gray-100">
-                    {result.title}
-                  </h4>
-                  <ExternalLink className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                </div>
-
-                <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-3">
-                  {result.summary}
-                </div>
+          <CardContent className="h-full p-3">
+            <div className="flex gap-2.5 h-full">
+              {/* Favicon on left */}
+              <div className="flex-shrink-0 pt-0.5">
+                {type === "wiley" ? (
+                  <div className="w-5 h-5 rounded bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+                    <img
+                      src="/wy.svg"
+                      alt="Wiley"
+                      className="w-3.5 h-3.5 dark:invert opacity-80"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-5 h-5 rounded bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+                    <Favicon
+                      url={result.url}
+                      size={12}
+                      className="w-3 h-3"
+                    />
+                  </div>
+                )}
               </div>
 
-              <div className="flex items-center space-x-1">
-                <div className="flex items-center gap-2">
+              {/* Content on right */}
+              <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                {/* Title and external link */}
+                <div className="flex items-start justify-between gap-2">
+                  <h4 className="font-semibold text-sm leading-tight line-clamp-2 text-gray-900 dark:text-gray-100">
+                    {result.title}
+                  </h4>
+                  <ExternalLink className="h-3 w-3 text-gray-400 flex-shrink-0 mt-0.5" />
+                </div>
+
+                {/* Markdown preview with separator */}
+                <div className="flex flex-col gap-1">
+                  <div className="h-px bg-gray-200 dark:bg-gray-800" />
+                  <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 leading-snug">
+                    {result.summary?.slice(0, 120) || ''}
+                  </div>
+                </div>
+
+                {/* Metadata badges */}
+                <div className="flex items-center gap-1.5 mt-auto">
                   <span
-                    className={`px-2 py-0.5 rounded text-xs ${
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
                       result.isStructured
                         ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
                         : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
@@ -1052,33 +1130,16 @@ const SearchResultCard = ({
                   >
                     {result.dataType}
                   </span>
-                </div>
-                <div className="flex items-center justify-between text-xs text-gray-500 pl-2">
-                  {type === "wiley" ? (
-                    <img
-                      src="/wy.svg"
-                      alt="Wiley"
-                      className="w-10 h-10 dark:invert opacity-80"
-                    />
-                  ) : (
-                    <div className="flex items-center gap-1.5 px-2 rounded text-xs bg-gray-100 dark:bg-gray-800 py-0.5 max-w-[150px]">
-                      <Favicon
-                        url={result.url}
-                        size={16}
-                        className="w-3.5 h-3.5 flex-shrink-0"
-                      />
-                      <span className="truncate">
-                        {(() => {
-                          try {
-                            const urlObj = new URL(result.url);
-                            return urlObj.hostname.replace(/^www\./, "");
-                          } catch {
-                            return result.url;
-                          }
-                        })()}
-                      </span>
-                    </div>
-                  )}
+                  <span className="text-[10px] text-gray-500 dark:text-gray-500 truncate">
+                    {(() => {
+                      try {
+                        const urlObj = new URL(result.url);
+                        return urlObj.hostname.replace(/^www\./, "");
+                      } catch {
+                        return result.url;
+                      }
+                    })()}
+                  </span>
                 </div>
               </div>
             </div>
@@ -1086,7 +1147,7 @@ const SearchResultCard = ({
         </Card>
       </DialogTrigger>
 
-      <DialogContent className="w-[95vw] sm:w-[85vw] max-h-[80vh] overflow-hidden">
+      <DialogContent className="!max-w-4xl max-h-[80vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle className=" pr-8">{result.title}</DialogTitle>
           <Separator />
@@ -2654,7 +2715,7 @@ export function ChatInterface({
                     value={input}
                     onChange={handleInputChange}
                     placeholder="Ask a question..."
-                    className="w-full resize-none border-gray-200 dark:border-gray-700 rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 pr-14 sm:pr-16 min-h-[38px] sm:min-h-[40px] max-h-28 sm:max-h-32 focus:border-gray-300 dark:focus:border-gray-600 focus:ring-0 bg-gray-50 dark:bg-gray-900/50 overflow-y-auto text-sm sm:text-base"
+                    className="w-full resize-none rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 pr-14 sm:pr-16 min-h-[38px] sm:min-h-[40px] max-h-28 sm:max-h-32 overflow-y-auto text-sm sm:text-base bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 focus:border-gray-400 dark:focus:border-gray-600 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-sm"
                     disabled={status === "error" || isLoading}
                     rows={1}
                     style={{ lineHeight: "1.5" }}
@@ -2805,9 +2866,9 @@ export function ChatInterface({
                 </div>
               ) : (
                 /* Assistant Message */
-                <div className="mb-4 sm:mb-6 group px-3 sm:px-0">
+                <div className="mb-6 sm:mb-8 group px-3 sm:px-0">
                   {editingMessageId === message.id ? null : (
-                    <div className="space-y-4">
+                    <div className="space-y-5">
                       {(() => {
                         // Group consecutive reasoning steps together
                         // Note: This runs on every render, but it's a simple grouping operation
@@ -2821,10 +2882,9 @@ export function ChatInterface({
                               .map((item: any) => item.part.text)
                               .join("\n\n");
                             const firstPart = group.parts[0].part;
+                            // Only show as streaming if THIS specific part is actively streaming
                             const isStreaming = group.parts.some(
-                              (item: any) =>
-                                item.part.state === "streaming" ||
-                                status === "streaming"
+                              (item: any) => item.part.state === "streaming"
                             );
 
                             return (
@@ -2833,7 +2893,7 @@ export function ChatInterface({
                                 part={{ ...firstPart, text: combinedText }}
                                 messageId={message.id}
                                 index={groupIndex}
-                                status={isStreaming ? "streaming" : status}
+                                status={isStreaming ? "streaming" : "complete"}
                                 expandedTools={expandedTools}
                                 toggleToolExpansion={toggleToolExpansion}
                               />
@@ -2872,50 +2932,46 @@ export function ChatInterface({
                               // Python Executor Tool
                               case "tool-codeExecution": {
                                 const callId = part.toolCallId;
-                                const isExpanded = expandedTools.has(callId);
+                                const isStreaming = part.state === "input-streaming" || part.state === "input-available";
+                                const hasOutput = part.state === "output-available";
+                                const hasError = part.state === "output-error";
 
-                                switch (part.state) {
-                                  case "input-streaming":
-                                    return (
-                                      <div
-                                        key={callId}
-                                        className="mt-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2 sm:p-3"
-                                      >
-                                        <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 mb-2">
-                                          <span className="text-lg">🐍</span>
-                                          <span className="font-medium">
-                                            Python Executor
-                                          </span>
-                                          <Clock className="h-3 w-3 animate-spin" />
-                                        </div>
-                                        <div className="text-sm text-blue-600 dark:text-blue-300">
-                                          Preparing code execution...
-                                        </div>
-                                      </div>
-                                    );
-                                  case "input-available":
-                                    // PERFORMANCE FIX: Don't render code during streaming
-                                    // Rendering large code blocks causes re-renders on every character
-                                    return (
-                                      <div
-                                        key={callId}
-                                        className="mt-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2 sm:p-3"
-                                      >
-                                        <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 mb-2">
-                                          <span className="text-lg">🐍</span>
-                                          <span className="font-medium">
-                                            Python Executor
-                                          </span>
-                                          <Clock className="h-3 w-3 animate-spin" />
-                                        </div>
-                                        <div className="text-sm text-blue-600 dark:text-blue-300">
-                                          {part.input?.description || "Executing Python code..."}
-                                        </div>
-                                      </div>
-                                    );
-                                  case "output-available":
-                                    return (
-                                      <div key={callId} className="mt-2">
+                                if (hasError) {
+                                  return (
+                                    <div key={callId}>
+                                      <TimelineStep
+                                        part={part}
+                                        messageId={message.id}
+                                        index={index}
+                                        status="error"
+                                        type="tool"
+                                        title="Python Execution Error"
+                                        subtitle={part.errorText}
+                                        icon={<AlertCircle />}
+                                        expandedTools={expandedTools}
+                                        toggleToolExpansion={toggleToolExpansion}
+                                      />
+                                    </div>
+                                  );
+                                }
+
+                                const description = part.input?.description || "Executed Python code";
+
+                                return (
+                                  <div key={callId}>
+                                    <TimelineStep
+                                      part={part}
+                                      messageId={message.id}
+                                      index={index}
+                                      status={isStreaming ? "streaming" : "complete"}
+                                      type="tool"
+                                      title="Code & Output"
+                                      subtitle={description}
+                                      icon={<Code2 />}
+                                      expandedTools={expandedTools}
+                                      toggleToolExpansion={toggleToolExpansion}
+                                    >
+                                      {hasOutput && (
                                         <MemoizedCodeExecutionResult
                                           code={part.input?.code || ""}
                                           output={part.output}
@@ -2923,571 +2979,348 @@ export function ChatInterface({
                                           expandedTools={expandedTools}
                                           toggleToolExpansion={toggleToolExpansion}
                                         />
-                                      </div>
-                                    );
-                                  case "output-error":
-                                    return (
-                                      <div
-                                        key={callId}
-                                        className="mt-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-2 sm:p-3"
-                                      >
-                                        <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
-                                          <AlertCircle className="h-4 w-4" />
-                                          <span className="font-medium">
-                                            Python Execution Error
-                                          </span>
-                                        </div>
-                                        <div className="text-sm text-red-600 dark:text-red-300">
-                                          {part.errorText}
-                                        </div>
-                                      </div>
-                                    );
-                                }
-                                break;
+                                      )}
+                                    </TimelineStep>
+                                  </div>
+                                );
                               }
 
                               // Financial Search Tool
                               case "tool-financialSearch": {
                                 const callId = part.toolCallId;
-                                switch (part.state) {
-                                  case "input-streaming":
-                                    return (
-                                      <div
-                                        key={callId}
-                                        className="mt-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded p-2 sm:p-3"
-                                      >
-                                        <div className="flex items-center gap-2 text-purple-700 dark:text-purple-400 mb-2">
-                                          <span className="text-lg">🔍</span>
-                                          <span className="font-medium">
-                                            Financial Search
-                                          </span>
-                                          <Clock className="h-3 w-3 animate-spin" />
-                                        </div>
-                                        <div className="text-sm text-purple-600 dark:text-purple-300">
-                                          Preparing financial data search...
-                                        </div>
+                                const isStreaming = part.state === "input-streaming" || part.state === "input-available";
+                                const hasResults = part.state === "output-available";
+                                const hasError = part.state === "output-error";
+
+                                if (hasError) {
+                                  return (
+                                    <div key={callId} className="my-1">
+                                      <TimelineStep
+                                        part={part}
+                                        messageId={message.id}
+                                        index={index}
+                                        status="error"
+                                        type="search"
+                                        title="Financial Search Error"
+                                        subtitle={part.errorText}
+                                        icon={<AlertCircle />}
+                                        expandedTools={expandedTools}
+                                        toggleToolExpansion={toggleToolExpansion}
+                                      />
+                                    </div>
+                                  );
+                                }
+
+                                const financialResults = hasResults ? extractSearchResults(part.output) : [];
+                                const query = part.input?.query || "";
+
+                                // Create favicon stack subtitle when complete
+                                let subtitleContent: React.ReactNode = query;
+                                if (!isStreaming && financialResults.length > 0) {
+                                  const displayResults = financialResults.slice(0, 5);
+                                  subtitleContent = (
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex -space-x-2">
+                                        {displayResults.map((result: any, idx: number) => (
+                                          <div
+                                            key={idx}
+                                            className="w-5 h-5 rounded-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 flex items-center justify-center overflow-hidden"
+                                            style={{ zIndex: 5 - idx }}
+                                          >
+                                            <Favicon url={result.url} size={12} className="w-3 h-3" />
+                                          </div>
+                                        ))}
                                       </div>
-                                    );
-                                  case "input-available":
-                                    return (
+                                      <span className="text-xs text-gray-600 dark:text-gray-400">
+                                        {financialResults.length} results
+                                      </span>
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <div key={callId}>
+                                    <div className="group relative py-0.5 animate-in fade-in duration-200">
                                       <div
-                                        key={callId}
-                                        className="mt-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded p-2 sm:p-3"
+                                        className={`relative flex items-start gap-3 py-2 px-2 -mx-2 rounded-md transition-all duration-150 ${
+                                          isStreaming ? 'bg-blue-50/50 dark:bg-blue-950/10' : ''
+                                        } ${
+                                          hasResults ? 'hover:bg-gray-50 dark:hover:bg-white/[0.02] cursor-pointer' : ''
+                                        }`}
+                                        onClick={hasResults ? () => toggleToolExpansion(`step-search-${message.id}-${index}`) : undefined}
                                       >
-                                        <div className="flex items-center gap-2 text-purple-700 dark:text-purple-400 mb-2">
-                                          <span className="text-lg">🔍</span>
-                                          <span className="font-medium">
-                                            Financial Search
-                                          </span>
-                                          <Clock className="h-3 w-3 animate-spin" />
-                                        </div>
-                                        <div className="text-sm text-purple-600 dark:text-purple-300">
-                                          <div className="bg-purple-100 dark:bg-purple-800/30 p-2 rounded">
-                                            <div className="font-mono text-xs">
-                                              Query: &quot;{part.input.query}&quot;
-                                              {part.input.dataType &&
-                                                part.input.dataType !==
-                                                  "auto" && (
-                                                  <>
-                                                    <br />
-                                                    Type: {part.input.dataType}
-                                                  </>
-                                                )}
-                                              {part.input.maxResults && (
-                                                <>
-                                                  <br />
-                                                  Max Results:{" "}
-                                                  {part.input.maxResults}
-                                                </>
-                                              )}
+                                        {/* Status indicator */}
+                                        <div className="flex-shrink-0">
+                                          {!isStreaming ? (
+                                            <div className="w-4 h-4 rounded-full bg-emerald-500/15 dark:bg-emerald-500/25 flex items-center justify-center">
+                                              <Check className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-500 stroke-[2.5]" />
                                             </div>
-                                          </div>
-                                          <div className="mt-2 text-xs">
-                                            Searching financial databases and
-                                            news sources...
-                                          </div>
-                                        </div>
-                                      </div>
-                                    );
-                                  case "output-available":
-                                    const financialResults =
-                                      extractSearchResults(part.output);
-                                    return (
-                                      <div
-                                        key={callId}
-                                        className="mt-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 sm:p-4"
-                                      >
-                                        <div className="flex items-center justify-between gap-3 mb-4">
-                                          <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
-                                            <CheckCircle className="h-4 w-4" />
-                                            <span className="font-medium">
-                                              Financial Search Results
-                                            </span>
-                                            <span className="text-xs text-green-600 dark:text-green-300">
-                                              ({financialResults.length}{" "}
-                                              results)
-                                            </span>
-                                          </div>
-                                          {part.input?.query && (
-                                            <div
-                                              className="text-xs font-mono text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20 px-3 py-1 rounded border border-green-200 dark:border-green-700 max-w-[60%] truncate"
-                                              title={part.input.query}
-                                            >
-                                              {part.input.query}
+                                          ) : (
+                                            <div className="relative w-4 h-4">
+                                              <div className="absolute inset-0 rounded-full border border-blue-300/40 dark:border-blue-700/40" />
+                                              <div className="absolute inset-0 rounded-full border border-transparent border-t-blue-500 dark:border-t-blue-400 animate-spin" />
                                             </div>
                                           )}
                                         </div>
-                                        <SearchResultsCarousel
-                                          results={financialResults}
-                                          type="financial"
-                                        />
-                                      </div>
-                                    );
-                                  case "output-error":
-                                    return (
-                                      <div
-                                        key={callId}
-                                        className="mt-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-2 sm:p-3"
-                                      >
-                                        <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
-                                          <AlertCircle className="h-4 w-4" />
-                                          <span className="font-medium">
-                                            Financial Search Error
-                                          </span>
+
+                                        {/* Icon */}
+                                        <div className={`flex-shrink-0 w-4 h-4 ${
+                                          isStreaming ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-500'
+                                        }`}>
+                                          <Search />
                                         </div>
-                                        <div className="text-sm text-red-600 dark:text-red-300">
-                                          {part.errorText}
+
+                                        {/* Content */}
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-baseline gap-2 mb-1">
+                                            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                              Financial Search
+                                            </span>
+                                          </div>
+                                          {!isStreaming && financialResults.length > 0 && subtitleContent}
+                                          {isStreaming && <div className="text-xs text-gray-500 dark:text-gray-500 line-clamp-1 mt-0.5">{query}</div>}
                                         </div>
+
+                                        {/* Chevron */}
+                                        {hasResults && !isStreaming && (
+                                          <ChevronDown className={`h-3.5 w-3.5 text-gray-400 dark:text-gray-600 flex-shrink-0 transition-transform duration-150 ${
+                                            expandedTools.has(`step-search-${message.id}-${index}`) ? 'rotate-180' : ''
+                                          }`} />
+                                        )}
                                       </div>
-                                    );
-                                }
-                                break;
+
+                                      {/* Expanded content */}
+                                      {expandedTools.has(`step-search-${message.id}-${index}`) && hasResults && (
+                                        <div className="mt-1.5 ml-6 mr-2 animate-in fade-in duration-150">
+                                          <SearchResultsCarousel
+                                            results={financialResults}
+                                            type="financial"
+                                          />
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
                               }
 
                               // Web Search Tool
                               case "tool-webSearch": {
                                 const callId = part.toolCallId;
-                                switch (part.state) {
-                                  case "input-streaming":
-                                    return (
-                                      <div
-                                        key={callId}
-                                        className="mt-2 bg-cyan-50 dark:bg-cyan-900/20 border border-cyan-200 dark:border-cyan-800 rounded p-2 sm:p-3"
-                                      >
-                                        <div className="flex items-center gap-2 text-cyan-700 dark:text-cyan-400 mb-2">
-                                          <span className="text-lg">🌐</span>
-                                          <span className="font-medium">
-                                            Web Search
-                                          </span>
-                                          <Clock className="h-3 w-3 animate-spin" />
-                                        </div>
-                                        <div className="text-sm text-cyan-600 dark:text-cyan-300">
-                                          Preparing web search...
-                                        </div>
-                                      </div>
-                                    );
-                                  case "input-available":
-                                    return (
-                                      <div
-                                        key={callId}
-                                        className="mt-2 bg-cyan-50 dark:bg-cyan-900/20 border border-cyan-200 dark:border-cyan-800 rounded p-2 sm:p-3"
-                                      >
-                                        <div className="flex items-center gap-2 text-cyan-700 dark:text-cyan-400 mb-2">
-                                          <span className="text-lg">🌐</span>
-                                          <span className="font-medium">
-                                            Web Search
-                                          </span>
-                                          <Clock className="h-3 w-3 animate-spin" />
-                                        </div>
-                                        <div className="text-sm text-cyan-600 dark:text-cyan-300">
-                                          <div className="bg-cyan-100 dark:bg-cyan-800/30 p-2 rounded">
-                                            <div className="text-xs">
-                                              Searching for: &quot;{part.input.query}&quot;
-                                            </div>
-                                          </div>
-                                          <div className="mt-2 text-xs">
-                                            Searching the world wide web...
-                                          </div>
-                                        </div>
-                                      </div>
-                                    );
-                                  case "output-available":
-                                    const webResults = extractSearchResults(
-                                      part.output
-                                    );
-                                    return (
-                                      <div
-                                        key={callId}
-                                        className="mt-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 sm:p-4"
-                                      >
-                                        <div className="flex items-center justify-between gap-3 mb-4">
-                                          <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
-                                            <CheckCircle className="h-4 w-4" />
-                                            <span className="font-medium">
-                                              Web Search Results
-                                            </span>
-                                            <span className="text-xs text-blue-600 dark:text-blue-300">
-                                              ({webResults.length} results)
-                                            </span>
-                                          </div>
-                                          {part.input?.query && (
-                                            <div
-                                              className="text-xs font-mono text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded border border-blue-200 dark:border-blue-700 max-w-[60%] truncate"
-                                              title={part.input.query}
-                                            >
-                                              {part.input.query}
-                                            </div>
-                                          )}
-                                        </div>
+                                const isStreaming = part.state === "input-streaming" || part.state === "input-available";
+                                const hasResults = part.state === "output-available";
+                                const hasError = part.state === "output-error";
+
+                                if (hasError) {
+                                  return (
+                                    <div key={callId} className="my-1">
+                                      <TimelineStep
+                                        part={part}
+                                        messageId={message.id}
+                                        index={index}
+                                        status="error"
+                                        type="search"
+                                        title="Web Search Error"
+                                        subtitle={part.errorText}
+                                        icon={<AlertCircle />}
+                                        expandedTools={expandedTools}
+                                        toggleToolExpansion={toggleToolExpansion}
+                                      />
+                                    </div>
+                                  );
+                                }
+
+                                const webResults = hasResults ? extractSearchResults(part.output) : [];
+                                const query = part.input?.query || "";
+                                const subtitle = isStreaming
+                                  ? query
+                                  : `${query} · ${webResults.length} results`;
+
+                                return (
+                                  <div key={callId}>
+                                    <TimelineStep
+                                      part={part}
+                                      messageId={message.id}
+                                      index={index}
+                                      status={isStreaming ? "streaming" : "complete"}
+                                      type="search"
+                                      title="Web Search"
+                                      subtitle={subtitle}
+                                      icon={<Globe />}
+                                      expandedTools={expandedTools}
+                                      toggleToolExpansion={toggleToolExpansion}
+                                    >
+                                      {hasResults && webResults.length > 0 && (
                                         <SearchResultsCarousel
                                           results={webResults}
                                           type="web"
                                         />
-                                      </div>
-                                    );
-                                  case "output-error":
-                                    return (
-                                      <div
-                                        key={callId}
-                                        className="mt-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-2 sm:p-3"
-                                      >
-                                        <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
-                                          <AlertCircle className="h-4 w-4" />
-                                          <span className="font-medium">
-                                            Web Search Error
-                                          </span>
-                                        </div>
-                                        <div className="text-sm text-red-600 dark:text-red-300">
-                                          {part.errorText}
-                                        </div>
-                                      </div>
-                                    );
-                                }
-                                break;
+                                      )}
+                                    </TimelineStep>
+                                  </div>
+                                );
                               }
 
                               // Wiley Search Tool
                               case "tool-wileySearch": {
                                 const callId = part.toolCallId;
-                                switch (part.state) {
-                                  case "input-streaming":
-                                    return (
-                                      <div
-                                        key={callId}
-                                        className="mt-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded p-2 sm:p-3"
-                                      >
-                                        <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 mb-2">
-                                          <span className="text-lg">📚</span>
-                                          <span className="font-medium">
-                                            Wiley Academic Search
-                                          </span>
-                                          <Clock className="h-3 w-3 animate-spin" />
-                                        </div>
-                                        <div className="text-sm text-amber-600 dark:text-amber-300">
-                                          Searching academic journals and textbooks...
-                                        </div>
-                                      </div>
-                                    );
-                                  case "input-available":
-                                    return (
-                                      <div
-                                        key={callId}
-                                        className="mt-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded p-2 sm:p-3"
-                                      >
-                                        <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 mb-2">
-                                          <span className="text-lg">📚</span>
-                                          <span className="font-medium">
-                                            Wiley Academic Search
-                                          </span>
-                                          <Clock className="h-3 w-3 animate-spin" />
-                                        </div>
-                                        <div className="text-sm text-amber-600 dark:text-amber-300">
-                                          <div className="font-medium">
-                                            Searching for: &quot;{part.input.query}&quot;
-                                          </div>
-                                        </div>
-                                        <div className="mt-2 text-xs">
-                                          Searching academic finance literature...
-                                        </div>
-                                      </div>
-                                    );
-                                  case "output-available":
-                                    const wileyResults = extractSearchResults(
-                                      part.output
-                                    );
-                                    return (
-                                      <div
-                                        key={callId}
-                                        className="mt-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 sm:p-4"
-                                      >
-                                        <div className="flex items-center justify-between gap-3 mb-4">
-                                          <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
-                                            <CheckCircle className="h-4 w-4" />
-                                            <span className="font-medium">
-                                              Wiley Academic Results
-                                            </span>
-                                            <span className="text-xs text-amber-600 dark:text-amber-300">
-                                              ({wileyResults.length} results)
-                                            </span>
-                                          </div>
-                                          {part.input?.query && (
-                                            <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-800/30 px-2 py-1 rounded">
-                                              &quot;{part.input.query}&quot;
-                                            </div>
-                                          )}
-                                        </div>
+                                const isStreaming = part.state === "input-streaming" || part.state === "input-available";
+                                const hasResults = part.state === "output-available";
+                                const hasError = part.state === "output-error";
+
+                                if (hasError) {
+                                  return (
+                                    <div key={callId} className="my-1">
+                                      <TimelineStep
+                                        part={part}
+                                        messageId={message.id}
+                                        index={index}
+                                        status="error"
+                                        type="search"
+                                        title="Wiley Search Error"
+                                        subtitle={part.errorText}
+                                        icon={<AlertCircle />}
+                                        expandedTools={expandedTools}
+                                        toggleToolExpansion={toggleToolExpansion}
+                                      />
+                                    </div>
+                                  );
+                                }
+
+                                const wileyResults = hasResults ? extractSearchResults(part.output) : [];
+                                const query = part.input?.query || "";
+                                const subtitle = isStreaming
+                                  ? query
+                                  : `${query} · ${wileyResults.length} results`;
+
+                                return (
+                                  <div key={callId}>
+                                    <TimelineStep
+                                      part={part}
+                                      messageId={message.id}
+                                      index={index}
+                                      status={isStreaming ? "streaming" : "complete"}
+                                      type="search"
+                                      title="Wiley Academic Search"
+                                      subtitle={subtitle}
+                                      icon={<BookOpen />}
+                                      expandedTools={expandedTools}
+                                      toggleToolExpansion={toggleToolExpansion}
+                                    >
+                                      {hasResults && wileyResults.length > 0 && (
                                         <SearchResultsCarousel
                                           results={wileyResults}
                                           type="wiley"
                                         />
-                                      </div>
-                                    );
-                                  case "output-error":
-                                    return (
-                                      <div
-                                        key={callId}
-                                        className="mt-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-2 sm:p-3"
-                                      >
-                                        <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
-                                          <AlertCircle className="h-4 w-4" />
-                                          <span className="font-medium">
-                                            Wiley Search Error
-                                          </span>
-                                        </div>
-                                        <div className="text-sm text-red-600 dark:text-red-300">
-                                          {part.errorText}
-                                        </div>
-                                      </div>
-                                    );
-                                }
-                                break;
+                                      )}
+                                    </TimelineStep>
+                                  </div>
+                                );
                               }
 
                               // Chart Creation Tool
                               case "tool-createChart": {
                                 const callId = part.toolCallId;
-                                switch (part.state) {
-                                  case "input-streaming":
-                                    return (
-                                      <div
-                                        key={callId}
-                                        className="mt-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded p-2 sm:p-3"
-                                      >
-                                        <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 mb-2">
-                                          <span className="text-lg">📈</span>
-                                          <span className="font-medium">
-                                            Creating Chart
-                                          </span>
-                                          <Clock className="h-3 w-3 animate-spin" />
-                                        </div>
-                                        <div className="text-sm text-emerald-600 dark:text-emerald-300">
-                                          Preparing chart visualization...
-                                        </div>
-                                      </div>
-                                    );
-                                  case "input-available":
-                                    // PERFORMANCE FIX: Don't render input details during streaming
-                                    // Accessing part.input.dataSeries?.length causes re-renders
-                                    return (
-                                      <div
-                                        key={callId}
-                                        className="mt-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded p-2 sm:p-3"
-                                      >
-                                        <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 mb-2">
-                                          <span className="text-lg">📈</span>
-                                          <span className="font-medium">
-                                            Creating Chart
-                                          </span>
-                                          <Clock className="h-3 w-3 animate-spin" />
-                                        </div>
-                                        <div className="text-sm text-emerald-600 dark:text-emerald-300">
-                                          Generating interactive visualization...
-                                        </div>
-                                      </div>
-                                    );
-                                  case "output-available":
-                                    return (
-                                      <div key={callId} className="mt-2">
+                                const isStreaming = part.state === "input-streaming" || part.state === "input-available";
+                                const hasOutput = part.state === "output-available";
+                                const hasError = part.state === "output-error";
+
+                                if (hasError) {
+                                  return (
+                                    <div key={callId}>
+                                      <TimelineStep
+                                        part={part}
+                                        messageId={message.id}
+                                        index={index}
+                                        status="error"
+                                        type="tool"
+                                        title="Chart Creation Error"
+                                        subtitle={part.errorText}
+                                        icon={<AlertCircle />}
+                                        expandedTools={expandedTools}
+                                        toggleToolExpansion={toggleToolExpansion}
+                                      />
+                                    </div>
+                                  );
+                                }
+
+                                const title = hasOutput && part.output?.title ? part.output.title : "Chart";
+
+                                return (
+                                  <div key={callId}>
+                                    <TimelineStep
+                                      part={part}
+                                      messageId={message.id}
+                                      index={index}
+                                      status={isStreaming ? "streaming" : "complete"}
+                                      type="tool"
+                                      title={title}
+                                      subtitle={hasOutput && part.output?.metadata ? `${part.output.metadata.totalSeries} series · ${part.output.metadata.totalDataPoints} points` : undefined}
+                                      icon={<BarChart3 />}
+                                      expandedTools={expandedTools}
+                                      toggleToolExpansion={toggleToolExpansion}
+                                    >
+                                      {hasOutput && (
                                         <MemoizedChartResult
                                           chartData={part.output}
                                           actionId={callId}
                                           expandedTools={expandedTools}
                                           toggleToolExpansion={toggleToolExpansion}
                                         />
-                                      </div>
-                                    );
-                                  case "output-error":
-                                    return (
-                                      <div
-                                        key={callId}
-                                        className="mt-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-2 sm:p-3"
-                                      >
-                                        <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
-                                          <AlertCircle className="h-4 w-4" />
-                                          <span className="font-medium">
-                                            Chart Creation Error
-                                          </span>
-                                        </div>
-                                        <div className="text-sm text-red-600 dark:text-red-300">
-                                          {part.errorText}
-                                        </div>
-                                      </div>
-                                    );
-                                }
-                                break;
+                                      )}
+                                    </TimelineStep>
+                                  </div>
+                                );
                               }
 
                               // CSV Creation Tool
                               case "tool-createCSV": {
                                 const callId = part.toolCallId;
-                                switch (part.state) {
-                                  case "input-streaming":
-                                    return (
-                                      <div
-                                        key={callId}
-                                        className="mt-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded p-2 sm:p-3"
-                                      >
-                                        <div className="flex items-center gap-2 text-purple-700 dark:text-purple-400 mb-2">
-                                          <span className="text-lg">📊</span>
-                                          <span className="font-medium">
-                                            Creating CSV
-                                          </span>
-                                          <Clock className="h-3 w-3 animate-spin" />
-                                        </div>
-                                        <div className="text-sm text-purple-600 dark:text-purple-300">
-                                          Preparing CSV data table...
-                                        </div>
-                                      </div>
-                                    );
-                                  case "input-available":
-                                    // PERFORMANCE FIX: Don't render input details during streaming
-                                    // Accessing part.input.rows?.length with 75 rows causes massive re-renders
-                                    return (
-                                      <div
-                                        key={callId}
-                                        className="mt-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded p-2 sm:p-3"
-                                      >
-                                        <div className="flex items-center gap-2 text-purple-700 dark:text-purple-400 mb-2">
-                                          <span className="text-lg">📊</span>
-                                          <span className="font-medium">
-                                            Creating CSV
-                                          </span>
-                                          <Clock className="h-3 w-3 animate-spin" />
-                                        </div>
-                                        <div className="text-sm text-purple-600 dark:text-purple-300">
-                                          Generating data table...
-                                        </div>
-                                      </div>
-                                    );
-                                  case "output-available":
-                                    // Check if output contains an error
-                                    if (part.output?.error) {
-                                      return (
-                                        <div
-                                          key={callId}
-                                          className="mt-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-2 sm:p-3"
-                                        >
-                                          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
-                                            <AlertCircle className="h-4 w-4" />
-                                            <span className="font-medium">
-                                              CSV Creation Error
-                                            </span>
-                                          </div>
-                                          <div className="text-sm text-red-600 dark:text-red-300">
-                                            {part.output.message}
-                                          </div>
-                                        </div>
-                                      );
-                                    }
+                                const isStreaming = part.state === "input-streaming" || part.state === "input-available";
+                                const hasOutput = part.state === "output-available";
+                                const hasError = part.state === "output-error" || part.output?.error;
 
-                                    // CSVs are expanded by default, collapsed only if explicitly set
-                                    const isCSVExpanded = !expandedTools.has(
-                                      `collapsed-${callId}`
-                                    );
-                                    return (
-                                      <div key={callId} className="mt-2">
-                                        {isCSVExpanded ? (
-                                          <div className="relative">
-                                            <Button
-                                              variant="ghost"
-                                              size="sm"
-                                              onClick={() =>
-                                                toggleChartExpansion(callId)
-                                              }
-                                              className="absolute right-2 top-2 z-10 h-6 w-6 p-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-full shadow-sm"
-                                            >
-                                              <ChevronUp className="h-4 w-4" />
-                                            </Button>
-                                            <CSVPreview {...part.output} />
-                                          </div>
-                                        ) : (
-                                          <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
-                                            <div className="flex items-center justify-between mb-2">
-                                              <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                                                <span className="text-lg">
-                                                  📊
-                                                </span>
-                                                <span className="font-medium">
-                                                  {part.output.title}
-                                                </span>
-                                              </div>
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() =>
-                                                  toggleChartExpansion(callId)
-                                                }
-                                                className="h-6 w-6 p-0 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
-                                              >
-                                                <ChevronDown className="h-4 w-4" />
-                                              </Button>
-                                            </div>
-                                            <div className="text-sm text-gray-500 dark:text-gray-400 space-y-1">
-                                              <div>
-                                                Rows: {part.output.rowCount || 0}
-                                              </div>
-                                              <div>
-                                                Columns: {part.output.columnCount || 0}
-                                              </div>
-                                              {part.output.description && (
-                                                <div className="text-xs mt-2">
-                                                  {part.output.description}
-                                                </div>
-                                              )}
-                                            </div>
-                                            <div className="text-center mt-3">
-                                              <button
-                                                onClick={() =>
-                                                  toggleChartExpansion(callId)
-                                                }
-                                                className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200 underline"
-                                              >
-                                                View CSV Table
-                                              </button>
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  case "output-error":
-                                    return (
-                                      <div
-                                        key={callId}
-                                        className="mt-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-2 sm:p-3"
-                                      >
-                                        <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
-                                          <AlertCircle className="h-4 w-4" />
-                                          <span className="font-medium">
-                                            CSV Creation Error
-                                          </span>
-                                        </div>
-                                        <div className="text-sm text-red-600 dark:text-red-300">
-                                          {part.errorText}
-                                        </div>
-                                      </div>
-                                    );
+                                if (hasError) {
+                                  return (
+                                    <div key={callId}>
+                                      <TimelineStep
+                                        part={part}
+                                        messageId={message.id}
+                                        index={index}
+                                        status="error"
+                                        type="tool"
+                                        title="CSV Creation Error"
+                                        subtitle={part.output?.message || part.errorText}
+                                        icon={<AlertCircle />}
+                                        expandedTools={expandedTools}
+                                        toggleToolExpansion={toggleToolExpansion}
+                                      />
+                                    </div>
+                                  );
                                 }
-                                break;
+
+                                const title = hasOutput && part.output?.title ? part.output.title : "CSV Table";
+                                const subtitle = hasOutput ? `${part.output.rowCount} rows · ${part.output.columnCount} columns` : undefined;
+
+                                return (
+                                  <div key={callId}>
+                                    <TimelineStep
+                                      part={part}
+                                      messageId={message.id}
+                                      index={index}
+                                      status={isStreaming ? "streaming" : "complete"}
+                                      type="tool"
+                                      title={title}
+                                      subtitle={subtitle}
+                                      icon={<Table />}
+                                      expandedTools={expandedTools}
+                                      toggleToolExpansion={toggleToolExpansion}
+                                    >
+                                      {hasOutput && !part.output?.error && (
+                                        <CSVPreview {...part.output} />
+                                      )}
+                                    </TimelineStep>
+                                  </div>
+                                );
                               }
 
                               // Generic dynamic tool fallback (for future tools)
@@ -3647,7 +3480,7 @@ export function ChatInterface({
                 className="dark:hidden absolute inset-0"
                 style={{
                   background:
-                    "linear-gradient(to top, rgba(255,255,255,1) 0%, rgba(255,255,255,0.98) 30%, rgba(255,255,255,0.8) 60%, rgba(255,255,255,0) 100%)",
+                    "linear-gradient(to top, rgb(245,245,245) 0%, rgba(245,245,245,0.98) 30%, rgba(245,245,245,0.8) 60%, rgba(245,245,245,0) 100%)",
                 }}
               />
               <div

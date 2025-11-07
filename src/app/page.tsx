@@ -74,11 +74,9 @@ function HomeContent() {
   // Sync currentSessionId with URL param on mount and URL changes
   useEffect(() => {
     const chatIdFromUrl = searchParams.get('chatId');
-    // Only update if URL param is different from current state
-    if (chatIdFromUrl !== currentSessionId) {
-      setCurrentSessionId(chatIdFromUrl || undefined);
-    }
-  }, [searchParams, currentSessionId]); // Watch searchParams changes
+    // Always sync from URL to state (URL is source of truth)
+    setCurrentSessionId(chatIdFromUrl || undefined);
+  }, [searchParams]); // Only watch searchParams, not currentSessionId to avoid loops
 
   // Handle URL messages from auth callbacks
   useEffect(() => {
@@ -225,19 +223,15 @@ function HomeContent() {
     updateUrlWithSession(sessionId);
   }, [updateUrlWithSession]);
 
-  const handleNewChat = useCallback(() => {    
-    // Clear the local state immediately for immediate UI feedback
-    setCurrentSessionId(undefined);
-    updateUrlWithSession(null);
-    
+  const handleNewChat = useCallback(() => {
     // Increment key to force ChatInterface remount
     setChatKey(prev => prev + 1);
-    
-    // Clean up URL
-    const url = new URL(window.location.href);
-    url.searchParams.delete('chatId');
-    url.searchParams.delete('q');
-    window.history.replaceState(null, '', url.toString());
+
+    // Clear the local state
+    setCurrentSessionId(undefined);
+
+    // Update URL (which will trigger useEffect to sync state)
+    updateUrlWithSession(null);
   }, [updateUrlWithSession]);
 
   const handleSessionCreated = useCallback((sessionId: string) => {

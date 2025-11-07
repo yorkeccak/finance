@@ -118,7 +118,7 @@ export function Sidebar({
       if (confirmed) {
         setIsOpen(false);
         setShowHistory(false);
-        router.push('/');
+        onNewChat?.(); // Call onNewChat to properly reset the chat interface
       }
       return;
     }

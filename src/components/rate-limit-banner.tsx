@@ -13,6 +13,12 @@ export function RateLimitBanner() {
   const subscription = useSubscription();
   const [isDismissed, setIsDismissed] = useState(false);
 
+  // Don't show in development mode
+  const isDevelopment = process.env.NEXT_PUBLIC_APP_MODE === 'development';
+  if (isDevelopment) {
+    return null;
+  }
+
   // Fetch rate limit data
   const { data: rateLimit } = useQuery({
     queryKey: ['rateLimit'],

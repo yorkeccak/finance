@@ -19,6 +19,20 @@ export interface UserSubscription {
 export function useSubscription(): UserSubscription {
   const user = useAuthStore((state) => state.user);
 
+  // Development mode bypass - grant all permissions
+  const isDevelopment = process.env.NEXT_PUBLIC_APP_MODE === 'development';
+  if (isDevelopment) {
+    return {
+      tier: 'unlimited',
+      status: 'active',
+      isAnonymous: false,
+      isFree: false,
+      isPaid: true,
+      canDownloadReports: true,
+      canAccessHistory: true,
+    };
+  }
+
   const { data } = useQuery({
     queryKey: ['subscription', user?.id],
     queryFn: async () => {

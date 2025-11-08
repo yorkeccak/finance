@@ -21,18 +21,8 @@ export function useSubscription(): UserSubscription {
 
   // Development mode bypass - grant all permissions
   const isDevelopment = process.env.NEXT_PUBLIC_APP_MODE === 'development';
-  if (isDevelopment) {
-    return {
-      tier: 'unlimited',
-      status: 'active',
-      isAnonymous: false,
-      isFree: false,
-      isPaid: true,
-      canDownloadReports: true,
-      canAccessHistory: true,
-    };
-  }
 
+  // Must call useQuery hook before any early returns
   const { data } = useQuery({
     queryKey: ['subscription', user?.id],
     queryFn: async () => {
@@ -49,9 +39,22 @@ export function useSubscription(): UserSubscription {
 
       return userData;
     },
-    enabled: !!user,
+    enabled: !!user && !isDevelopment, // Don't fetch in development mode
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   });
+
+  // Return development mode permissions early (after all hooks)
+  if (isDevelopment) {
+    return {
+      tier: 'unlimited',
+      status: 'active',
+      isAnonymous: false,
+      isFree: false,
+      isPaid: true,
+      canDownloadReports: true,
+      canAccessHistory: true,
+    };
+  }
 
   // Anonymous user
   if (!user) {

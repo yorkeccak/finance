@@ -15,11 +15,8 @@ export function RateLimitBanner() {
 
   // Don't show in development mode
   const isDevelopment = process.env.NEXT_PUBLIC_APP_MODE === 'development';
-  if (isDevelopment) {
-    return null;
-  }
 
-  // Fetch rate limit data
+  // Fetch rate limit data (must call hook before any returns)
   const { data: rateLimit } = useQuery({
     queryKey: ['rateLimit'],
     queryFn: async () => {
@@ -28,31 +25,20 @@ export function RateLimitBanner() {
       return response.json();
     },
     refetchInterval: 30000, // Refetch every 30 seconds
+    enabled: !isDevelopment, // Don't fetch in development mode
   });
 
-  if (!rateLimit || isDismissed || subscription.isPaid) {
-    return null;
-  }
-
-  const { remaining, limit, tier } = rateLimit;
-  const percentRemaining = (remaining / limit) * 100;
-
-  // Show banner when user has 2 or fewer queries remaining
+  // Calculate states before early returns
+  const remaining = rateLimit?.remaining ?? 0;
+  const limit = rateLimit?.limit ?? 0;
+  const tier = rateLimit?.tier ?? 'anonymous';
   const shouldShow = remaining <= 2 && remaining > 0;
-
-  // Last query warning - more prominent
   const isLastQuery = remaining === 1;
-
-  // All queries used
   const noQueriesLeft = remaining === 0;
 
-  if (!shouldShow && !noQueriesLeft) {
-    return null;
-  }
-
-  // Track when rate limit warning is shown
+  // Track when rate limit warning is shown (must be before any returns)
   useEffect(() => {
-    if (shouldShow || noQueriesLeft) {
+    if ((shouldShow || noQueriesLeft) && !isDevelopment && rateLimit) {
       track('Rate Limit Warning Shown', {
         remaining,
         tier: subscription.tier,
@@ -60,7 +46,16 @@ export function RateLimitBanner() {
         noQueriesLeft
       });
     }
-  }, [shouldShow, noQueriesLeft, remaining, subscription.tier, isLastQuery]);
+  }, [shouldShow, noQueriesLeft, remaining, subscription.tier, isLastQuery, isDevelopment, rateLimit]);
+
+  // All early returns after all hooks
+  if (isDevelopment || !rateLimit || isDismissed || subscription.isPaid) {
+    return null;
+  }
+
+  if (!shouldShow && !noQueriesLeft) {
+    return null;
+  }
 
   return (
     <AnimatePresence>

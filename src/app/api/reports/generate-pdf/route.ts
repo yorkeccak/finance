@@ -361,7 +361,7 @@ async function renderChartAsImage(
     const text = msg.text();
     if (type === 'error') {
       console.error('[PDF Generation - Browser Console Error]:', text);
-    } else if (type === 'warning') {
+    } else if (type === 'warn') {
       console.warn('[PDF Generation - Browser Console Warning]:', text);
     } else {
       console.log('[PDF Generation - Browser Console]:', text);
@@ -369,8 +369,8 @@ async function renderChartAsImage(
   });
 
   // Listen to page errors
-  page.on('pageerror', error => {
-    console.error('[PDF Generation - Page Error]:', error.message);
+  page.on('pageerror', (error) => {
+    console.error('[PDF Generation - Page Error]:', error instanceof Error ? error.message : String(error));
   });
 
   try {

@@ -1,9 +1,10 @@
 'use client';
 
-import React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Clock, Search, BookOpen, FileText, Table, BarChart3, Brain, Code } from 'lucide-react';
+import React, { useState } from 'react';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { X, Search, BookOpen, FileText, Table, BarChart3, Brain, Code } from 'lucide-react';
 import { MessageMetrics, formatTime, formatCost } from '@/lib/metrics-calculator';
+import { PieChart, Pie, Cell, ResponsiveContainer, Sector } from 'recharts';
 
 interface TimeSavedBreakdownDialogProps {
   metrics: MessageMetrics;
@@ -11,126 +12,162 @@ interface TimeSavedBreakdownDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899'];
+
+const renderActiveShape = (props: any) => {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+
+  return (
+    <g>
+      <Sector
+        cx={cx}
+        cy={cy}
+        innerRadius={innerRadius}
+        outerRadius={outerRadius + 10}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+      />
+    </g>
+  );
+};
+
 export function TimeSavedBreakdownDialog({
   metrics,
   open,
   onOpenChange
 }: TimeSavedBreakdownDialogProps) {
   const { breakdown, timeSavedMinutes, moneySaved } = metrics;
+  const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
 
   const tasks = [
-    {
-      name: 'Source Finding',
-      minutes: breakdown.sourceFindingMinutes,
-      icon: Search,
-      description: 'Searching and identifying relevant sources',
-    },
-    {
-      name: 'Source Reading',
-      minutes: breakdown.sourceReadingMinutes,
-      icon: BookOpen,
-      description: 'Reading and extracting key information',
-    },
-    {
-      name: 'Writing',
-      minutes: breakdown.writingMinutes,
-      icon: FileText,
-      description: 'Report composition and drafting',
-    },
-    {
-      name: 'CSV Creation',
-      minutes: breakdown.csvCreationMinutes,
-      icon: Table,
-      description: 'Data structuring and formatting',
-    },
-    {
-      name: 'Chart Creation',
-      minutes: breakdown.chartCreationMinutes,
-      icon: BarChart3,
-      description: 'Data visualization and design',
-    },
-    {
-      name: 'Analysis & Reasoning',
-      minutes: breakdown.analysisMinutes,
-      icon: Brain,
-      description: 'Critical thinking and synthesis',
-    },
-    {
-      name: 'Data Processing',
-      minutes: breakdown.dataProcessingMinutes,
-      icon: Code,
-      description: 'Model building and validation',
-    },
+    { name: 'Source Finding', minutes: breakdown.sourceFindingMinutes, icon: Search },
+    { name: 'Source Reading', minutes: breakdown.sourceReadingMinutes, icon: BookOpen },
+    { name: 'Writing', minutes: breakdown.writingMinutes, icon: FileText },
+    { name: 'Analysis & Reasoning', minutes: breakdown.analysisMinutes, icon: Brain },
+    { name: 'CSV Creation', minutes: breakdown.csvCreationMinutes, icon: Table },
+    { name: 'Chart Creation', minutes: breakdown.chartCreationMinutes, icon: BarChart3 },
+    { name: 'Data Processing', minutes: breakdown.dataProcessingMinutes, icon: Code },
   ].filter(task => task.minutes > 0);
+
+  const chartData = tasks.map((task) => ({
+    name: task.name,
+    value: task.minutes,
+    percentage: ((task.minutes / timeSavedMinutes) * 100).toFixed(1),
+  }));
 
   const totalHours = timeSavedMinutes / 60;
   const workDays = totalHours / 8;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!max-w-4xl max-h-[85vh] overflow-y-auto overflow-x-hidden">
-        <DialogHeader>
-          <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Productivity Analysis
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent className="!max-w-4xl !max-h-[85vh]">
+        {/* Header */}
+        <div className="flex items-start justify-between pb-3 border-b border-gray-200 dark:border-gray-800">
+          <div>
+            <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">Productivity Analysis</DialogTitle>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Time and cost breakdown</p>
+          </div>
+          <button
+            onClick={() => onOpenChange(false)}
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+          >
+            <X className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+          </button>
+        </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-2 gap-3 mt-2">
-          <div className="bg-gray-50 dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800 rounded-lg p-4">
-            <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 uppercase tracking-wide">Time Saved</div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-0.5">
-              {formatTime(timeSavedMinutes)}
-            </div>
-            <div className="text-xs text-gray-500 dark:text-gray-500">
-              ≈ {workDays.toFixed(1)} work days
-            </div>
+        {/* Summary Stats */}
+        <div className="grid grid-cols-2 gap-3 py-3">
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-100 dark:border-blue-900/50 rounded-lg p-3">
+            <div className="text-xs font-medium text-blue-900 dark:text-blue-300 mb-1">Time Saved</div>
+            <div className="text-2xl font-bold text-blue-950 dark:text-blue-100">{formatTime(timeSavedMinutes)}</div>
+            <div className="text-[10px] text-blue-700 dark:text-blue-400 mt-0.5">≈ {workDays.toFixed(1)} work days</div>
           </div>
 
-          <div className="bg-gray-50 dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800 rounded-lg p-4">
-            <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 uppercase tracking-wide">Cost Saved</div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-0.5">
-              {formatCost(moneySaved)}
-            </div>
-            <div className="text-xs text-gray-500 dark:text-gray-500">
-              @ $200/hour analyst rate
-            </div>
+          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border border-emerald-100 dark:border-emerald-900/50 rounded-lg p-3">
+            <div className="text-xs font-medium text-emerald-900 dark:text-emerald-300 mb-1">Cost Saved</div>
+            <div className="text-2xl font-bold text-emerald-950 dark:text-emerald-100">{formatCost(moneySaved)}</div>
+            <div className="text-[10px] text-emerald-700 dark:text-emerald-400 mt-0.5">@ $200/hour analyst rate</div>
           </div>
         </div>
 
-        {/* Task Breakdown */}
-        <div className="mt-6">
-          <h3 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">Task Breakdown</h3>
+        {/* Chart and Legend */}
+        <div className="grid grid-cols-[1fr,280px] gap-6 py-2">
+          {/* Pie Chart and Info */}
+          <div className="flex items-center justify-center gap-6">
+            <ResponsiveContainer width="60%" height={260}>
+              <PieChart>
+                <Pie
+                  activeIndex={activeIndex}
+                  activeShape={renderActiveShape}
+                  data={chartData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={95}
+                  paddingAngle={2}
+                  dataKey="value"
+                  onMouseEnter={(_, index) => setActiveIndex(index)}
+                  onMouseLeave={() => setActiveIndex(undefined)}
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} className="cursor-pointer" />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
 
-          <div className="space-y-2">
+            {/* Active Section Info */}
+            <div className="flex flex-col justify-center min-w-[140px]">
+              {activeIndex !== undefined && (
+                <>
+                  <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">
+                    {tasks[activeIndex].name}
+                  </div>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-0.5">
+                    {formatTime(tasks[activeIndex].minutes)}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {((tasks[activeIndex].minutes / timeSavedMinutes) * 100).toFixed(1)}% of total
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Legend */}
+          <div className="flex flex-col justify-center space-y-1.5 py-2">
             {tasks.map((task, idx) => {
               const Icon = task.icon;
-              const percentage = (task.minutes / timeSavedMinutes) * 100;
+              const percentage = ((task.minutes / timeSavedMinutes) * 100).toFixed(1);
+              const isActive = activeIndex === idx;
 
               return (
-                <div key={idx} className="group">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                        <Icon className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
-                      </div>
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{task.name}</span>
-                    </div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                        {formatTime(task.minutes)}
-                      </span>
-                      <span className="text-xs text-gray-500 dark:text-gray-500">
-                        {percentage.toFixed(0)}%
-                      </span>
-                    </div>
+                <div
+                  key={idx}
+                  onMouseEnter={() => setActiveIndex(idx)}
+                  onMouseLeave={() => setActiveIndex(undefined)}
+                  className={`flex items-center gap-2 p-1.5 rounded-lg cursor-pointer transition-all ${
+                    isActive ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                  }`}
+                >
+                  <div
+                    className="w-3 h-3 rounded-sm flex-shrink-0"
+                    style={{ backgroundColor: COLORS[idx % COLORS.length] }}
+                  />
+                  <div className="w-5 h-5 rounded bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
+                    <Icon className="w-3 h-3 text-gray-700 dark:text-gray-300" />
                   </div>
-                  <div className="text-xs text-gray-600 dark:text-gray-400 mb-2 ml-8">{task.description}</div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-1 ml-8">
-                    <div
-                      className="bg-gray-600 dark:bg-gray-500 h-1 rounded-full transition-all duration-500"
-                      style={{ width: `${percentage}%` }}
-                    />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">{task.name}</div>
+                  </div>
+                  <div className="flex items-baseline gap-1.5 flex-shrink-0">
+                    <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 tabular-nums">
+                      {formatTime(task.minutes)}
+                    </span>
+                    <span className="text-[10px] text-gray-500 dark:text-gray-400 w-9 text-right tabular-nums">
+                      {percentage}%
+                    </span>
                   </div>
                 </div>
               );
@@ -138,11 +175,10 @@ export function TimeSavedBreakdownDialog({
           </div>
         </div>
 
-        {/* Methodology Note */}
-        <div className="mt-6 p-3 bg-gray-50 dark:bg-gray-900/30 border border-gray-200/50 dark:border-gray-800/50 rounded-lg">
-          <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Methodology</p>
-          <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-            Time estimates based on industry benchmarks for senior financial analysts ($200/hour) performing equivalent manual research, analysis, and deliverable creation.
+        {/* Footer */}
+        <div className="pt-2 border-t border-gray-200 dark:border-gray-800">
+          <p className="text-[10px] text-gray-600 dark:text-gray-400 text-center leading-relaxed">
+            Time estimates based on industry benchmarks for senior financial analysts performing equivalent manual research, analysis, and deliverable creation.
           </p>
         </div>
       </DialogContent>

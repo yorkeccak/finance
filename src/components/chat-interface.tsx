@@ -1041,7 +1041,7 @@ const SearchResultCard = ({
     return (
       <>
         <Card
-          className="cursor-pointer hover:shadow-md transition-shadow min-w-[240px] sm:min-w-[280px] max-w-[280px] sm:max-w-[320px] flex-shrink-0"
+          className="cursor-pointer hover:shadow-md transition-shadow min-w-[240px] sm:min-w-[280px] max-w-[280px] sm:max-w-[320px] flex-shrink-0 py-2"
           onClick={() => setIsDialogOpen(true)}
         >
           <CardContent className="h-full p-3">
@@ -1126,7 +1126,7 @@ const SearchResultCard = ({
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow min-w-[240px] sm:min-w-[280px] max-w-[280px] sm:max-w-[320px] flex-shrink-0">
+        <Card className="cursor-pointer hover:shadow-md transition-shadow min-w-[240px] sm:min-w-[280px] max-w-[280px] sm:max-w-[320px] flex-shrink-0 py-2">
           <CardContent className="h-full p-3">
             <div className="flex gap-2.5 h-full">
               {/* Favicon on left */}
@@ -2736,7 +2736,7 @@ export function ChatInterface({
                   <motion.button
                     onClick={() =>
                       handlePromptClick(
-                        "Research how Trump's latest statements about tech regulation are affecting Elon Musk's companies. Find recent news about Tesla, SpaceX, and X (Twitter) stock movements, analyst reactions, and political implications for the EV industry."
+                        "Analyze the correlation between Bitcoin price movements and major tech stocks (TSLA, COIN, NVDA) over the past year. Create a CSV with daily prices, then generate correlation matrices and time series charts showing their relationships. Include analysis of crypto market sentiment and its impact on tech valuations."
                       )
                     }
                     className="bg-gray-50 dark:bg-gray-800/50 p-2.5 sm:p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-left group"
@@ -2746,17 +2746,17 @@ export function ChatInterface({
                     whileTap={{ scale: 0.98 }}
                   >
                     <div className="text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-gray-900 dark:group-hover:text-gray-100">
-                      🔍 News Impact
+                      🔗 Correlation Analysis
                     </div>
                     <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
-                      Real-time news analysis & market reactions
+                      Market relationships & statistical insights
                     </div>
                   </motion.button>
 
                   <motion.button
                     onClick={() =>
                       handlePromptClick(
-                        "Conduct a comprehensive analysis of the 2008 financial crisis: summarize key academic research from Wiley on the causes and impact of the crisis, get Apple Inc.'s stock price performance throughout 2008, and generate a detailed report on how the events of 2008 affected Apple, including financial metrics, business strategy, and market response."
+                        "Analyze Netflix's subscriber growth and revenue metrics over the past 5 years. Pull financial data from SEC filings, create a comprehensive CSV with quarterly metrics (subscribers, ARPU, revenue, content spend), then generate charts showing: 1) Subscriber growth trends by region, 2) Revenue vs content spending, 3) Stock price correlation with subscriber announcements. Include competitive analysis vs Disney+."
                       )
                     }
                     className="bg-gray-50 dark:bg-gray-800/50 p-2.5 sm:p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-left group"
@@ -2766,17 +2766,17 @@ export function ChatInterface({
                     whileTap={{ scale: 0.98 }}
                   >
                     <div className="text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-gray-900 dark:group-hover:text-gray-100">
-                      📚 Academic Research
+                      📊 Growth Metrics
                     </div>
                     <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
-                      Academic research from peer-reviewed authoratitive content
+                      Business KPIs with trend visualizations
                     </div>
                   </motion.button>
 
                   <motion.button
                     onClick={() =>
                       handlePromptClick(
-                        "Analyze PepsiCo's recent SEC filings (10-K, 10-Q, and 8-K). Use Python to calculate key financial metrics (e.g., revenue growth, margins, liquidity), identify significant events and disclosures, then research the fundamental reasons behind management's decisions using recent financial statements."
+                        "Compare the top 5 tech stocks (AAPL, MSFT, GOOGL, AMZN, NVDA) over the past 5 years. Create a CSV with their annual revenue, profit margins, and P/E ratios. Then generate visualizations showing: 1) Stock price performance comparison chart, 2) Revenue growth trends, 3) Profitability metrics comparison. Provide detailed analysis of which performed best and why."
                       )
                     }
                     className="bg-gray-50 dark:bg-gray-800/50 p-2.5 sm:p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-left group"
@@ -2786,17 +2786,17 @@ export function ChatInterface({
                     whileTap={{ scale: 0.98 }}
                   >
                     <div className="text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-gray-900 dark:group-hover:text-gray-100">
-                      💼 Portfolio Analysis
+                      📈 Comparative Analysis
                     </div>
                     <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
-                      Institutional moves & fundamental analysis
+                      Multi-stock comparison with charts & data
                     </div>
                   </motion.button>
 
                   <motion.button
                     onClick={() =>
                       handlePromptClick(
-                        "Do an in-depth report into the effect COVID-19 had on Pfizer. Analyze insider trades made during that time period, research those specific high-profile people involved, look at the company's stock price pre and post COVID, with income statements, balance sheets, and any relevant info from SEC filings around this time. Be thorough and execute code for deep analysis."
+                        "Do an in-depth report into the effect COVID-19 had on Pfizer. Analyze insider trades made during that time period, research those specific high-profile people involved, look at the company's stock price pre and post COVID, with income statements, balance sheets, and any relevant info from SEC filings around this time. Be thorough and execute code for deep analysis. Create a comprehensive CSV of ALL insider trades with columns: Date, Insider Name, Title/Position, Transaction Type (Buy/Sale/Option), Transaction Size (shares), Dollar Value, Stock Price at Time, and News Events Around Transaction Date."
                       )
                     }
                     className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-2.5 sm:p-4 rounded-xl border border-blue-200 dark:border-blue-700 hover:border-blue-300 dark:hover:border-blue-600 transition-colors hover:from-blue-100 hover:to-purple-100 dark:hover:from-blue-900/30 dark:hover:to-purple-900/30 text-left group col-span-1 sm:col-span-2 lg:col-span-1"
@@ -3556,7 +3556,7 @@ export function ChatInterface({
 
                   {/* Message Actions - Professional Action Bar */}
                   {message.role === "assistant" && !isLoading && (
-                    <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                    <div className="flex justify-end gap-2 mt-6 pt-4 mb-8 border-t border-gray-100 dark:border-gray-800">
                       <button
                         onClick={() => copyToClipboard(getMessageText(message))}
                         className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg transition-all"

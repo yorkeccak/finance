@@ -180,7 +180,7 @@ export function formatTime(minutes: number): string {
 }
 
 export function formatCost(cost: number): string {
-  return cost.toLocaleString('en-US', {
+  return '$' + cost.toLocaleString('en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
   });

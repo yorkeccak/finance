@@ -9,6 +9,8 @@ import { useAuthStore } from '@/lib/stores/use-auth-store';
 import { createClient } from '@/utils/supabase/client';
 import {
   MessageSquare,
+  MessagesSquare,
+  MessageCirclePlus,
   History,
   Settings,
   LogOut,
@@ -49,6 +51,7 @@ export function Sidebar({
   const queryClient = useQueryClient();
 
   const [isOpen, setIsOpen] = useState(false);
+  const [alwaysOpen, setAlwaysOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showSubscription, setShowSubscription] = useState(false);
@@ -103,11 +106,26 @@ export function Sidebar({
   }, [onNewChat]);
 
   const toggleSidebar = () => {
+    if (alwaysOpen) return; // Don't allow closing if always open is enabled
     setIsOpen(!isOpen);
     if (isOpen) {
       setShowHistory(false); // Close history when closing sidebar
     }
   };
+
+  // Keep sidebar open if alwaysOpen is enabled
+  useEffect(() => {
+    if (alwaysOpen) {
+      setIsOpen(true);
+    }
+  }, [alwaysOpen]);
+
+  // Listen for upgrade modal trigger from rate limit banner
+  useEffect(() => {
+    const handleShowUpgradeModal = () => setShowSubscription(true);
+    window.addEventListener('show-upgrade-modal', handleShowUpgradeModal);
+    return () => window.removeEventListener('show-upgrade-modal', handleShowUpgradeModal);
+  }, []);
 
   const handleLogoClick = () => {
     // If in a chat session, warn before leaving
@@ -259,192 +277,281 @@ export function Sidebar({
 
   return (
     <>
-      {/* Collapsed Logo Button */}
-      <AnimatePresence>
-        {!isOpen && (
-          <motion.button
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            transition={{
-              type: 'spring',
-              damping: 20,
-              stiffness: 300
-            }}
-            onClick={toggleSidebar}
-            className="fixed left-6 top-6 z-50 w-12 h-12 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg transition-all duration-200"
+      {/* Chevron Toggle Button - Left Edge, Centered */}
+      {!isOpen && (
+        <motion.button
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          onClick={toggleSidebar}
+          className="fixed left-0 top-1/2 -translate-y-1/2 z-50 w-10 h-16 flex items-center justify-center bg-white dark:bg-gray-900 border-r-2 border-t-2 border-b-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 rounded-r-2xl transition-all duration-200 shadow-lg hover:shadow-xl hover:w-12 group"
+          title="Open Menu"
+        >
+          <svg
+            className="w-5 h-5 text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <Image
-              src="/nabla.png"
-              alt="Open Menu"
-              width={32}
-              height={32}
-              className="rounded-lg"
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2.5}
+              d="M9 5l7 7-7 7"
             />
-          </motion.button>
-        )}
-      </AnimatePresence>
+          </svg>
+        </motion.button>
+      )}
 
-      {/* Main Sidebar */}
+      {/* macOS Dock-Style Navigation - Left Side */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ y: -50, opacity: 0, scale: 0.95 }}
-            animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ y: -50, opacity: 0, scale: 0.95 }}
+            initial={{ x: -100, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -100, opacity: 0 }}
             transition={{
               type: 'spring',
-              damping: 25,
+              damping: 30,
               stiffness: 300
             }}
-            className="fixed left-4 top-4 bottom-4 w-16 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-2xl flex flex-col items-center py-5 z-40 border border-gray-200/50 dark:border-gray-700/50"
+            className="fixed left-6 top-1/2 -translate-y-1/2 z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-2xl border border-gray-200 dark:border-gray-700 rounded-[32px] shadow-2xl py-4 px-3"
           >
-            {/* Logo Button - handles close/home navigation */}
-            <button
-              onClick={handleLogoClick}
-              className="w-12 h-12 flex items-center justify-center hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-200 mb-3 hover:scale-105 active:scale-95"
-              title={pathname === '/' ? 'Close Sidebar' : 'Go to Home'}
-            >
-              <Image
-                src="/nabla.png"
-                alt="Logo"
-                width={32}
-                height={32}
-                className="rounded-lg"
-              />
-            </button>
-
-            {/* Divider */}
-            <div className="w-8 h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-700 to-transparent mb-3" />
-
-            {/* New Chat Button */}
-            {user && (
-              <button
-                onClick={handleNewChat}
-                className="w-11 h-11 flex items-center justify-center hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all duration-200 mb-2 group hover:scale-105 active:scale-95"
-                title="New Chat"
-              >
-                <Plus className="h-5 w-5 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" />
-              </button>
-            )}
-
-            {/* History Button */}
-            {user && (
-              <button
-                onClick={() => setShowHistory(!showHistory)}
-                className={`w-11 h-11 flex items-center justify-center rounded-xl transition-all duration-200 mb-2 hover:scale-105 active:scale-95 ${
-                  showHistory
-                    ? 'bg-indigo-100 dark:bg-indigo-900/30'
-                    : 'hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
-                }`}
-                title="Chat History"
-              >
-                <History className={`h-5 w-5 transition-colors ${
-                  showHistory
-                    ? 'text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-500 dark:text-gray-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400'
-                }`} />
-              </button>
-            )}
-
-            {/* Spacer */}
-            <div className="flex-1" />
-
-            {/* Divider */}
-            <div className="w-8 h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-700 to-transparent mb-3" />
-
-            {/* Subscription/Billing Button */}
-            {user && (
-              <>
-                {tier === 'free' && !hasPolarCustomer ? (
-                  <button
-                    onClick={() => setShowSubscription(true)}
-                    className="w-11 h-11 flex items-center justify-center hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-xl transition-all duration-200 mb-2 group hover:scale-105 active:scale-95"
-                    title="Subscription"
-                  >
-                    <CreditCard className="h-5 w-5 text-gray-500 dark:text-gray-400 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors" />
-                  </button>
-                ) : hasPolarCustomer ? (
-                  <button
-                    onClick={handleViewUsage}
-                    className="w-11 h-11 flex items-center justify-center hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-xl transition-all duration-200 mb-2 group hover:scale-105 active:scale-95"
-                    title="View Usage & Billing"
-                  >
-                    <BarChart3 className="h-5 w-5 text-gray-500 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors" />
-                  </button>
-                ) : null}
-              </>
-            )}
-
-            {/* Settings Button */}
-            <button
-              onClick={() => setShowSettings(true)}
-              className="w-11 h-11 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-200 mb-3 group hover:scale-105 active:scale-95"
-              title="Settings"
-            >
-              <Settings className="h-5 w-5 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors" />
-            </button>
-
-            {/* User Avatar - Click to show menu */}
-            {user && (
-              <div className="relative">
+            <div className="flex flex-col items-center gap-2">
+              {/* Always Open Toggle */}
+              <div className="relative group/tooltip">
                 <button
-                  onClick={() => setShowProfileMenu(!showProfileMenu)}
-                  className={`w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-200 group hover:scale-105 active:scale-95 ${
-                    showProfileMenu
-                      ? 'bg-gray-100 dark:bg-gray-800/50'
-                      : 'hover:bg-gray-100 dark:hover:bg-gray-800/50'
+                  onClick={() => setAlwaysOpen(!alwaysOpen)}
+                  className={`w-12 h-12 flex items-center justify-center rounded-[20px] transition-all duration-200 hover:scale-110 active:scale-95 ${
+                    alwaysOpen
+                      ? 'bg-blue-100 dark:bg-blue-900/30'
+                      : 'hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`}
-                  title="Profile menu"
                 >
-                  <Avatar className="h-9 w-9 ring-2 ring-transparent group-hover:ring-gray-200 dark:group-hover:ring-gray-700 transition-all">
-                    <AvatarImage src={user.user_metadata?.avatar_url} />
-                    <AvatarFallback className="text-xs bg-gradient-to-br from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 text-white dark:text-gray-900 font-semibold">
-                      {user.email?.[0]?.toUpperCase() || 'U'}
-                    </AvatarFallback>
-                  </Avatar>
+                  <svg
+                    className={`w-6 h-6 transition-colors ${
+                      alwaysOpen
+                        ? 'text-blue-600 dark:text-blue-400'
+                        : 'text-gray-600 dark:text-gray-400'
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                    />
+                  </svg>
                 </button>
-
-                {/* Profile Dropdown Menu */}
-                <AnimatePresence>
-                  {showProfileMenu && (
-                    <motion.div
-                      initial={{ opacity: 0, x: -10, scale: 0.95 }}
-                      animate={{ opacity: 1, x: 0, scale: 1 }}
-                      exit={{ opacity: 0, x: -10, scale: 0.95 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute left-full ml-4 bottom-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 rounded-2xl shadow-2xl py-2 px-1 min-w-[200px] z-50"
-                    >
-                      {/* User Email */}
-                      <div className="px-3 py-2 mb-1">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Signed in as</p>
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                          {user.email}
-                        </p>
-                      </div>
-
-                      {/* Divider */}
-                      <div className="h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-700 to-transparent my-1" />
-
-                      {/* Logout Button */}
-                      <button
-                        onClick={() => {
-                          setShowProfileMenu(false);
-                          const confirmed = window.confirm('Are you sure you want to sign out?');
-                          if (confirmed) {
-                            signOut();
-                          }
-                        }}
-                        className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all duration-200 group"
-                      >
-                        <LogOut className="h-4 w-4" />
-                        <span className="font-medium">Sign out</span>
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                  {alwaysOpen ? 'Always Open (On)' : 'Always Open (Off)'}
+                </div>
               </div>
-            )}
+
+              {/* Divider */}
+              <div className="w-10 h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-600 to-transparent" />
+
+              {/* Logo */}
+              <div className="relative group/tooltip">
+                <button
+                  onClick={handleLogoClick}
+                  className="w-12 h-12 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-[20px] transition-all duration-200 hover:scale-110 active:scale-95"
+                >
+                  <Image
+                    src="/nabla.png"
+                    alt="Home"
+                    width={28}
+                    height={28}
+                    className="rounded-lg"
+                  />
+                </button>
+                <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                  Home
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="w-10 h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-600 to-transparent" />
+
+              {/* New Chat */}
+              {user && (
+                <div className="relative group/tooltip">
+                  <button
+                    onClick={handleNewChat}
+                    className="w-12 h-12 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-[20px] transition-all duration-200 group hover:scale-110 active:scale-95"
+                  >
+                    <MessageCirclePlus className="h-6 w-6 text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors" />
+                  </button>
+                  <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                    New Chat
+                  </div>
+                </div>
+              )}
+
+              {/* History */}
+              {user && (
+                <div className="relative group/tooltip">
+                  <button
+                    onClick={() => setShowHistory(!showHistory)}
+                    className={`w-12 h-12 flex items-center justify-center rounded-[20px] transition-all duration-200 hover:scale-110 active:scale-95 ${
+                      showHistory
+                        ? 'bg-gray-900 dark:bg-gray-100 shadow-lg'
+                        : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    <MessagesSquare className={`h-6 w-6 transition-colors ${
+                      showHistory
+                        ? 'text-white dark:text-gray-900'
+                        : 'text-gray-600 dark:text-gray-400'
+                    }`} />
+                  </button>
+                  <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                    History
+                  </div>
+                </div>
+              )}
+
+              {/* Divider */}
+              {user && <div className="w-10 h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-600 to-transparent my-1" />}
+
+              {/* Billing/Subscription */}
+              {user && (
+                <>
+                  {tier === 'free' && !hasPolarCustomer ? (
+                    <div className="relative group/tooltip">
+                      <button
+                        onClick={() => setShowSubscription(true)}
+                        className="w-12 h-12 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-[20px] transition-all duration-200 group hover:scale-110 active:scale-95"
+                      >
+                        <CreditCard className="h-6 w-6 text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors" />
+                      </button>
+                      <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                        Upgrade
+                      </div>
+                    </div>
+                  ) : hasPolarCustomer ? (
+                    <div className="relative group/tooltip">
+                      <button
+                        onClick={handleViewUsage}
+                        className="w-12 h-12 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-[20px] transition-all duration-200 group hover:scale-110 active:scale-95"
+                      >
+                        <BarChart3 className="h-6 w-6 text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors" />
+                      </button>
+                      <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                        Usage & Billing
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              )}
+
+              {/* Settings */}
+              <div className="relative group/tooltip">
+                <button
+                  onClick={() => setShowSettings(true)}
+                  className="w-12 h-12 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-[20px] transition-all duration-200 group hover:scale-110 active:scale-95"
+                >
+                  <Settings className="h-6 w-6 text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors" />
+                </button>
+                <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                  Settings
+                </div>
+              </div>
+
+              {/* Divider */}
+              {user && <div className="w-10 h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-600 to-transparent mt-1" />}
+
+              {/* User Avatar with Dropdown */}
+              {user && (
+                <div className="relative group/tooltip">
+                  <button
+                    onClick={() => setShowProfileMenu(!showProfileMenu)}
+                    className="w-12 h-12 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-[20px] transition-all duration-200 hover:scale-110 active:scale-95"
+                  >
+                    <Avatar className="h-9 w-9 ring-2 ring-transparent hover:ring-gray-300 dark:hover:ring-gray-600 transition-all">
+                      <AvatarImage src={user.user_metadata?.avatar_url} />
+                      <AvatarFallback className="text-xs bg-gradient-to-br from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 text-white dark:text-gray-900 font-semibold">
+                        {user.email?.[0]?.toUpperCase() || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
+                  <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                    Account
+                  </div>
+
+                  {/* Profile Dropdown */}
+                  <AnimatePresence>
+                    {showProfileMenu && (
+                      <motion.div
+                        initial={{ opacity: 0, x: -10, scale: 0.95 }}
+                        animate={{ opacity: 1, x: 0, scale: 1 }}
+                        exit={{ opacity: 0, x: -10, scale: 0.95 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute left-full ml-4 bottom-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl py-2 px-1 min-w-[220px] z-50"
+                      >
+                        {/* User Email */}
+                        <div className="px-3 py-2.5 mb-1">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Signed in as</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                            {user.email}
+                          </p>
+                        </div>
+
+                        {/* Divider */}
+                        <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
+
+                        {/* Sign Out */}
+                        <button
+                          onClick={() => {
+                            setShowProfileMenu(false);
+                            const confirmed = window.confirm('Are you sure you want to sign out?');
+                            if (confirmed) {
+                              signOut();
+                            }
+                          }}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all duration-200"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          <span className="font-medium">Sign out</span>
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
+
+              {/* Close Dock Button - Only show if not always open */}
+              {!alwaysOpen && (
+                <>
+                  <div className="w-10 h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-600 to-transparent mt-2" />
+                  <div className="relative group/tooltip">
+                    <button
+                      onClick={toggleSidebar}
+                      className="w-12 h-12 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-[20px] transition-all duration-200 hover:scale-110 active:scale-95 mt-2"
+                    >
+                      <svg
+                        className="w-5 h-5 text-gray-600 dark:text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                    <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                      Close
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

@@ -73,7 +73,7 @@ export function RateLimitBanner() {
                 ? 'bg-red-50/95 dark:bg-red-900/30 border-red-200 dark:border-red-800'
                 : isLastQuery
                 ? 'bg-orange-50/95 dark:bg-orange-900/30 border-orange-200 dark:border-orange-800'
-                : 'bg-yellow-50/95 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-800'
+                : 'bg-blue-50/95 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800'
             }
           `}
         >
@@ -93,7 +93,7 @@ export function RateLimitBanner() {
                     ? 'text-red-600 dark:text-red-400'
                     : isLastQuery
                     ? 'text-orange-600 dark:text-orange-400'
-                    : 'text-yellow-600 dark:text-yellow-400'
+                    : 'text-blue-600 dark:text-blue-400'
                 }
               `}
             />
@@ -108,7 +108,7 @@ export function RateLimitBanner() {
                         ? 'text-red-900 dark:text-red-100'
                         : isLastQuery
                         ? 'text-orange-900 dark:text-orange-100'
-                        : 'text-yellow-900 dark:text-yellow-100'
+                        : 'text-blue-900 dark:text-blue-100'
                     }
                   `}
                 >
@@ -126,7 +126,7 @@ export function RateLimitBanner() {
                         ? 'text-red-700 dark:text-red-300'
                         : isLastQuery
                         ? 'text-orange-700 dark:text-orange-300'
-                        : 'text-yellow-700 dark:text-yellow-300'
+                        : 'text-blue-700 dark:text-blue-300'
                     }
                   `}
                 >
@@ -157,7 +157,7 @@ export function RateLimitBanner() {
                     onClick={() =>
                       window.dispatchEvent(new CustomEvent('show-upgrade-modal'))
                     }
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white rounded-lg transition-all shadow-sm"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg transition-all shadow-sm"
                   >
                     <Crown className="w-3 h-3" />
                     <span>Upgrade</span>

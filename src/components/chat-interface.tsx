@@ -436,7 +436,7 @@ const MemoizedCodeExecutionResult = memo(function MemoizedCodeExecutionResult({
     <div className="space-y-4">
       {/* Code Section - clean monospace display */}
       <div>
-        <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wide">Python Code</div>
+        <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wide">Input</div>
         <pre className="p-4 bg-gray-900 dark:bg-black/40 text-gray-100 text-xs overflow-x-auto rounded-lg max-h-[400px] overflow-y-auto border border-gray-800 dark:border-gray-800/50 shadow-inner">
           <code>{code || "No code available"}</code>
         </pre>
@@ -3529,40 +3529,39 @@ export function ChatInterface({
                     </div>
                   )}
 
-                  {/* Message Actions */}
-                  {message.role === "assistant" && (
-                    <div className="flex justify-end gap-1 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {deferredMessages[deferredMessages.length - 1]?.id === message.id &&
-                        canRegenerate && (
-                          <Button
-                            onClick={() => {
-                              track('Message Regenerated', {
-                                messageCount: deferredMessages.length,
-                                lastMessageRole: deferredMessages[deferredMessages.length - 1]?.role
-                              });
-                              regenerate();
-                            }}
-                            variant="ghost"
-                            size="sm"
-                            disabled={status !== "ready" && status !== "error"}
-                            className="h-7 px-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                          >
-                            <RotateCcw className="h-3 w-3" />
-                          </Button>
-                        )}
+                  {/* Message Actions - Professional Action Bar */}
+                  {message.role === "assistant" && !isLoading && (
+                    <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                      <button
+                        onClick={() => copyToClipboard(getMessageText(message))}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg transition-all"
+                        title="Copy to clipboard"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        <span>Copy</span>
+                      </button>
 
-                      {!isLoading && (
-                        <Button
-                          onClick={() =>
-                            copyToClipboard(getMessageText(message))
-                          }
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                          title="Copy to clipboard"
+                      {/* Show download button only for last message when session exists */}
+                      {deferredMessages[deferredMessages.length - 1]?.id === message.id &&
+                       sessionIdRef.current && (
+                        <button
+                          onClick={handleDownloadPDF}
+                          disabled={isDownloadingPDF}
+                          className="inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Download full report as PDF"
                         >
-                          <Copy className="h-3 w-3" />
-                        </Button>
+                          {isDownloadingPDF ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              <span>Generating...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Download className="h-3.5 w-3.5" />
+                              <span>Download Report</span>
+                            </>
+                          )}
+                        </button>
                       )}
                     </div>
                   )}
@@ -3613,34 +3612,6 @@ export function ChatInterface({
               </motion.div>
             )}
         </AnimatePresence>
-
-        {/* Download Report Button - At bottom of messages (only when assistant is not streaming) */}
-        {messages.length > 0 && sessionIdRef.current && !isLoading && (
-          <motion.div
-            className="mt-12 mb-8 flex justify-center"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-          >
-            <button
-              onClick={handleDownloadPDF}
-              disabled={isDownloadingPDF}
-              className="group inline-flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-700 shadow-sm hover:shadow transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isDownloadingPDF ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin text-gray-500 dark:text-gray-400" />
-                  <span>Generating report...</span>
-                </>
-              ) : (
-                <>
-                  <Download className="h-4 w-4 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors" />
-                  <span>Download Full Report</span>
-                </>
-              )}
-            </button>
-          </motion.div>
-        )}
 
         <div ref={messagesEndRef} />
         <div ref={bottomAnchorRef} className="h-px w-full" />

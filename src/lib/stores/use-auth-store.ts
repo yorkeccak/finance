@@ -4,6 +4,7 @@ import { User } from '@supabase/supabase-js';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { createClient } from '@/utils/supabase/client';
+import { track } from '@vercel/analytics';
 
 interface AuthState {
   user: User | null;
@@ -56,7 +57,7 @@ export const useAuthStore = create<AuthStore>()(
 
       signUp: async (email: string, password: string) => {
         const supabase = createClient();
-        
+
         try {
           const { data, error } = await supabase.auth.signUp({
             email,
@@ -65,6 +66,13 @@ export const useAuthStore = create<AuthStore>()(
 
           if (error) {
             return { error };
+          }
+
+          // Track successful sign up
+          if (data.user) {
+            track('Sign Up Success', {
+              method: 'email'
+            });
           }
 
           // User profile and rate limit records will be created automatically via database trigger
@@ -173,6 +181,12 @@ export const useAuthStore = create<AuthStore>()(
             // Transfer anonymous usage on successful sign in
             if (event === 'SIGNED_IN' && session?.user) {
               console.log('[Auth Store] Transferring anonymous usage for sign in');
+
+              // Track sign in (captures both email and OAuth)
+              track('Sign In Success', {
+                method: session.user.app_metadata.provider || 'email'
+              });
+
               try {
                 // Call API endpoint to transfer usage server-side
                 const response = await fetch('/api/rate-limit?transfer=true', {

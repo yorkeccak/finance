@@ -14,9 +14,12 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { useOllama } from "@/lib/ollama-context";
 import { useAuthStore } from "@/lib/stores/use-auth-store";
+import { useSubscription } from "@/hooks/use-subscription";
 import { createClient } from '@/utils/supabase/client';
 import { track } from '@vercel/analytics';
 import { OllamaStatusIndicator } from '@/components/ollama-status-indicator';
+import { AuthModal } from '@/components/auth/auth-modal';
+import { RateLimitBanner } from '@/components/rate-limit-banner';
 
 import {
   Dialog,
@@ -1690,7 +1693,18 @@ export function ChatInterface({
 
   const { selectedModel } = useOllama();
   const user = useAuthStore((state) => state.user);
-  
+  const subscription = useSubscription();
+
+  // Auth modal state for paywalls
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // Listen for global auth modal trigger (from sidebar, etc.)
+  useEffect(() => {
+    const handleShowAuthModal = () => setShowAuthModal(true);
+    window.addEventListener('show-auth-modal', handleShowAuthModal);
+    return () => window.removeEventListener('show-auth-modal', handleShowAuthModal);
+  }, []);
+
   // Session management functions
   const generateSessionTitle = useCallback((firstMessage: string): string => {
     // Create a smart title from the first user message
@@ -2130,14 +2144,15 @@ export function ChatInterface({
     const isLoading = status === "submitted" || status === "streaming";
 
     if (isLoading && !queryStartTime) {
-      // Start tracking when query begins - reset timer to 0
-      setLiveProcessingTime(0);
+      // Start tracking when query begins
       setQueryStartTime(Date.now());
     } else if (!isLoading && queryStartTime) {
       // Capture final time before stopping
       const finalTime = Date.now() - queryStartTime;
       setLiveProcessingTime(finalTime);
       setQueryStartTime(null);
+
+      console.log('[Processing Time] Final time captured:', finalTime, 'ms');
     }
 
     if (isLoading && queryStartTime) {
@@ -2470,6 +2485,12 @@ export function ChatInterface({
       return;
     }
 
+    // Track PDF download
+    track('PDF Download Started', {
+      sessionId: sessionIdRef.current,
+      messageCount: messages.length
+    });
+
     setIsDownloadingPDF(true);
 
     try {
@@ -2612,7 +2633,9 @@ export function ChatInterface({
 
       // Accumulate processing time from message metadata
       if ((message as any).processing_time_ms || (message as any).processingTimeMs) {
-        totalMetrics.processingTimeMs += (message as any).processing_time_ms || (message as any).processingTimeMs || 0;
+        const msgProcessingTime = (message as any).processing_time_ms || (message as any).processingTimeMs || 0;
+        totalMetrics.processingTimeMs += msgProcessingTime;
+        console.log('[Metrics] Message processing time:', msgProcessingTime, 'ms, total so far:', totalMetrics.processingTimeMs, 'ms');
       }
 
       // Accumulate breakdown
@@ -2624,9 +2647,11 @@ export function ChatInterface({
 
     // Add live processing time if currently loading
     if (liveProcessingTime > 0) {
+      console.log('[Metrics] Adding live processing time:', liveProcessingTime, 'ms');
       totalMetrics.processingTimeMs += liveProcessingTime;
     }
 
+    console.log('[Metrics] Final total processing time:', totalMetrics.processingTimeMs, 'ms');
     return totalMetrics;
   }, [messages, liveProcessingTime]);
 
@@ -3544,24 +3569,38 @@ export function ChatInterface({
                       {/* Show download button only for last message when session exists */}
                       {deferredMessages[deferredMessages.length - 1]?.id === message.id &&
                        sessionIdRef.current && (
-                        <button
-                          onClick={handleDownloadPDF}
-                          disabled={isDownloadingPDF}
-                          className="inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Download full report as PDF"
-                        >
-                          {isDownloadingPDF ? (
-                            <>
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              <span>Generating...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Download className="h-3.5 w-3.5" />
-                              <span>Download Report</span>
-                            </>
-                          )}
-                        </button>
+                        subscription.canDownloadReports ? (
+                          <button
+                            onClick={handleDownloadPDF}
+                            disabled={isDownloadingPDF}
+                            className="inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Download full report as PDF"
+                          >
+                            {isDownloadingPDF ? (
+                              <>
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                <span>Generating...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Download className="h-3.5 w-3.5" />
+                                <span>Download Report</span>
+                              </>
+                            )}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setShowAuthModal(true)}
+                            className="inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg transition-all hover:border-gray-300 dark:hover:border-gray-600 hover:text-gray-600 dark:hover:text-gray-400 group"
+                            title="Sign in to download reports"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            <span>Download Report</span>
+                            <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 transition-colors">
+                              Sign in
+                            </span>
+                          </button>
+                        )
                       )}
                     </div>
                   )}
@@ -3714,7 +3753,7 @@ export function ChatInterface({
                   value={input}
                   onChange={handleInputChange}
                   placeholder="Ask a question..."
-                  className="w-full resize-none border-0 px-0 py-2 pr-12 min-h-[36px] max-h-24 focus:ring-0 bg-transparent overflow-y-auto text-base placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                  className="w-full resize-none border-0 px-0 py-2 pr-12 min-h-[36px] max-h-24 focus:ring-0 focus-visible:ring-0 bg-transparent overflow-y-auto text-base placeholder:text-gray-400 dark:placeholder:text-gray-500 shadow-none"
                   disabled={status === "error" || isLoading}
                   rows={1}
                   style={{ lineHeight: "1.5", paddingTop: "0.5rem", paddingBottom: "0.5rem" }}
@@ -3776,6 +3815,15 @@ export function ChatInterface({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Rate Limit Banner */}
+      <RateLimitBanner />
+
+      {/* Auth Modal for Paywalls */}
+      <AuthModal
+        open={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+      />
     </div>
   );
 }

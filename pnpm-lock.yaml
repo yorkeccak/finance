@@ -122,6 +122,9 @@ importers:
       ollama-ai-provider-v2:
         specifier: ^1.1.1
         version: 1.1.2(zod@4.0.17)
+      posthog-js:
+        specifier: ^1.290.0
+        version: 1.290.0
       puppeteer:
         specifier: ^24.29.1
         version: 24.29.1(typescript@5.9.2)
@@ -743,6 +746,9 @@ packages:
     peerDependenciesMeta:
       '@modelcontextprotocol/sdk':
         optional: true
+
+  '@posthog/core@1.5.2':
+    resolution: {integrity: sha512-iedUP3EnOPPxTA2VaIrsrd29lSZnUV+ZrMnvY56timRVeZAXoYCkmjfIs3KBAsF8OUT5h1GXLSkoQdrV0r31OQ==}
 
   '@puppeteer/browsers@2.10.13':
     resolution: {integrity: sha512-a9Ruw3j3qlnB5a/zHRTkruppynxqaeE4H9WNj5eYGRWqw0ZauZ23f4W2ARf3hghF5doozyD+CRtt7XSYuYRI/Q==}
@@ -2543,6 +2549,9 @@ packages:
       picomatch:
         optional: true
 
+  fflate@0.4.8:
+    resolution: {integrity: sha512-FJqqoDBR00Mdj9ppamLa/Y7vxm+PRmNWA67N846RvsoYVMKB4q3y/de5PA7gUmRMYK/8CMz2GDZQmCRN1wBcWA==}
+
   fflate@0.8.2:
     resolution: {integrity: sha512-cPJU47OaAoCbg0pBvzsgpTPhmhqI5eJjh/JIu8tPj5q+T7iLvW/JAYUqmE7KOB4R1ZyEhzBaIQpQpardBF5z8A==}
 
@@ -3471,6 +3480,12 @@ packages:
     resolution: {integrity: sha512-3Ybi1tAuwAP9s0r1UQ2J4n5Y0G05bJkpUIO0/bI9MhwmD70S5aTWbXGBwxHrelT+XM1k6dM0pk+SwNkpTRN7Pg==}
     engines: {node: ^10 || ^12 || >=14}
 
+  posthog-js@1.290.0:
+    resolution: {integrity: sha512-zavBwZkf+3JeiSDVE7ZDXBfzva/iOljicdhdJH+cZoqp0LsxjKxjnNhGOd3KpAhw0wqdwjhd7Lp1aJuI7DXyaw==}
+
+  preact@10.27.2:
+    resolution: {integrity: sha512-5SYSgFKSyhCbk6SrXyMpqjb5+MQBgfvEKE/OC+PujcY34sOpqtr+0AZQtPYx5IA6VxynQ7rUPCtKzyovpj9Bpg==}
+
   prelude-ls@1.2.1:
     resolution: {integrity: sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g==}
     engines: {node: '>= 0.8.0'}
@@ -4056,6 +4071,9 @@ packages:
 
   web-namespaces@2.0.1:
     resolution: {integrity: sha512-bKr1DkiNa2krS7qxNtdrtHAmzuYGFQLiQ13TsorsdT6ULTkPLKuu5+GsFpDlg6JFjUTwX2DyhMPG2be8uPrqsQ==}
+
+  web-vitals@4.2.4:
+    resolution: {integrity: sha512-r4DIlprAGwJ7YM11VZp4R884m0Vmgr6EAKe3P+kO0PPj3Unqyvv59rczf6UiGcb9Z8QxZVcqKNwv/g0WNdWwsw==}
 
   webdriver-bidi-protocol@0.3.8:
     resolution: {integrity: sha512-21Yi2GhGntMc671vNBCjiAeEVknXjVRoyu+k+9xOMShu+ZQfpGQwnBqbNz/Sv4GXZ6JmutlPAi2nIJcrymAWuQ==}
@@ -5005,6 +5023,10 @@ snapshots:
     dependencies:
       standardwebhooks: 1.0.0
       zod: 3.25.76
+
+  '@posthog/core@1.5.2':
+    dependencies:
+      cross-spawn: 7.0.6
 
   '@puppeteer/browsers@2.10.13':
     dependencies:
@@ -6461,8 +6483,7 @@ snapshots:
 
   cookie@1.0.2: {}
 
-  core-js@3.46.0:
-    optional: true
+  core-js@3.46.0: {}
 
   cosmiconfig@9.0.0(typescript@5.9.2):
     dependencies:
@@ -7047,6 +7068,8 @@ snapshots:
   fdir@6.5.0(picomatch@4.0.3):
     optionalDependencies:
       picomatch: 4.0.3
+
+  fflate@0.4.8: {}
 
   fflate@0.8.2: {}
 
@@ -8213,6 +8236,16 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
+  posthog-js@1.290.0:
+    dependencies:
+      '@posthog/core': 1.5.2
+      core-js: 3.46.0
+      fflate: 0.4.8
+      preact: 10.27.2
+      web-vitals: 4.2.4
+
+  preact@10.27.2: {}
+
   prelude-ls@1.2.1: {}
 
   progress@2.0.3: {}
@@ -9028,6 +9061,8 @@ snapshots:
       d3-timer: 3.0.1
 
   web-namespaces@2.0.1: {}
+
+  web-vitals@4.2.4: {}
 
   webdriver-bidi-protocol@0.3.8: {}
 

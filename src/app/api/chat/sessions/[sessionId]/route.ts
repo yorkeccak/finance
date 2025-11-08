@@ -57,6 +57,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ sessionI
       // The 'content' column in DB stores the parts array
       parts: msg.content || [],
       createdAt: msg.created_at,
+      processing_time_ms: msg.processing_time_ms,
     }))
   }));
 }

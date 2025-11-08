@@ -52,6 +52,7 @@ export function Sidebar({
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showSubscription, setShowSubscription] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   // Fetch chat sessions
   const { data: sessions = [], isLoading: loadingSessions } = useQuery({
@@ -166,9 +167,94 @@ export function Sidebar({
   const hasPolarCustomer = user?.user_metadata?.polar_customer_id;
   const tier = user?.user_metadata?.subscription_tier || 'free';
 
-  // Don't render sidebar for non-logged-in users
+  // Show minimal sidebar for anonymous users with sign-in prompt
   if (!user) {
-    return null;
+    return (
+      <>
+        {/* Collapsed Sign In Button for Anonymous Users */}
+        <AnimatePresence>
+          {!isOpen && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{
+                type: 'spring',
+                damping: 20,
+                stiffness: 300
+              }}
+              onClick={toggleSidebar}
+              className="fixed left-6 top-6 z-50 w-12 h-12 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg transition-all duration-200 group"
+              title="Sign in for chat history"
+            >
+              <Image
+                src="/nabla.png"
+                alt="Menu"
+                width={32}
+                height={32}
+                className="rounded-lg opacity-60 group-hover:opacity-100 transition-opacity"
+              />
+              <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-white dark:border-gray-900"></span>
+            </motion.button>
+          )}
+        </AnimatePresence>
+
+        {/* Anonymous User Sidebar - Sign In Prompt */}
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              initial={{ y: -50, opacity: 0, scale: 0.95 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: -50, opacity: 0, scale: 0.95 }}
+              transition={{
+                type: 'spring',
+                damping: 25,
+                stiffness: 300
+              }}
+              className="fixed left-4 top-4 bottom-4 w-16 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-2xl flex flex-col items-center py-5 z-40 border border-gray-200/50 dark:border-gray-700/50"
+            >
+              {/* Logo Button */}
+              <button
+                onClick={toggleSidebar}
+                className="w-12 h-12 flex items-center justify-center hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-200 mb-3 hover:scale-105 active:scale-95"
+                title="Close"
+              >
+                <Image
+                  src="/nabla.png"
+                  alt="Logo"
+                  width={32}
+                  height={32}
+                  className="rounded-lg"
+                />
+              </button>
+
+              {/* Spacer */}
+              <div className="flex-1" />
+
+              {/* Divider */}
+              <div className="w-8 h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-700 to-transparent mb-3" />
+
+              {/* Sign In Button with pulse effect */}
+              <button
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('show-auth-modal'));
+                }}
+                className="w-11 h-11 flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/40 dark:hover:to-indigo-900/40 rounded-xl transition-all duration-200 group relative hover:scale-105 active:scale-95 border border-blue-200/50 dark:border-blue-800/50"
+                title="Sign in for chat history & downloads"
+              >
+                <svg className="h-5 w-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                </svg>
+                <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                </span>
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </>
+    );
   }
 
   return (
@@ -211,12 +297,12 @@ export function Sidebar({
               damping: 25,
               stiffness: 300
             }}
-            className="fixed left-4 top-4 bottom-4 w-16 bg-white dark:bg-gray-900 rounded-full shadow-lg flex flex-col items-center py-4 z-40 border border-gray-200 dark:border-gray-800"
+            className="fixed left-4 top-4 bottom-4 w-16 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-2xl flex flex-col items-center py-5 z-40 border border-gray-200/50 dark:border-gray-700/50"
           >
             {/* Logo Button - handles close/home navigation */}
             <button
               onClick={handleLogoClick}
-              className="w-12 h-12 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors mb-2"
+              className="w-12 h-12 flex items-center justify-center hover:bg-gray-100/50 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-200 mb-3 hover:scale-105 active:scale-95"
               title={pathname === '/' ? 'Close Sidebar' : 'Go to Home'}
             >
               <Image
@@ -228,14 +314,17 @@ export function Sidebar({
               />
             </button>
 
+            {/* Divider */}
+            <div className="w-8 h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-700 to-transparent mb-3" />
+
             {/* New Chat Button */}
             {user && (
               <button
                 onClick={handleNewChat}
-                className="w-12 h-12 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors mb-2 group"
+                className="w-11 h-11 flex items-center justify-center hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all duration-200 mb-2 group hover:scale-105 active:scale-95"
                 title="New Chat"
               >
-                <Plus className="h-5 w-5 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200" />
+                <Plus className="h-5 w-5 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" />
               </button>
             )}
 
@@ -243,17 +332,26 @@ export function Sidebar({
             {user && (
               <button
                 onClick={() => setShowHistory(!showHistory)}
-                className={`w-12 h-12 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors mb-2 ${
-                  showHistory ? 'bg-gray-100 dark:bg-gray-800' : ''
+                className={`w-11 h-11 flex items-center justify-center rounded-xl transition-all duration-200 mb-2 hover:scale-105 active:scale-95 ${
+                  showHistory
+                    ? 'bg-indigo-100 dark:bg-indigo-900/30'
+                    : 'hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
                 }`}
                 title="Chat History"
               >
-                <History className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                <History className={`h-5 w-5 transition-colors ${
+                  showHistory
+                    ? 'text-indigo-600 dark:text-indigo-400'
+                    : 'text-gray-500 dark:text-gray-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400'
+                }`} />
               </button>
             )}
 
             {/* Spacer */}
             <div className="flex-1" />
+
+            {/* Divider */}
+            <div className="w-8 h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-700 to-transparent mb-3" />
 
             {/* Subscription/Billing Button */}
             {user && (
@@ -261,18 +359,18 @@ export function Sidebar({
                 {tier === 'free' && !hasPolarCustomer ? (
                   <button
                     onClick={() => setShowSubscription(true)}
-                    className="w-12 h-12 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors mb-2 group"
+                    className="w-11 h-11 flex items-center justify-center hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-xl transition-all duration-200 mb-2 group hover:scale-105 active:scale-95"
                     title="Subscription"
                   >
-                    <CreditCard className="h-5 w-5 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200" />
+                    <CreditCard className="h-5 w-5 text-gray-500 dark:text-gray-400 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors" />
                   </button>
                 ) : hasPolarCustomer ? (
                   <button
                     onClick={handleViewUsage}
-                    className="w-12 h-12 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors mb-2 group"
+                    className="w-11 h-11 flex items-center justify-center hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-xl transition-all duration-200 mb-2 group hover:scale-105 active:scale-95"
                     title="View Usage & Billing"
                   >
-                    <BarChart3 className="h-5 w-5 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200" />
+                    <BarChart3 className="h-5 w-5 text-gray-500 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors" />
                   </button>
                 ) : null}
               </>
@@ -281,32 +379,70 @@ export function Sidebar({
             {/* Settings Button */}
             <button
               onClick={() => setShowSettings(true)}
-              className="w-12 h-12 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors mb-2 group"
+              className="w-11 h-11 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-200 mb-3 group hover:scale-105 active:scale-95"
               title="Settings"
             >
-              <Settings className="h-5 w-5 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200" />
+              <Settings className="h-5 w-5 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors" />
             </button>
 
-            {/* User Avatar with Logout */}
+            {/* User Avatar - Click to show menu */}
             {user && (
-              <div className="relative group">
-                <Avatar className="h-8 w-8 cursor-pointer">
-                  <AvatarImage src={user.user_metadata?.avatar_url} />
-                  <AvatarFallback className="text-xs bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900">
-                    {user.email?.[0]?.toUpperCase() || 'U'}
-                  </AvatarFallback>
-                </Avatar>
-
-                {/* Hover Logout Button */}
-                <motion.button
-                  initial={{ opacity: 0, x: -10 }}
-                  whileHover={{ opacity: 1, x: 0 }}
-                  className="absolute left-full ml-4 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg px-3 py-2 shadow-lg flex items-center gap-2 whitespace-nowrap"
-                  onClick={() => signOut()}
+              <div className="relative">
+                <button
+                  onClick={() => setShowProfileMenu(!showProfileMenu)}
+                  className={`w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-200 group hover:scale-105 active:scale-95 ${
+                    showProfileMenu
+                      ? 'bg-gray-100 dark:bg-gray-800/50'
+                      : 'hover:bg-gray-100 dark:hover:bg-gray-800/50'
+                  }`}
+                  title="Profile menu"
                 >
-                  <LogOut className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Logout</span>
-                </motion.button>
+                  <Avatar className="h-9 w-9 ring-2 ring-transparent group-hover:ring-gray-200 dark:group-hover:ring-gray-700 transition-all">
+                    <AvatarImage src={user.user_metadata?.avatar_url} />
+                    <AvatarFallback className="text-xs bg-gradient-to-br from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 text-white dark:text-gray-900 font-semibold">
+                      {user.email?.[0]?.toUpperCase() || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                </button>
+
+                {/* Profile Dropdown Menu */}
+                <AnimatePresence>
+                  {showProfileMenu && (
+                    <motion.div
+                      initial={{ opacity: 0, x: -10, scale: 0.95 }}
+                      animate={{ opacity: 1, x: 0, scale: 1 }}
+                      exit={{ opacity: 0, x: -10, scale: 0.95 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute left-full ml-4 bottom-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 rounded-2xl shadow-2xl py-2 px-1 min-w-[200px] z-50"
+                    >
+                      {/* User Email */}
+                      <div className="px-3 py-2 mb-1">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Signed in as</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                          {user.email}
+                        </p>
+                      </div>
+
+                      {/* Divider */}
+                      <div className="h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-700 to-transparent my-1" />
+
+                      {/* Logout Button */}
+                      <button
+                        onClick={() => {
+                          setShowProfileMenu(false);
+                          const confirmed = window.confirm('Are you sure you want to sign out?');
+                          if (confirmed) {
+                            signOut();
+                          }
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all duration-200 group"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        <span className="font-medium">Sign out</span>
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             )}
           </motion.div>

@@ -14,7 +14,7 @@ const SocialLinks = () => {
     },
     {
       name: "LinkedIn",
-      url: "https://www.linkedin.com/company/valyu-network",
+      url: "https://www.linkedin.com/company/valyu-ai",
       icon: <Linkedin className="h-4 w-4" />,
     },
     {

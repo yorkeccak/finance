@@ -7,6 +7,7 @@ import { Analytics } from '@vercel/analytics/next';
 import { AuthInitializer } from "@/components/auth/auth-initializer";
 import { QueryProvider } from "@/components/query-provider";
 import { ThemeProvider } from "@/components/theme-provider";
+import { PostHogProvider } from "@/components/posthog-provider";
 import { logEnvironmentStatus } from "@/lib/env-validation";
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -81,11 +82,13 @@ export default function RootLayout({
         >
           <QueryProvider>
             <AuthInitializer>
-              <OllamaProvider>
-                <MissingKeysDialog />
-                {children}
-                <Analytics />
-              </OllamaProvider>
+              <PostHogProvider>
+                <OllamaProvider>
+                  <MissingKeysDialog />
+                  {children}
+                  <Analytics />
+                </OllamaProvider>
+              </PostHogProvider>
             </AuthInitializer>
           </QueryProvider>
         </ThemeProvider>

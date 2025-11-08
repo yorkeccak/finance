@@ -112,7 +112,7 @@ const TimelineStep = memo(({
   status: string;
   type?: 'reasoning' | 'search' | 'action' | 'tool';
   title: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   icon?: React.ReactNode;
   expandedTools: Set<string>;
   toggleToolExpansion: (id: string) => void;
@@ -134,7 +134,7 @@ const TimelineStep = memo(({
     <div className="group relative py-0.5 animate-in fade-in duration-200">
       {/* Minimal, refined design */}
       <div
-        className={`relative flex items-start gap-3 py-2 px-2 -mx-2 rounded-md transition-all duration-150 ${
+        className={`relative flex items-start gap-4 py-4 px-3 sm:px-4 -mx-1 sm:-mx-2 rounded-md transition-all duration-150 ${
           isStreaming ? 'bg-blue-50/50 dark:bg-blue-950/10' : ''
         } ${
           hasContent ? 'hover:bg-gray-50 dark:hover:bg-white/[0.02] cursor-pointer' : ''
@@ -215,6 +215,52 @@ const TimelineStep = memo(({
   );
 });
 TimelineStep.displayName = 'TimelineStep';
+
+// Live Reasoning Preview - shows latest **title** + 2 most recent lines
+// Lines wrap and stream/switch as new content comes in
+const LiveReasoningPreview = memo(({ title, lines }: { title: string; lines: string[] }) => {
+  if (!title && lines.length === 0) return null;
+
+  // Always show the last 2 lines
+  const displayLines = lines.slice(-2);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: 0.12, ease: 'easeOut' }}
+      className="my-1 ml-3 sm:ml-8 mr-3 sm:mr-0"
+    >
+      <div className="bg-blue-50/50 dark:bg-blue-950/20 border-l-2 border-blue-300 dark:border-blue-700 rounded-r px-2 sm:px-2.5 py-1.5 space-y-1 overflow-hidden max-w-full">
+        {/* Show the latest **title** */}
+        {title && (
+          <div className="text-xs font-semibold text-blue-700 dark:text-blue-300 truncate">
+            {title}
+          </div>
+        )}
+
+        {/* Show 2 most recent lines - each limited to 1 visual line */}
+        <AnimatePresence mode="popLayout">
+          {displayLines.map((line, index) => (
+            <motion.div
+              key={`${displayLines.length}-${index}-${line.substring(0, 30)}`}
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              transition={{ duration: 0.08 }}
+              className="text-xs text-gray-500 dark:text-gray-400 leading-snug truncate max-w-full"
+            >
+              {line}
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+    </motion.div>
+  );
+});
+
+LiveReasoningPreview.displayName = 'LiveReasoningPreview';
 
 // Reasoning component - wraps TimelineStep
 const ReasoningComponent = memo(({
@@ -1593,6 +1639,12 @@ export function ChatInterface({
   const [isFormAtBottom, setIsFormAtBottom] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isStartingNewChat, setIsStartingNewChat] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [queryStartTime, setQueryStartTime] = useState<number | null>(null);
+  const [liveProcessingTime, setLiveProcessingTime] = useState<number>(0);
+
+  // Live reasoning preview - no longer needed as global state
+  // Each reasoning component will handle its own preview based on streaming state
 
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -1816,6 +1868,7 @@ export function ChatInterface({
     },
   });
 
+
   // Session loading function - defined after useChat to access setMessages
   const loadSessionMessages = useCallback(async (sessionId: string) => {
     if (!user) return;
@@ -2030,13 +2083,18 @@ export function ChatInterface({
     return container.scrollHeight > container.clientHeight + 2;
   };
 
-  // Load query from URL params on initial load (but not when starting new chat)
+  // Load query from URL params on initial load (but not when starting new chat or submitting)
   useEffect(() => {
     if (isStartingNewChat) {
       setIsStartingNewChat(false);
       return;
     }
-    
+
+    // Skip URL sync when actively submitting to prevent race condition
+    if (isSubmitting) {
+      return;
+    }
+
     const queryParam = searchParams.get("q");
     if (queryParam && messages.length === 0) {
       let decodedQuery = queryParam;
@@ -2051,7 +2109,14 @@ export function ChatInterface({
       // Clear input if no query param and no messages (fresh start)
       setInput("");
     }
-  }, [searchParams, messages.length, isStartingNewChat]);
+  }, [searchParams, messages.length, isStartingNewChat, isSubmitting]);
+
+  // Clear submitting flag when message is added
+  useEffect(() => {
+    if (isSubmitting && messages.length > 0) {
+      setIsSubmitting(false);
+    }
+  }, [messages.length, isSubmitting]);
 
   // Reset form position when all messages are cleared (except on mobile)
   useEffect(() => {
@@ -2059,6 +2124,30 @@ export function ChatInterface({
       setIsFormAtBottom(false);
     }
   }, [messages.length, isMobile]);
+
+  // Live processing time tracker
+  useEffect(() => {
+    const isLoading = status === "submitted" || status === "streaming";
+
+    if (isLoading && !queryStartTime) {
+      // Start tracking when query begins - reset timer to 0
+      setLiveProcessingTime(0);
+      setQueryStartTime(Date.now());
+    } else if (!isLoading && queryStartTime) {
+      // Capture final time before stopping
+      const finalTime = Date.now() - queryStartTime;
+      setLiveProcessingTime(finalTime);
+      setQueryStartTime(null);
+    }
+
+    if (isLoading && queryStartTime) {
+      // Update live timer every 100ms
+      const interval = setInterval(() => {
+        setLiveProcessingTime(Date.now() - queryStartTime);
+      }, 100);
+      return () => clearInterval(interval);
+    }
+  }, [status, queryStartTime]);
 
   // Check if user is at bottom of scroll (container only)
   // Wrap in useCallback to prevent re-renders (doc line 1386)
@@ -2220,20 +2309,23 @@ export function ChatInterface({
     e.preventDefault();
     if (input.trim() && status === "ready") {
       // Check current rate limit status immediately before sending
-      
+
       if (!canSendQuery) {
         // Rate limit exceeded - show dialog and don't send message or update URL
         setIsRateLimited(true);
         onRateLimitError?.(resetTime?.toISOString() || new Date().toISOString());
         return;
       }
-      
+
       // Store the input to send
       const queryText = input.trim();
-      
+
+      // Set submitting flag to prevent URL sync race condition
+      setIsSubmitting(true);
+
       // Clear input immediately before sending to prevent any display lag
       setInput("");
-      
+
       // Track user query submission
       track('User Query Submitted', {
         query: queryText,
@@ -2241,7 +2333,7 @@ export function ChatInterface({
         messageCount: messages.length,
         remainingQueries: remaining ? remaining - 1 : 0
       });
-      
+
       updateUrlWithQuery(queryText);
       // Move form to bottom when submitting (always true on mobile, conditional on desktop)
       if (!isFormAtBottom) {
@@ -2368,12 +2460,17 @@ export function ChatInterface({
     }
   }, []);
 
+  // Track PDF download state
+  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
+
   // Download professional PDF report with charts and citations
   const handleDownloadPDF = useCallback(async () => {
     if (!sessionIdRef.current) {
       console.warn('No session ID available for PDF generation');
       return;
     }
+
+    setIsDownloadingPDF(true);
 
     try {
       console.log('[PDF Download] Starting PDF generation for session:', sessionIdRef.current);
@@ -2422,6 +2519,8 @@ export function ChatInterface({
     } catch (err) {
       console.error('Failed to generate PDF:', err);
       alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setIsDownloadingPDF(false);
     }
   }, [messages]);
 
@@ -2523,8 +2622,13 @@ export function ChatInterface({
       });
     });
 
+    // Add live processing time if currently loading
+    if (liveProcessingTime > 0) {
+      totalMetrics.processingTimeMs += liveProcessingTime;
+    }
+
     return totalMetrics;
-  }, [messages]);
+  }, [messages, liveProcessingTime]);
 
   return (
     <div className="w-full max-w-3xl mx-auto relative min-h-0">
@@ -2540,7 +2644,7 @@ export function ChatInterface({
         ref={messagesContainerRef}
         className={`space-y-4 sm:space-y-8 min-h-[300px] overflow-y-auto overflow-x-hidden ${
           messages.length > 0 ? "pt-20 sm:pt-24" : "pt-2 sm:pt-4"
-        } ${isFormAtBottom ? "pb-32 sm:pb-36" : "pb-4 sm:pb-8"}`}
+        } ${isFormAtBottom ? "pb-44 sm:pb-36" : "pb-4 sm:pb-8"}`}
       >
         {messages.length === 0 && (
           <motion.div
@@ -2887,16 +2991,49 @@ export function ChatInterface({
                               (item: any) => item.part.state === "streaming"
                             );
 
+                            // Extract latest **title** and lines after it for live preview
+                            let previewTitle = "";
+                            let previewLines: string[] = [];
+
+                            if (isStreaming && combinedText) {
+                              const allLines = combinedText.split('\n').filter((l: string) => l.trim());
+
+                              // Find the LATEST line that matches **text** pattern
+                              let lastTitleIndex = -1;
+                              for (let i = allLines.length - 1; i >= 0; i--) {
+                                if (allLines[i].match(/^\*\*.*\*\*$/)) {
+                                  lastTitleIndex = i;
+                                  previewTitle = allLines[i].replace(/\*\*/g, ''); // Remove ** markers
+                                  break;
+                                }
+                              }
+
+                              // Get all lines after the latest title
+                              if (lastTitleIndex !== -1 && lastTitleIndex < allLines.length - 1) {
+                                previewLines = allLines.slice(lastTitleIndex + 1);
+                              } else if (lastTitleIndex === -1 && allLines.length > 0) {
+                                // No title found, just use all lines
+                                previewLines = allLines;
+                              }
+                            }
+
                             return (
-                              <ReasoningComponent
-                                key={`reasoning-group-${groupIndex}`}
-                                part={{ ...firstPart, text: combinedText }}
-                                messageId={message.id}
-                                index={groupIndex}
-                                status={isStreaming ? "streaming" : "complete"}
-                                expandedTools={expandedTools}
-                                toggleToolExpansion={toggleToolExpansion}
-                              />
+                              <React.Fragment key={`reasoning-group-${groupIndex}`}>
+                                <ReasoningComponent
+                                  part={{ ...firstPart, text: combinedText }}
+                                  messageId={message.id}
+                                  index={groupIndex}
+                                  status={isStreaming ? "streaming" : "complete"}
+                                  expandedTools={expandedTools}
+                                  toggleToolExpansion={toggleToolExpansion}
+                                />
+                                {isStreaming && previewLines.length > 0 && (
+                                  <LiveReasoningPreview
+                                    title={previewTitle}
+                                    lines={previewLines}
+                                  />
+                                )}
+                              </React.Fragment>
                             );
                           } else {
                             // Render single part normally
@@ -3019,21 +3156,24 @@ export function ChatInterface({
                                 if (!isStreaming && financialResults.length > 0) {
                                   const displayResults = financialResults.slice(0, 5);
                                   subtitleContent = (
-                                    <div className="flex items-center gap-2">
-                                      <div className="flex -space-x-2">
-                                        {displayResults.map((result: any, idx: number) => (
-                                          <div
-                                            key={idx}
-                                            className="w-5 h-5 rounded-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 flex items-center justify-center overflow-hidden"
-                                            style={{ zIndex: 5 - idx }}
-                                          >
-                                            <Favicon url={result.url} size={12} className="w-3 h-3" />
-                                          </div>
-                                        ))}
+                                    <div className="flex flex-col gap-1">
+                                      <div className="text-xs text-gray-600 dark:text-gray-400">{query}</div>
+                                      <div className="flex items-center gap-2">
+                                        <div className="flex -space-x-2">
+                                          {displayResults.map((result: any, idx: number) => (
+                                            <div
+                                              key={idx}
+                                              className="w-5 h-5 rounded-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 flex items-center justify-center overflow-hidden"
+                                              style={{ zIndex: 5 - idx }}
+                                            >
+                                              <Favicon url={result.url} size={12} className="w-3 h-3" />
+                                            </div>
+                                          ))}
+                                        </div>
+                                        <span className="text-xs text-gray-600 dark:text-gray-400">
+                                          {financialResults.length} results
+                                        </span>
                                       </div>
-                                      <span className="text-xs text-gray-600 dark:text-gray-400">
-                                        {financialResults.length} results
-                                      </span>
                                     </div>
                                   );
                                 }
@@ -3042,7 +3182,7 @@ export function ChatInterface({
                                   <div key={callId}>
                                     <div className="group relative py-0.5 animate-in fade-in duration-200">
                                       <div
-                                        className={`relative flex items-start gap-3 py-2 px-2 -mx-2 rounded-md transition-all duration-150 ${
+                                        className={`relative flex items-start gap-4 py-4 px-4 -mx-2 rounded-md transition-all duration-150 ${
                                           isStreaming ? 'bg-blue-50/50 dark:bg-blue-950/10' : ''
                                         } ${
                                           hasResults ? 'hover:bg-gray-50 dark:hover:bg-white/[0.02] cursor-pointer' : ''
@@ -3131,9 +3271,33 @@ export function ChatInterface({
 
                                 const webResults = hasResults ? extractSearchResults(part.output) : [];
                                 const query = part.input?.query || "";
-                                const subtitle = isStreaming
-                                  ? query
-                                  : `${query} · ${webResults.length} results`;
+
+                                // Create favicon stack subtitle when complete
+                                let subtitleContent: React.ReactNode = query;
+                                if (!isStreaming && webResults.length > 0) {
+                                  const displayResults = webResults.slice(0, 5);
+                                  subtitleContent = (
+                                    <div className="flex flex-col gap-1">
+                                      <div className="text-xs text-gray-600 dark:text-gray-400">{query}</div>
+                                      <div className="flex items-center gap-2">
+                                        <div className="flex -space-x-2">
+                                          {displayResults.map((result: any, idx: number) => (
+                                            <div
+                                              key={idx}
+                                              className="w-5 h-5 rounded-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 flex items-center justify-center overflow-hidden"
+                                              style={{ zIndex: 5 - idx }}
+                                            >
+                                              <Favicon url={result.url} size={12} className="w-3 h-3" />
+                                            </div>
+                                          ))}
+                                        </div>
+                                        <span className="text-xs text-gray-600 dark:text-gray-400">
+                                          {webResults.length} results
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                }
 
                                 return (
                                   <div key={callId}>
@@ -3144,7 +3308,7 @@ export function ChatInterface({
                                       status={isStreaming ? "streaming" : "complete"}
                                       type="search"
                                       title="Web Search"
-                                      subtitle={subtitle}
+                                      subtitle={subtitleContent}
                                       icon={<Globe />}
                                       expandedTools={expandedTools}
                                       toggleToolExpansion={toggleToolExpansion}
@@ -3388,28 +3552,17 @@ export function ChatInterface({
                         )}
 
                       {!isLoading && (
-                        <>
-                          <Button
-                            onClick={() =>
-                              copyToClipboard(getMessageText(message))
-                            }
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                            title="Copy to clipboard"
-                          >
-                            <Copy className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            onClick={handleDownloadPDF}
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                            title="Download Full Report as PDF"
-                          >
-                            <Download className="h-3 w-3" />
-                          </Button>
-                        </>
+                        <Button
+                          onClick={() =>
+                            copyToClipboard(getMessageText(message))
+                          }
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                          title="Copy to clipboard"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
                       )}
                     </div>
                   )}
@@ -3460,6 +3613,34 @@ export function ChatInterface({
               </motion.div>
             )}
         </AnimatePresence>
+
+        {/* Download Report Button - At bottom of messages (only when assistant is not streaming) */}
+        {messages.length > 0 && sessionIdRef.current && !isLoading && (
+          <motion.div
+            className="mt-12 mb-8 flex justify-center"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+          >
+            <button
+              onClick={handleDownloadPDF}
+              disabled={isDownloadingPDF}
+              className="group inline-flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-700 shadow-sm hover:shadow transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isDownloadingPDF ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin text-gray-500 dark:text-gray-400" />
+                  <span>Generating report...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors" />
+                  <span>Download Full Report</span>
+                </>
+              )}
+            </button>
+          </motion.div>
+        )}
 
         <div ref={messagesEndRef} />
         <div ref={bottomAnchorRef} className="h-px w-full" />

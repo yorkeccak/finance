@@ -623,6 +623,31 @@ export function getFullPdfCss(): string {
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
 
+    .chart-placeholder {
+      margin: 24px 0;
+      padding: 32px;
+      background: #f9fafb;
+      border: 2px dashed #d1d5db;
+      border-radius: 8px;
+      text-align: center;
+      page-break-inside: avoid;
+    }
+
+    .chart-placeholder-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+
+    .chart-placeholder-text {
+      color: #374151;
+      font-size: 12pt;
+    }
+
+    .chart-placeholder-text strong {
+      color: #111827;
+      font-size: 13pt;
+    }
+
     img {
       max-width: 100%;
       height: auto;
@@ -682,21 +707,45 @@ export function buildPdfHtmlTemplate(options: {
   citations: Citation[];
   logoDataUrl: string;
   chartImages?: Map<string, string>;
+  csvMarkdown?: Map<string, string>;
   processingTimeMs?: number;
 }): string {
-  const { title, content, citations, logoDataUrl, chartImages = new Map(), processingTimeMs } = options;
+  const { title, content, citations, logoDataUrl, chartImages = new Map(), csvMarkdown = new Map(), processingTimeMs } = options;
 
-  // Replace chart placeholders with base64 images
+  // Replace chart placeholders with base64 images or placeholders
   let processedContent = content;
+
+  // First, replace CSV placeholders with markdown tables
+  for (const [csvId, markdownTable] of csvMarkdown.entries()) {
+    const placeholder = `__CSV_${csvId}__`;
+    processedContent = processedContent.replace(new RegExp(placeholder, 'g'), markdownTable);
+  }
+
+  // Then replace any chart placeholders that have images
   for (const [chartId, base64Image] of chartImages.entries()) {
     const placeholder = `__CHART_${chartId}__`;
-    const imgTag = `
-      <div class="chart-container">
-        <img src="data:image/png;base64,${base64Image}" alt="Chart" />
+    if (base64Image) {
+      const imgTag = `
+        <div class="chart-container">
+          <img src="data:image/png;base64,${base64Image}" alt="Chart" />
+        </div>
+      `;
+      processedContent = processedContent.replace(new RegExp(placeholder, 'g'), imgTag);
+    }
+  }
+
+  // Replace any remaining chart placeholders (that don't have images) with a note
+  processedContent = processedContent.replace(/__CHART_([^_]+)__/g, (match, chartId) => {
+    return `
+      <div class="chart-placeholder">
+        <div class="chart-placeholder-icon">📊</div>
+        <div class="chart-placeholder-text">
+          <strong>Interactive Chart Available Online</strong><br/>
+          <span style="font-size: 11pt; color: #6b7280;">View this chart in the web version of this report</span>
+        </div>
       </div>
     `;
-    processedContent = processedContent.replace(placeholder, imgTag);
-  }
+  });
 
   // Convert tables first (before general markdown conversion)
   processedContent = convertMarkdownTables(processedContent);
@@ -747,7 +796,7 @@ export function buildPdfHtmlTemplate(options: {
       <!-- Report Header -->
       <div class="report-header">
         <h1 class="report-title">${escapeHtml(title)}</h1>
-        ${processingTimeDisplay ? `<div class="processing-time">Generated in ${processingTimeDisplay}</div>` : ''}
+        ${processingTimeDisplay ? `<div class="processing-time">Total session time: ${processingTimeDisplay}</div>` : ''}
       </div>
 
       <!-- Report Content -->

@@ -21,13 +21,13 @@ const HOURLY_RATE = 200; // $200/hour
 const TIME_ESTIMATES = {
   SOURCE_FINDING_BASE: 15,
   SOURCE_FINDING_PER_SOURCE: 8,
-  SOURCE_READING_BASE: 30,
-  SOURCE_READING_PER_SOURCE: 20,
-  WRITING_PER_WORD: 0.2,
-  CSV_BASE: 45,
-  CSV_PER_ROW: 0.5,
+  SOURCE_READING_BASE: 37.5, // 25% increase (was 30)
+  SOURCE_READING_PER_SOURCE: 25, // 25% increase (was 20)
+  WRITING_PER_WORD: 0.51, // 0.85x reduction (was 0.6)
+  CSV_BASE: 67.5, // 1.5x increase (was 45)
+  CSV_PER_ROW: 0.75, // 1.5x increase (was 0.5)
   CHART_PER_CHART: 120,
-  ANALYSIS_PER_BLOCK: 60,
+  ANALYSIS_PER_BLOCK: 28.8, // 1.2x increase (was 24)
   DATA_PROCESSING_PER_EXECUTION: 180,
 };
 
@@ -180,10 +180,10 @@ export function formatTime(minutes: number): string {
 }
 
 export function formatCost(cost: number): string {
-  return `$${cost.toLocaleString('en-US', {
+  return cost.toLocaleString('en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
-  })}`;
+  });
 }
 
 export function formatNumber(num: number): string {

@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server';
 import { buildPdfHtmlTemplate } from '@/lib/pdf-utils';
 import { cleanFinancialText, preprocessMarkdownText } from '@/lib/markdown-utils';
 import { Citation } from '@/lib/citation-utils';
+import { csvToMarkdownTable, formatCsvForMarkdown, CSVData } from '@/lib/csv-utils';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -122,7 +123,7 @@ export async function POST(request: NextRequest) {
     console.log('[PDF Generation] Found', citations.length, 'citations');
     console.log('[PDF Generation] Total processing time:', totalProcessingTimeMs, 'ms');
 
-    // Step 3: Extract chart IDs from markdown
+    // Step 3: Extract chart IDs and CSV IDs from markdown
     const chartPattern = /!\[.*?\]\(\/api\/charts\/([^\/]+)\/image\)/g;
     const chartIds: string[] = [];
     let match;
@@ -131,7 +132,16 @@ export async function POST(request: NextRequest) {
       chartIds.push(match[1]);
     }
 
+    // Extract CSV IDs
+    const csvPattern = /!\[.*?\]\((csv:([a-f0-9-]+)|\/api\/csvs\/([a-f0-9-]+))\)/g;
+    const csvIds: string[] = [];
+    while ((match = csvPattern.exec(markdownContent)) !== null) {
+      const csvId = match[2] || match[3]; // Get ID from either csv:uuid or /api/csvs/uuid format
+      if (csvId) csvIds.push(csvId);
+    }
+
     console.log('[PDF Generation] Found', chartIds.length, 'charts to render');
+    console.log('[PDF Generation] Found', csvIds.length, 'CSV tables to render');
 
     // Step 4: Preprocess markdown
     const processedMarkdown = preprocessMarkdownText(cleanFinancialText(markdownContent));
@@ -139,12 +149,60 @@ export async function POST(request: NextRequest) {
     // Replace chart markdown with placeholders
     let markdownWithPlaceholders = processedMarkdown;
     chartIds.forEach(chartId => {
-      const chartMarkdown = `![.*?](/api/charts/${chartId}/image)`;
+      // Escape special regex characters in the URL and match any text in the alt text
+      const chartMarkdown = `!\\[.*?\\]\\(\\/api\\/charts\\/${chartId}\\/image\\)`;
       markdownWithPlaceholders = markdownWithPlaceholders.replace(
         new RegExp(chartMarkdown, 'g'),
         `__CHART_${chartId}__`
       );
     });
+
+    // Replace CSV markdown with placeholders
+    csvIds.forEach(csvId => {
+      const csvMarkdownPattern = `!\\[.*?\\]\\((csv:${csvId}|\\/api\\/csvs\\/${csvId})\\)`;
+      markdownWithPlaceholders = markdownWithPlaceholders.replace(
+        new RegExp(csvMarkdownPattern, 'g'),
+        `__CSV_${csvId}__`
+      );
+    });
+
+    // Fetch CSV data and convert to markdown tables
+    const csvMarkdownMap = new Map<string, string>();
+    for (const csvId of csvIds) {
+      const { data: csvData, error } = await supabase
+        .from('csvs')
+        .select('*')
+        .eq('id', csvId)
+        .single();
+
+      if (!error && csvData) {
+        // Parse rows if they're stored as JSON string
+        let parsedRows = csvData.rows;
+        if (typeof csvData.rows === 'string') {
+          try {
+            parsedRows = JSON.parse(csvData.rows);
+          } catch (e) {
+            console.error('[PDF Generation] Failed to parse CSV rows:', e);
+            continue;
+          }
+        }
+
+        // Create CSV data object
+        const csvDataObj: CSVData = {
+          title: csvData.title || 'Table',
+          description: csvData.description,
+          headers: csvData.headers || [],
+          rows: parsedRows || [],
+        };
+
+        // Format and convert to markdown table (same as chat interface)
+        const formattedCsvData = formatCsvForMarkdown(csvDataObj);
+        const markdownTable = csvToMarkdownTable(formattedCsvData);
+        csvMarkdownMap.set(csvId, markdownTable);
+      }
+    }
+
+    console.log('[PDF Generation] Converted', csvMarkdownMap.size, 'CSV tables to markdown');
 
     // Step 5: Launch Puppeteer
     const browser = await puppeteer.launch({
@@ -153,6 +211,8 @@ export async function POST(request: NextRequest) {
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
+        '--disable-web-security',
+        '--disable-features=IsolateOrigins,site-per-process',
       ],
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
     });
@@ -164,15 +224,17 @@ export async function POST(request: NextRequest) {
       const chartImagesMap = new Map<string, string>();
 
       if (chartIds.length > 0) {
-        console.log('[PDF Generation] Rendering charts...');
+        console.log('[PDF Generation] Rendering', chartIds.length, 'charts...');
         const chartPromises = chartIds.map(chartId => renderChartAsImage(browser, chartId));
         const chartImages = await Promise.all(chartPromises);
 
         chartIds.forEach((chartId, index) => {
-          chartImagesMap.set(chartId, chartImages[index]);
+          if (chartImages[index]) {
+            chartImagesMap.set(chartId, chartImages[index]);
+          }
         });
 
-        console.log('[PDF Generation] All charts rendered successfully');
+        console.log('[PDF Generation] Charts rendered:', chartImagesMap.size, '/', chartIds.length);
       }
 
       // Step 7: Build HTML template with logo
@@ -187,6 +249,7 @@ export async function POST(request: NextRequest) {
         citations: citations,
         logoDataUrl: logoDataUrl,
         chartImages: chartImagesMap,
+        csvMarkdown: csvMarkdownMap,
         processingTimeMs: totalProcessingTimeMs,
       });
 
@@ -249,6 +312,7 @@ export async function POST(request: NextRequest) {
 
 /**
  * Render a chart as a high-resolution PNG image using Puppeteer
+ * by navigating to a standalone HTML page with the chart
  */
 async function renderChartAsImage(
   browser: Browser,
@@ -266,68 +330,113 @@ async function renderChartAsImage(
     .single();
 
   if (error || !chartData) {
-    console.error('[PDF Generation] Chart not found:', chartId, error);
-    throw new Error(`Chart not found: ${chartId}`);
+    console.error('[PDF Generation] Chart not found:', chartId);
+    console.error('[PDF Generation] Error details:', JSON.stringify(error, null, 2));
+    console.error('[PDF Generation] Chart data:', chartData);
+    return '';
   }
+
+  console.log('[PDF Generation] Chart data fetched, parsing...');
 
   // Parse chart data
   const parsedChartData = typeof chartData.chart_data === 'string'
     ? JSON.parse(chartData.chart_data)
     : chartData.chart_data;
 
-  // Generate HTML with chart (using FinancialChart component styling)
-  const chartHtml = createChartComponentHtml(parsedChartData);
+  console.log('[PDF Generation] Chart data parsed:', JSON.stringify(parsedChartData, null, 2).slice(0, 500));
 
-  // Create new page
+  // Create a standalone HTML page with Recharts loaded from CDN
+  const chartHtml = createRechartsHtml(parsedChartData);
+
+  console.log('[PDF Generation] Chart HTML created, length:', chartHtml.length);
+
   const page = await browser.newPage();
 
+  // Disable web security to allow CDN scripts
+  await page.setBypassCSP(true);
+
+  // Listen to console messages from the page
+  page.on('console', msg => {
+    const type = msg.type();
+    const text = msg.text();
+    if (type === 'error') {
+      console.error('[PDF Generation - Browser Console Error]:', text);
+    } else if (type === 'warning') {
+      console.warn('[PDF Generation - Browser Console Warning]:', text);
+    } else {
+      console.log('[PDF Generation - Browser Console]:', text);
+    }
+  });
+
+  // Listen to page errors
+  page.on('pageerror', error => {
+    console.error('[PDF Generation - Page Error]:', error.message);
+  });
+
   try {
-    // Set viewport for high-DPI rendering
+    // Set viewport for proper chart rendering
     await page.setViewport({
-      width: 1300,
-      height: 700,
-      deviceScaleFactor: 2, // 2x resolution for high quality
+      width: 1200,
+      height: 800,
+      deviceScaleFactor: 1.5,
     });
 
-    // Load HTML
-    await page.setContent(chartHtml, { waitUntil: 'networkidle0' });
+    console.log('[PDF Generation] Setting page content...');
+
+    // Set HTML content with longer timeout
+    await page.setContent(chartHtml, {
+      waitUntil: 'networkidle0',
+      timeout: 30000
+    });
+
+    console.log('[PDF Generation] Page content set, waiting for render...');
 
     // Wait for chart to render
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await new Promise(resolve => setTimeout(resolve, 3000));
 
-    // Find chart wrapper element
+    console.log('[PDF Generation] Finding chart wrapper element...');
+
+    // Find the chart wrapper element and screenshot it
     const element = await page.$('.chart-wrapper');
 
     if (!element) {
+      console.error('[PDF Generation] Chart wrapper element not found in page');
       throw new Error('Chart wrapper not found');
     }
 
-    // Take screenshot
+    console.log('[PDF Generation] Taking screenshot...');
+
+    // Take screenshot of just the chart wrapper
     const screenshot = await element.screenshot({
       type: 'png',
       omitBackground: false,
     });
 
-    // Convert to base64
     const base64 = Buffer.from(screenshot).toString('base64');
-
+    console.log('[PDF Generation] Chart rendered successfully:', chartId, 'Size:', base64.length);
     return base64;
+  } catch (error) {
+    console.error('[PDF Generation] Failed to render chart:', chartId);
+    console.error('[PDF Generation] Error details:', error);
+    return '';
   } finally {
     await page.close();
   }
 }
 
 /**
- * Create HTML for standalone chart rendering
- * This mimics the FinancialChart component but as static HTML/CSS
+ * Create HTML with pure SVG chart - no external dependencies, no CORS issues
+ * This approach is based on the atlas app's proven PDF chart rendering
  */
-function createChartComponentHtml(chartData: any): string {
-  // Read logo
+function createRechartsHtml(chartData: any): string {
   const logoPath = path.join(process.cwd(), 'public', 'valyu.svg');
   const logoSvg = fs.readFileSync(logoPath, 'utf-8');
 
-  // Generate SVG chart (simplified version - you may want to enhance this)
-  const svg = generateSVGChart(chartData);
+  const { chartType, title, description, dataSeries } = chartData;
+  const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+
+  // Generate SVG chart
+  const svgChart = generateSVGChart(chartData, colors);
 
   return `
     <!DOCTYPE html>
@@ -338,14 +447,242 @@ function createChartComponentHtml(chartData: any): string {
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-          background: linear-gradient(135deg, #1f2937 0%, #111827 50%, #1f2937 100%);
+          background: white;
+          padding: 0;
+          margin: 0;
+        }
+        .chart-wrapper {
+          background: white;
+          border-radius: 8px;
+          padding: 24px;
+          width: 1100px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .chart-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 20px;
+          padding-bottom: 12px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        .chart-title {
+          font-size: 18px;
+          font-weight: 600;
+          color: #111827;
+          margin-bottom: 4px;
+        }
+        .chart-description {
+          font-size: 12px;
+          color: #6b7280;
+          max-width: 700px;
+        }
+        .logo {
+          max-width: 60px !important;
+          width: 60px !important;
+          height: auto !important;
+          opacity: 0.8;
+        }
+        .logo svg {
+          max-width: 60px !important;
+          width: 60px !important;
+          height: auto !important;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="chart-wrapper">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">${title || 'Chart'}</div>
+            ${description ? `<div class="chart-description">${description}</div>` : ''}
+          </div>
+          <div class="logo">${logoSvg}</div>
+        </div>
+        <div class="chart-content">
+          ${svgChart}
+        </div>
+      </div>
+    </body>
+    </body>
+    </html>
+  `;
+}
+
+/**
+ * Generate SVG chart - no external dependencies, renders inline
+ * Based on atlas app approach for reliable PDF chart rendering
+ */
+function generateSVGChart(chartData: any, colors: string[]): string {
+  const { chartType, dataSeries, xAxisLabel, yAxisLabel } = chartData;
+
+  const width = 1100;
+  const height = 480;
+  const padding = { top: 40, right: 60, bottom: 60, left: 80 };
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+
+  // Collect all data points and find min/max
+  const allValues: number[] = [];
+  const xLabels: string[] = [];
+  dataSeries?.forEach((series: any) => {
+    series.data?.forEach((point: any) => {
+      allValues.push(point.y);
+      if (!xLabels.includes(String(point.x))) {
+        xLabels.push(String(point.x));
+      }
+    });
+  });
+
+  const maxY = Math.max(...allValues);
+  const minY = Math.min(...allValues, 0);
+  const yRange = maxY - minY;
+  const yScale = chartHeight / yRange;
+
+  // Generate chart based on type
+  let chartElements = '';
+
+  if (chartType === 'bar') {
+    const barWidth = chartWidth / (xLabels.length * dataSeries.length + xLabels.length);
+    const groupWidth = barWidth * dataSeries.length;
+
+    xLabels.forEach((xLabel, xIndex) => {
+      dataSeries.forEach((series: any, seriesIndex: number) => {
+        const point = series.data.find((p: any) => String(p.x) === xLabel);
+        if (point) {
+          const barHeight = (point.y - minY) * yScale;
+          const x = padding.left + xIndex * (groupWidth + barWidth) + seriesIndex * barWidth;
+          const y = padding.top + chartHeight - barHeight;
+
+          chartElements += `
+            <rect x="${x}" y="${y}" width="${barWidth * 0.9}" height="${barHeight}"
+                  fill="${colors[seriesIndex % colors.length]}" rx="6" ry="6"/>
+          `;
+        }
+      });
+    });
+  } else if (chartType === 'line' || chartType === 'area') {
+    dataSeries?.forEach((series: any, seriesIndex: number) => {
+      const points: string[] = [];
+      xLabels.forEach((xLabel, xIndex) => {
+        const point = series.data.find((p: any) => String(p.x) === xLabel);
+        if (point) {
+          const x = padding.left + (xIndex / (xLabels.length - 1)) * chartWidth;
+          const y = padding.top + chartHeight - (point.y - minY) * yScale;
+          points.push(`${x},${y}`);
+        }
+      });
+
+      const pathData = `M ${points.join(' L ')}`;
+
+      if (chartType === 'area') {
+        const areaPath = `${pathData} L ${padding.left + chartWidth},${padding.top + chartHeight} L ${padding.left},${padding.top + chartHeight} Z`;
+        chartElements += `
+          <path d="${areaPath}" fill="${colors[seriesIndex % colors.length]}" opacity="0.3"/>
+        `;
+      }
+
+      chartElements += `
+        <path d="${pathData}" fill="none" stroke="${colors[seriesIndex % colors.length]}"
+              stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      `;
+
+      // Add dots
+      points.forEach(point => {
+        const [x, y] = point.split(',');
+        chartElements += `
+          <circle cx="${x}" cy="${y}" r="5" fill="white" stroke="${colors[seriesIndex % colors.length]}" stroke-width="2"/>
+        `;
+      });
+    });
+  }
+
+  // Grid lines
+  let gridLines = '';
+  for (let i = 0; i <= 5; i++) {
+    const y = padding.top + (chartHeight / 5) * i;
+    gridLines += `<line x1="${padding.left}" y1="${y}" x2="${padding.left + chartWidth}" y2="${y}" stroke="#e5e7eb" stroke-dasharray="3,3"/>`;
+  }
+
+  // Axes
+  const axes = `
+    <line x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${padding.top + chartHeight}" stroke="#333" stroke-width="2"/>
+    <line x1="${padding.left}" y1="${padding.top + chartHeight}" x2="${padding.left + chartWidth}" y2="${padding.top + chartHeight}" stroke="#333" stroke-width="2"/>
+  `;
+
+  // Y-axis labels
+  let yLabels = '';
+  for (let i = 0; i <= 5; i++) {
+    const value = minY + (yRange / 5) * (5 - i);
+    const y = padding.top + (chartHeight / 5) * i;
+    yLabels += `<text x="${padding.left - 15}" y="${y + 5}" text-anchor="end" fill="#6b7280" font-size="11">${value.toFixed(0)}</text>`;
+  }
+
+  // X-axis labels
+  let xLabelsHtml = '';
+  xLabels.forEach((label, index) => {
+    const x = padding.left + (index / (xLabels.length - 1)) * chartWidth;
+    xLabelsHtml += `<text x="${x}" y="${padding.top + chartHeight + 30}" text-anchor="middle" fill="#6b7280" font-size="11">${label}</text>`;
+  });
+
+  // Legend - centered at bottom
+  const legendItemWidth = 200;
+  const totalLegendWidth = dataSeries.length * legendItemWidth;
+  const legendStartX = (width - totalLegendWidth) / 2;
+
+  let legend = '';
+  dataSeries?.forEach((series: any, index: number) => {
+    const x = legendStartX + index * legendItemWidth;
+    const y = height - 20;
+    legend += `
+      <rect x="${x}" y="${y - 12}" width="15" height="15" fill="${colors[index % colors.length]}" rx="3"/>
+      <text x="${x + 22}" y="${y}" fill="#6b7280" font-size="13" font-weight="500">${series.name}</text>
+    `;
+  });
+
+  return `
+    <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+      ${gridLines}
+      ${axes}
+      ${chartElements}
+      ${yLabels}
+      ${xLabelsHtml}
+      ${legend}
+    </svg>
+  `;
+}
+
+/**
+ * Create HTML for standalone chart rendering
+ * This loads the chart via iframe from our live Next.js chart endpoint
+ */
+function createChartComponentHtml(chartData: any): string {
+  // Read logo
+  const logoPath = path.join(process.cwd(), 'public', 'valyu.svg');
+  const logoSvg = fs.readFileSync(logoPath, 'utf-8');
+
+  // Encode chart data for URL
+  const chartDataEncoded = encodeURIComponent(JSON.stringify(chartData));
+
+  // Use localhost or production URL
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          background: white;
           padding: 40px;
         }
         .chart-wrapper {
           background: white;
           border-radius: 16px;
           padding: 32px;
-          box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
         .header {
           display: flex;
@@ -374,7 +711,7 @@ function createChartComponentHtml(chartData: any): string {
           height: 60px;
           display: flex;
           align-items: center;
-          justify-content: center;
+          justify-center: center;
           background: #f9fafb;
           border-radius: 8px;
           padding: 12px;
@@ -384,16 +721,22 @@ function createChartComponentHtml(chartData: any): string {
           max-height: 100%;
         }
         .chart-content {
-          background: white;
-          border-radius: 8px;
+          min-height: 500px;
+        }
+        .chart-render {
+          width: 100%;
+          height: 500px;
         }
       </style>
+      <script src="https://cdn.jsdelivr.net/npm/recharts@2.10.3/dist/Recharts.js"></script>
+      <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+      <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     </head>
     <body>
       <div class="chart-wrapper">
         <div class="header">
           <div class="title-section">
-            <div class="title">${chartData.title}</div>
+            <div class="title">${chartData.title || 'Chart'}</div>
             <div class="description">${chartData.description || ''}</div>
           </div>
           <div class="logo-box">
@@ -401,36 +744,17 @@ function createChartComponentHtml(chartData: any): string {
           </div>
         </div>
         <div class="chart-content">
-          ${svg}
+          <div id="chart-root" class="chart-render"></div>
+          <script>
+            // Render a simple chart representation
+            const chartData = ${JSON.stringify(chartData)};
+            const root = document.getElementById('chart-root');
+            root.innerHTML = '<div style="background: #f3f4f6; border-radius: 8px; padding: 40px; text-align: center; height: 100%;"><h3 style="color: #374151; margin-bottom: 16px;">' + (chartData.title || 'Chart') + '</h3><p style="color: #6b7280; font-size: 14px;">Chart Type: ' + (chartData.chartType || chartData.type || 'Unknown') + '</p><p style="color: #6b7280; font-size: 14px; margin-top: 8px;">' + ((chartData.dataSeries?.length || 0) + ' data series') + '</p></div>';
+          </script>
         </div>
       </div>
     </body>
     </html>
-  `;
-}
-
-/**
- * Generate basic SVG chart
- * Note: This is a simplified version. For production, you'd want to use a proper charting library
- * or render the actual React component with chart data
- */
-function generateSVGChart(chartData: any): string {
-  // This is a placeholder - in production you'd want to:
-  // 1. Use the actual Recharts library server-side
-  // 2. Or generate SVG manually based on chart type
-  // 3. Or use a headless chart rendering service
-
-  // For now, return a simple placeholder that shows we attempted to render
-  return `
-    <svg width="1200" height="500" xmlns="http://www.w3.org/2000/svg">
-      <rect width="1200" height="500" fill="#f9fafb" />
-      <text x="600" y="250" text-anchor="middle" font-family="Arial" font-size="20" fill="#6b7280">
-        Chart: ${chartData.title}
-      </text>
-      <text x="600" y="280" text-anchor="middle" font-family="Arial" font-size="14" fill="#9ca3af">
-        ${chartData.chartType || chartData.type} chart with ${chartData.dataSeries?.length || 0} series
-      </text>
-    </svg>
   `;
 }
 

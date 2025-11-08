@@ -237,20 +237,33 @@ export const financeTools = {
       let chartId: string | null = null;
       try {
         const supabase = await createClient();
+
+        // Build insert data - include anonymous_id if no user_id
+        const insertData: any = {
+          session_id: sessionId || null,
+          chart_data: chartData,
+        };
+
+        if (userId) {
+          insertData.user_id = userId;
+        } else {
+          // For anonymous users, use a temporary ID
+          // In production, this should come from a browser-generated UUID
+          insertData.anonymous_id = 'anonymous';
+        }
+
         const { data: savedChart, error } = await supabase
           .from('charts')
-          .insert({
-            user_id: userId || null,
-            session_id: sessionId || null,
-            chart_data: chartData,
-          })
+          .insert(insertData)
           .select('id')
           .single();
 
         if (error) {
           console.error('[createChart] Error saving chart to database:', error);
+          console.error('[createChart] Insert data:', insertData);
         } else {
           chartId = savedChart.id;
+          console.log('[createChart] Successfully saved chart with ID:', chartId);
         }
       } catch (error) {
         console.error('[createChart] Database error:', error);
@@ -398,22 +411,33 @@ export const financeTools = {
           console.log('[createCSV] Saving CSV with rows type:', typeof rows, 'isArray:', Array.isArray(rows));
           console.log('[createCSV] First row sample:', rows[0]);
 
+          // Build insert data - include anonymous_id if no user_id
+          const insertData: any = {
+            session_id: sessionId || null,
+            title,
+            description: description || null,
+            headers,
+            rows: rows, // Send as-is, let Postgres handle JSONB
+          };
+
+          if (userId) {
+            insertData.user_id = userId;
+          } else {
+            // For anonymous users, use a temporary ID
+            // In production, this should come from a browser-generated UUID
+            insertData.anonymous_id = 'anonymous';
+          }
+
           const { data: savedCsv, error } = await supabase
             .from('csvs')
-            .insert({
-              user_id: userId || null,
-              session_id: sessionId || null,
-              title,
-              description: description || null,
-              headers,
-              rows: rows, // Send as-is, let Postgres handle JSONB
-            })
+            .insert(insertData)
             .select('id')
             .single();
 
           if (error) {
             console.error('[createCSV] Error saving CSV to database:', error);
             console.error('[createCSV] Error details:', JSON.stringify(error, null, 2));
+            console.error('[createCSV] Insert data:', insertData);
           } else {
             csvId = savedCsv.id;
             console.log('[createCSV] Successfully saved CSV with ID:', csvId);

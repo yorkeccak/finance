@@ -116,8 +116,8 @@ function CSVPreviewComponent({
 
       {/* Table Container - elegant typography */}
       <div className="overflow-hidden">
-        <div className="max-h-[500px] overflow-auto">
-          <table className="w-full border-collapse text-xs">
+        <div className="max-h-[500px] overflow-x-auto overflow-y-auto -mx-3 px-3 sm:mx-0 sm:px-0">
+          <table className="w-full border-collapse text-xs min-w-max">
             {/* Header - refined styling */}
             <thead className="sticky top-0 z-10 bg-gradient-to-b from-gray-50 to-gray-100/80 dark:from-gray-800 dark:to-gray-850/80 backdrop-blur-sm">
               <tr className="border-b-2 border-gray-200 dark:border-gray-700">

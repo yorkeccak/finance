@@ -24,6 +24,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { SettingsModal } from '@/components/user/settings-modal';
 import { SubscriptionModal } from '@/components/user/subscription-modal';
+import { useSubscription } from '@/hooks/use-subscription';
 
 interface SidebarProps {
   currentSessionId?: string;
@@ -181,9 +182,9 @@ export function Sidebar({
     }
   };
 
-  // Check if user has Polar customer account
-  const hasPolarCustomer = user?.user_metadata?.polar_customer_id;
-  const tier = user?.user_metadata?.subscription_tier || 'free';
+  // Get subscription status from database
+  const subscription = useSubscription();
+  const { tier, isPaid } = subscription;
 
   // Show minimal sidebar for anonymous users with sign-in prompt
   if (!user) {
@@ -419,7 +420,7 @@ export function Sidebar({
               {/* Billing/Subscription */}
               {user && (
                 <>
-                  {tier === 'free' && !hasPolarCustomer ? (
+                  {!isPaid ? (
                     <div className="relative group/tooltip">
                       <button
                         onClick={() => setShowSubscription(true)}
@@ -431,7 +432,7 @@ export function Sidebar({
                         Upgrade
                       </div>
                     </div>
-                  ) : hasPolarCustomer ? (
+                  ) : (
                     <div className="relative group/tooltip">
                       <button
                         onClick={handleViewUsage}
@@ -443,7 +444,7 @@ export function Sidebar({
                         Usage & Billing
                       </div>
                     </div>
-                  ) : null}
+                  )}
                 </>
               )}
 

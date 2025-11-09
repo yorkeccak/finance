@@ -9,7 +9,7 @@ import { checkUserRateLimit } from '@/lib/rate-limit';
 import { validateAccess } from '@/lib/polar-access-validation';
 import { getPolarTrackedModel } from '@/lib/polar-llm-strategy';
 
-// Allow streaming responses up to 120 seconds
+// 13mins max streaming (vercel limit)
 export const maxDuration = 800;
 
 export async function POST(req: Request) {

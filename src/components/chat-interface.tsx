@@ -3091,11 +3091,16 @@ export function ChatInterface({
                         }
 
                         // Filter to show only the latest step when trace is collapsed
-                        // When collapsed: hide detailed steps (header shows summary)
+                        // When collapsed: hide ALL reasoning/tool steps, only show text output
                         // When expanded: show all steps
                         const displayParts = isTraceExpanded
                           ? groupedParts
-                          : [];
+                          : groupedParts.filter(g => {
+                              // Only show text parts when collapsed
+                              if (g.type === "reasoning-group") return false;
+                              if (g.part?.type?.startsWith("tool-")) return false;
+                              return g.part?.type === "text";
+                            });
 
                         return (
                           <>

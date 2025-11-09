@@ -368,6 +368,8 @@ const DataSourceLogos = () => {
   const [mounted, setMounted] = useState(false);
   const controls = useAnimation();
   const animationRef = useRef<any>(null);
+  const currentPositionRef = useRef(0);
+  const animationStartTimeRef = useRef(0);
 
   // All logos from assets/banner
   const allLogos = [
@@ -401,6 +403,9 @@ const DataSourceLogos = () => {
   // Start continuous animation
   useEffect(() => {
     const animate = async () => {
+      currentPositionRef.current = 0;
+      animationStartTimeRef.current = Date.now();
+
       await controls.start({
         x: [0, -100 * allLogos.length],
         transition: {
@@ -417,18 +422,40 @@ const DataSourceLogos = () => {
 
   const handleMouseEnter = (index: number) => {
     setHoveredIndex(index);
+
+    // Calculate current position based on elapsed time
+    const elapsedTime = Date.now() - animationStartTimeRef.current;
+    const totalDuration = ((allLogos.length * 3) / 1.5) * 1000; // Convert to ms
+    const progress = (elapsedTime % totalDuration) / totalDuration;
+    currentPositionRef.current = -100 * allLogos.length * progress;
+
     controls.stop();
   };
 
   const handleMouseLeave = () => {
     setHoveredIndex(null);
-    // Resume from current position at 1.5x speed
+
+    // Get current position from ref
+    const currentX = currentPositionRef.current;
+    const targetX = -100 * allLogos.length;
+    const remainingDistance = Math.abs(targetX - currentX);
+    const totalDistance = 100 * allLogos.length;
+
+    // Calculate remaining duration to maintain constant speed
+    const totalDuration = (allLogos.length * 3) / 1.5;
+    const remainingDuration = (remainingDistance / totalDistance) * totalDuration;
+
+    // Update animation start time for next cycle
+    animationStartTimeRef.current = Date.now();
+
+    // Resume from current position with calculated duration
     controls.start({
-      x: -100 * allLogos.length,
+      x: targetX,
       transition: {
-        duration: (allLogos.length * 3) / 1.5,
+        duration: remainingDuration,
         ease: "linear",
         repeat: Infinity,
+        repeatType: "loop",
       }
     });
   };

@@ -26,7 +26,7 @@ export function EnterpriseBanner() {
                 Enterprise AI Search
               </p>
               <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
-                Deploy Valyu's institutional-grade infrastructure in your organization
+                Deploy Valyu&apos;s institutional-grade infrastructure in your organization
               </p>
               <button
                 onClick={() => setShowModal(true)}

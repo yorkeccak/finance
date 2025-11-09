@@ -1,6 +1,6 @@
 'use client';
 
-import { User } from '@supabase/supabase-js';
+import { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { createClient } from '@/utils/supabase/client-wrapper';
@@ -134,15 +134,15 @@ export const useAuthStore = create<AuthStore>()(
         }, 3000);
         
         // Get initial session
-        supabase.auth.getSession().then(({ data: { session } }) => {
+        supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
           clearTimeout(timeoutId);
           set({ 
             user: session?.user ?? null,
             loading: false
           });
-        }).catch((error) => {
+        }).catch((error: unknown) => {
           clearTimeout(timeoutId);
-          set({ 
+          set({
             user: null,
             loading: false
           });
@@ -150,7 +150,7 @@ export const useAuthStore = create<AuthStore>()(
 
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          async (event, session) => {
+          async (event: AuthChangeEvent, session: Session | null) => {
             
             set({ 
               user: session?.user ?? null,

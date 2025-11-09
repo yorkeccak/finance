@@ -7,6 +7,14 @@ export async function POST(req: Request) {
 
   try {
     requestBody = await req.json();
+
+    if (!requestBody) {
+      return new Response(JSON.stringify({ error: 'Invalid request body' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     const { message } = requestBody;
 
     if (!message) {

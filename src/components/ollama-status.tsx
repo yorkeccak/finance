@@ -291,24 +291,26 @@ const OllamaStatus = () => {
                                           {model.name}
                                         </div>
                                         {supportsTools && (
-                                          <Wrench
-                                            className={`h-3 w-3 flex-shrink-0 ${
-                                              isSelected
-                                                ? "text-blue-600 dark:text-blue-400"
-                                                : "text-gray-500 dark:text-gray-400"
-                                            }`}
-                                            title="Supports tool calling"
-                                          />
+                                          <span title="Supports tool calling">
+                                            <Wrench
+                                              className={`h-3 w-3 flex-shrink-0 ${
+                                                isSelected
+                                                  ? "text-blue-600 dark:text-blue-400"
+                                                  : "text-gray-500 dark:text-gray-400"
+                                              }`}
+                                            />
+                                          </span>
                                         )}
                                         {supportsThinking && (
-                                          <Brain
-                                            className={`h-3 w-3 flex-shrink-0 ${
-                                              isSelected
-                                                ? "text-blue-600 dark:text-blue-400"
-                                                : "text-gray-500 dark:text-gray-400"
-                                            }`}
-                                            title="Supports thinking/reasoning"
-                                          />
+                                          <span title="Supports thinking/reasoning">
+                                            <Brain
+                                              className={`h-3 w-3 flex-shrink-0 ${
+                                                isSelected
+                                                  ? "text-blue-600 dark:text-blue-400"
+                                                  : "text-gray-500 dark:text-gray-400"
+                                              }`}
+                                            />
+                                          </span>
                                         )}
                                       </div>
                                       <div className={`text-xs mt-1 ${

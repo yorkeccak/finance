@@ -253,7 +253,7 @@ export function RateLimitDialog({ open, onOpenChange, resetTime, onShowAuth }: R
                           Need enterprise deployment?
                         </h4>
                         <p className="text-xs text-gray-600 dark:text-gray-400">
-                          Deploy Valyu's infrastructure in your organization with custom data integrations and AI agents
+                          Deploy Valyu&apos;s infrastructure in your organization with custom data integrations and AI agents
                         </p>
                       </div>
                     </div>

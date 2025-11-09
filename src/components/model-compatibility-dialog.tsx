@@ -42,11 +42,11 @@ export function ModelCompatibilityDialog({
             {isToolError && (
               <>
                 <p className="mb-2">
-                  <span className="font-semibold">{modelName || "This model"}</span> doesn't support
+                  <span className="font-semibold">{modelName || "This model"}</span> doesn&apos;t support
                   tool calling (function calls).
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  This means it won't be able to execute Python code, search the web, fetch financial
+                  This means it won&apos;t be able to execute Python code, search the web, fetch financial
                   data, or use other interactive tools. You can still have a conversation, but functionality
                   will be limited to text responses only.
                 </p>
@@ -55,11 +55,11 @@ export function ModelCompatibilityDialog({
             {isThinkingError && (
               <>
                 <p className="mb-2">
-                  <span className="font-semibold">{modelName || "This model"}</span> doesn't support
+                  <span className="font-semibold">{modelName || "This model"}</span> doesn&apos;t support
                   thinking mode (chain-of-thought reasoning).
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  The model will still work normally, but won't show its reasoning steps.
+                  The model will still work normally, but won&apos;t show its reasoning steps.
                 </p>
               </>
             )}

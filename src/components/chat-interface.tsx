@@ -53,7 +53,6 @@ import {
   Copy,
   Clock,
   ChevronDown,
-  ChevronUp,
   ExternalLink,
   FileText,
   Clipboard,
@@ -1633,6 +1632,7 @@ export function ChatInterface({
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
+  const [isTraceExpanded, setIsTraceExpanded] = useState(false);
   const [isRateLimited, setIsRateLimited] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | undefined>(undefined);
   const sessionIdRef = useRef<string | undefined>(undefined);
@@ -3004,7 +3004,163 @@ export function ChatInterface({
                         // The real performance fix is in removing expensive operations during input-available state
                         const groupedParts = groupMessageParts(message.parts);
 
-                        return groupedParts.map((group, groupIndex) => {
+                        // Count reasoning steps and tool calls
+                        const reasoningSteps = groupedParts.filter(g => g.type === "reasoning-group").length;
+                        const toolCalls = groupedParts.filter(g => g.type !== "reasoning-group" && g.part?.type?.startsWith("tool-")).length;
+                        const totalActions = reasoningSteps + toolCalls;
+
+                        // Calculate duration (if available in message metadata)
+                        const hasTextOutput = groupedParts.some(g => g.part?.type === "text");
+                        const messageIsComplete = !isLoading && hasTextOutput;
+
+                        // Show header if there's any reasoning/tool activity (not just text)
+                        const hasActivity = groupedParts.some(g =>
+                          g.type === "reasoning-group" || g.part?.type?.startsWith("tool-")
+                        );
+
+                        // Get the latest step info for display
+                        const latestStep = groupedParts[groupedParts.length - 1];
+                        let latestStepTitle = "";
+                        let latestStepSubtitle = "";
+                        let latestStepIcon = <Brain className="h-5 w-5" />;
+
+                        if (latestStep) {
+                          if (latestStep.type === "reasoning-group") {
+                            // Get reasoning text - handle both single and multiple parts
+                            const allText = latestStep.parts
+                              .map((item: any) => item.part?.text || "")
+                              .join("\n\n");
+                            const lines = allText.split('\n').filter((l: string) => l.trim());
+
+                            // Try to find a title (line with **)
+                            const titleLine = lines.find((l: string) => l.match(/^\*\*.*\*\*$/));
+                            if (titleLine) {
+                              latestStepTitle = titleLine.replace(/\*\*/g, '').trim();
+                              // Get lines after title as preview
+                              const titleIndex = lines.indexOf(titleLine);
+                              if (titleIndex >= 0 && titleIndex < lines.length - 1) {
+                                latestStepSubtitle = lines
+                                  .slice(titleIndex + 1, titleIndex + 3)
+                                  .map((l: string) => l.trim())
+                                  .filter((l: string) => !l.match(/^\*\*.*\*\*$/))
+                                  .join(' ');
+                              }
+                            } else if (lines.length > 0) {
+                              // No title found, use first line as title and next as subtitle
+                              latestStepTitle = lines[0].trim();
+                              if (lines.length > 1) {
+                                latestStepSubtitle = lines.slice(1, 3).map((l: string) => l.trim()).join(' ');
+                              }
+                            } else {
+                              latestStepTitle = "Thinking...";
+                            }
+                            latestStepIcon = <Brain className="h-5 w-5 text-purple-500" />;
+                          } else if (latestStep.part?.type?.startsWith("tool-")) {
+                            // Get tool name and details
+                            const toolType = latestStep.part.type.replace("tool-", "");
+
+                            if (toolType === "financialSearch") {
+                              latestStepTitle = "Financial Search";
+                              latestStepSubtitle = latestStep.part.input?.query || "...";
+                              latestStepIcon = <Search className="h-5 w-5 text-blue-500" />;
+                            } else if (toolType === "webSearch") {
+                              latestStepTitle = "Web Search";
+                              latestStepSubtitle = latestStep.part.input?.query || "...";
+                              latestStepIcon = <Globe className="h-5 w-5 text-green-500" />;
+                            } else if (toolType === "wileySearch") {
+                              latestStepTitle = "Academic Search";
+                              latestStepSubtitle = latestStep.part.input?.query || "...";
+                              latestStepIcon = <BookOpen className="h-5 w-5 text-indigo-500" />;
+                            } else if (toolType === "codeExecution") {
+                              latestStepTitle = "Code Execution";
+                              latestStepSubtitle = latestStep.part.input?.description || "Running Python code";
+                              latestStepIcon = <Code2 className="h-5 w-5 text-orange-500" />;
+                            } else if (toolType === "createChart") {
+                              latestStepTitle = "Creating Chart";
+                              latestStepSubtitle = latestStep.part.output?.title || "Generating visualization";
+                              latestStepIcon = <BarChart3 className="h-5 w-5 text-cyan-500" />;
+                            } else if (toolType === "createCSV") {
+                              latestStepTitle = "Creating Table";
+                              latestStepSubtitle = latestStep.part.output?.title || "Generating CSV data";
+                              latestStepIcon = <Table className="h-5 w-5 text-teal-500" />;
+                            } else {
+                              latestStepTitle = toolType;
+                              latestStepSubtitle = "";
+                            }
+                          }
+                        }
+
+                        // Filter to show only the latest step when trace is collapsed
+                        // When collapsed: hide detailed steps (header shows summary)
+                        // When expanded: show all steps
+                        const displayParts = isTraceExpanded
+                          ? groupedParts
+                          : [];
+
+                        return (
+                          <>
+                            {/* Trace Header - Show when there's any reasoning/tool activity */}
+                            {hasActivity && (
+                              <button
+                                onClick={() => setIsTraceExpanded(!isTraceExpanded)}
+                                className="w-full flex items-start gap-4 px-4 py-4 bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-900/30 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm transition-all mb-4 text-left group"
+                              >
+                                {/* Icon */}
+                                <div className="flex-shrink-0 mt-0.5">
+                                  {messageIsComplete ? (
+                                    <div className="w-10 h-10 rounded-lg bg-emerald-500/10 dark:bg-emerald-500/20 flex items-center justify-center">
+                                      <Check className="h-5 w-5 text-emerald-600 dark:text-emerald-500" />
+                                    </div>
+                                  ) : (
+                                    <div className="w-10 h-10 rounded-lg bg-blue-500/10 dark:bg-blue-500/20 flex items-center justify-center">
+                                      {latestStepIcon}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Content */}
+                                <div className="flex-1 min-w-0">
+                                  {messageIsComplete ? (
+                                    <>
+                                      <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">
+                                        Completed
+                                      </div>
+                                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                                        Performed {totalActions} {totalActions === 1 ? 'action' : 'actions'}
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                          {latestStepTitle || "Working..."}
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                          <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" />
+                                          <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
+                                          <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }} />
+                                        </div>
+                                      </div>
+                                      {latestStepSubtitle && (
+                                        <div className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                                          {latestStepSubtitle}
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+
+                                {/* Expand button */}
+                                <div className="flex-shrink-0 flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-500 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors mt-1">
+                                  <span className="hidden sm:inline">
+                                    {isTraceExpanded ? 'Hide' : 'Show'}
+                                  </span>
+                                  <ChevronDown className={`h-4 w-4 transition-transform ${isTraceExpanded ? 'rotate-180' : ''}`} />
+                                </div>
+                              </button>
+                            )}
+
+                            {displayParts.map((group, groupIndex) => {
                           if (group.type === "reasoning-group") {
                             // Render combined reasoning component
                             const combinedText = group.parts
@@ -3549,7 +3705,9 @@ export function ChatInterface({
                                 return null;
                             }
                           }
-                        });
+                        })}
+                          </>
+                        );
                       })()}
                     </div>
                   )}

@@ -18,7 +18,6 @@ export const financeTools = {
     3. "area" - Cumulative data (stacked metrics, composition)
     4. "scatter" - Correlation analysis, positioning maps, bubble charts
     5. "quadrant" - 2x2 strategic matrix (BCG matrix, Edge Zone analysis)
-    6. "candlestick" - OHLC + Volume data (stock price movements with volume bars)
 
     TIME SERIES CHARTS (line, bar, area):
     {
@@ -66,34 +65,15 @@ export const financeTools = {
     Same as scatter, but with reference lines dividing chart into 4 quadrants.
     Use for: Edge Zone analysis, BCG matrix, prioritization matrices.
 
-    CANDLESTICK CHARTS (OHLC + Volume):
-    For displaying stock/crypto price movements with candlesticks and volume bars.
-    Each data point requires: x (date), open, high, low, close, volume (optional).
-    {
-      "title": "Tesla (TSLA) Stock Price - Q4 2024",
-      "type": "candlestick",
-      "xAxisLabel": "Date",
-      "yAxisLabel": "Price (USD)",
-      "dataSeries": [
-        {
-          "name": "TSLA",
-          "data": [
-            {"x": "2024-10-01", "open": 250.5, "high": 258.2, "low": 248.1, "close": 255.8, "volume": 12500000},
-            {"x": "2024-10-02", "open": 255.8, "high": 262.4, "low": 253.0, "close": 260.2, "volume": 15200000}
-          ]
-        }
-      ]
-    }
-
     CRITICAL: ALL REQUIRED FIELDS MUST BE PROVIDED.`,
     inputSchema: z.object({
       title: z
         .string()
         .describe('Chart title (e.g., "Apple vs Microsoft Stock Performance")'),
       type: z
-        .enum(["line", "bar", "area", "scatter", "quadrant", "candlestick"])
+        .enum(["line", "bar", "area", "scatter", "quadrant"])
         .describe(
-          'Chart type: "line" (time series), "bar" (comparisons), "area" (cumulative), "scatter" (positioning/correlation), "quadrant" (2x2 matrix), "candlestick" (OHLC + volume for stocks)'
+          'Chart type: "line" (time series), "bar" (comparisons), "area" (cumulative), "scatter" (positioning/correlation), "quadrant" (2x2 matrix)'
         ),
       xAxisLabel: z
         .string()
@@ -121,9 +101,8 @@ export const financeTools = {
                     ),
                   y: z
                     .number()
-                    .optional()
                     .describe(
-                      "Y-axis numeric value - price, score, percentage, etc. REQUIRED for line/bar/area/scatter/quadrant charts. Optional ONLY for candlestick charts (will use 'close' field)."
+                      "Y-axis numeric value - price, score, percentage, etc. REQUIRED for all chart types."
                     ),
                   size: z
                     .number()
@@ -137,40 +116,10 @@ export const financeTools = {
                     .describe(
                       'Individual entity name for scatter/quadrant charts (e.g., "Goldman Sachs", "Microsoft"). Displayed on/near bubble.'
                     ),
-                  open: z
-                    .number()
-                    .optional()
-                    .describe(
-                      'Opening price for candlestick charts. Required for type="candlestick".'
-                    ),
-                  high: z
-                    .number()
-                    .optional()
-                    .describe(
-                      'Highest price for candlestick charts. Required for type="candlestick".'
-                    ),
-                  low: z
-                    .number()
-                    .optional()
-                    .describe(
-                      'Lowest price for candlestick charts. Required for type="candlestick".'
-                    ),
-                  close: z
-                    .number()
-                    .optional()
-                    .describe(
-                      'Closing price for candlestick charts (can use y field as fallback). Required for type="candlestick".'
-                    ),
-                  volume: z
-                    .number()
-                    .optional()
-                    .describe(
-                      'Trading volume for candlestick charts. Optional but recommended for type="candlestick".'
-                    ),
                 })
               )
               .describe(
-                "Array of data points. For time series: {x: date, y: value}. For scatter: {x, y, size, label}. For candlestick: {x: date, open, high, low, close, volume} (y is optional, will use close value)."
+                "Array of data points. For time series: {x: date, y: value}. For scatter/quadrant: {x, y, size, label}."
               ),
           })
         )

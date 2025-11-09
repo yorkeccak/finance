@@ -312,7 +312,6 @@ export async function POST(req: Request) {
            • Area charts: Cumulative data (stacked metrics, composition)
            • Scatter/Bubble charts: Correlation analysis, positioning maps, investor mapping
            • Quadrant charts: 2x2 strategic matrices (BCG matrix, Edge Zone analysis)
-           • Candlestick charts: OHLC + Volume data for stock/crypto price movements with professional candlestick visualization
 
       **CRITICAL NOTE**: You must only make max 5 parallel tool calls at a time.
 
@@ -357,10 +356,6 @@ export async function POST(req: Request) {
          • Use AREA charts for cumulative data (stacked metrics, composition analysis)
          • Use SCATTER charts for correlation, positioning maps, or bubble charts with size representing a third metric
          • Use QUADRANT charts for 2x2 strategic analysis (divides chart into 4 quadrants with reference lines)
-         • Use CANDLESTICK charts for detailed stock/crypto price analysis when you have OHLC (Open/High/Low/Close) data + Volume
-           - Candlestick charts show price movements with green (up) and red (down) candles
-           - Includes volume bars for trading activity analysis
-           - Perfect for technical analysis, intraday movements, and detailed price action
 
          Whenever you have time series data for the user (such as stock prices, historical financial metrics, or any data with values over time), always visualize it using the chart creation tool. For scatter/quadrant charts, each series represents a category (for color coding), and each data point represents an individual entity with x, y, optional size (for bubbles), and optional label (entity name).
 

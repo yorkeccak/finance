@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent, type ChartConfig } from '@/components/ui/chart';
 import {
   LineChart, Line, BarChart, Bar, AreaChart, Area,
-  ScatterChart, Scatter, ZAxis, ComposedChart,
+  ScatterChart, Scatter, ZAxis,
   XAxis, YAxis, CartesianGrid, ReferenceLine,
   Cell, LabelList, ResponsiveContainer
 } from 'recharts';
@@ -25,14 +25,9 @@ const DEFAULT_COLORS = [
 
 interface DataPoint {
   x: string | number;
-  y?: number;      // Optional for candlestick charts (will use close value)
+  y: number;
   size?: number;   // For scatter/bubble charts
   label?: string;  // For scatter charts
-  open?: number;   // For candlestick charts
-  high?: number;   // For candlestick charts
-  low?: number;    // For candlestick charts
-  close?: number;  // For candlestick charts
-  volume?: number; // For candlestick volume bars
 }
 
 interface DataSeries {
@@ -41,7 +36,7 @@ interface DataSeries {
 }
 
 interface FinancialChartProps {
-  chartType: 'line' | 'bar' | 'area' | 'scatter' | 'quadrant' | 'candlestick';
+  chartType: 'line' | 'bar' | 'area' | 'scatter' | 'quadrant';
   title: string;
   xAxisLabel: string;
   yAxisLabel: string;
@@ -57,74 +52,6 @@ interface FinancialChartProps {
   };
   hideDownloadButton?: boolean;
 }
-
-// Custom Candlestick shape component
-const Candlestick = (props: any) => {
-  const { x, width, payload, yAxis } = props;
-
-  if (!payload || !payload.open || !payload.high || !payload.low || !payload.close) {
-    return null;
-  }
-
-  const { open, high, low, close } = payload;
-
-  const isRising = close >= open;
-  const fill = isRising ? '#10b981' : '#ef4444'; // Green for up, red for down
-  const stroke = isRising ? '#059669' : '#dc2626';
-
-  // Calculate candle dimensions
-  const candleX = x + width / 2;
-  const candleWidth = Math.max(width * 0.7, 4); // Wider candles
-
-  // Use yAxis scale to convert data values to pixel positions
-  // yAxis.scale is the D3 scale function that correctly maps data to pixels
-  const scale = yAxis?.scale;
-  if (!scale) return null;
-
-  const highY = scale(high);
-  const lowY = scale(low);
-  const openY = scale(open);
-  const closeY = scale(close);
-
-  const bodyTop = Math.min(openY, closeY);
-  const bodyBottom = Math.max(openY, closeY);
-  const bodyHeight = Math.max(bodyBottom - bodyTop, 1.5);
-
-  return (
-    <g>
-      {/* Upper wick (high to max(open, close)) */}
-      <line
-        x1={candleX}
-        y1={highY}
-        x2={candleX}
-        y2={bodyTop}
-        stroke={stroke}
-        strokeWidth={1.5}
-      />
-
-      {/* Lower wick (min(open, close) to low) */}
-      <line
-        x1={candleX}
-        y1={bodyBottom}
-        x2={candleX}
-        y2={lowY}
-        stroke={stroke}
-        strokeWidth={1.5}
-      />
-
-      {/* Body (open-close rectangle) */}
-      <rect
-        x={candleX - candleWidth / 2}
-        y={bodyTop}
-        width={candleWidth}
-        height={bodyHeight}
-        fill={fill}
-        stroke={stroke}
-        strokeWidth={1.5}
-      />
-    </g>
-  );
-};
 
 function FinancialChartComponent({
   chartType,
@@ -184,18 +111,6 @@ function FinancialChartComponent({
       return []; // Scatter uses raw data
     }
 
-    if (chartType === 'candlestick') {
-      // For candlestick, flatten the data from first series
-      return dataSeries[0]?.data.map(point => ({
-        x: point.x,
-        open: point.open ?? point.close ?? point.y ?? 0,
-        high: point.high ?? point.close ?? point.y ?? 0,
-        low: point.low ?? point.close ?? point.y ?? 0,
-        close: point.close ?? point.y ?? 0,
-        volume: point.volume ?? 0,
-      })) || [];
-    }
-
     const dataMap = new Map<string | number, any>();
 
     // Collect all unique x values
@@ -204,7 +119,7 @@ function FinancialChartComponent({
         if (!dataMap.has(point.x)) {
           dataMap.set(point.x, { x: point.x });
         }
-        dataMap.get(point.x)![series.name] = point.y ?? 0;
+        dataMap.get(point.x)![series.name] = point.y;
       });
     });
 
@@ -281,109 +196,6 @@ function FinancialChartComponent({
     };
 
     switch (chartType) {
-      case 'candlestick':
-        return (
-          <ComposedChart {...commonProps} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-            <XAxis
-              dataKey="x"
-              tick={{ fontSize: 11, fill: '#6b7280', fontWeight: 500 }}
-              tickLine={false}
-              axisLine={{ stroke: '#e5e7eb' }}
-              angle={-45}
-              textAnchor="end"
-              height={60}
-            />
-            <YAxis
-              yAxisId="price"
-              domain={[
-                (dataMin: number) => {
-                  const min = Math.min(...transformedData.map(d => d.low || d.close));
-                  return Math.floor(min * 0.95); // 5% padding below lowest low
-                },
-                (dataMax: number) => {
-                  const max = Math.max(...transformedData.map(d => d.high || d.close));
-                  return Math.ceil(max * 1.05); // 5% padding above highest high
-                }
-              ]}
-              tick={{ fontSize: 11, fill: '#6b7280', fontWeight: 500 }}
-              tickLine={false}
-              axisLine={{ stroke: '#e5e7eb' }}
-              tickFormatter={(value) => `$${value.toFixed(0)}`}
-              label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', style: { fontSize: 12, fill: '#6b7280' } }}
-            />
-            <YAxis
-              yAxisId="volume"
-              orientation="right"
-              domain={[0, (dataMax: number) => {
-                const maxVol = Math.max(...transformedData.map(d => d.volume || 0));
-                return Math.ceil(maxVol * 4); // Multiply by 4 to keep volume bars small (taking 25% of chart height)
-              }]}
-              tick={{ fontSize: 11, fill: '#6b7280', fontWeight: 500 }}
-              tickLine={false}
-              axisLine={{ stroke: '#e5e7eb' }}
-              tickFormatter={(value) => {
-                if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-                if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
-                return value.toString();
-              }}
-              label={{ value: 'Volume', angle: 90, position: 'insideRight', style: { fontSize: 12, fill: '#6b7280' } }}
-            />
-            <ChartTooltip
-              content={({ active, payload }) => {
-                if (active && payload && payload.length) {
-                  const data = payload[0].payload;
-                  return (
-                    <div className="rounded-lg border bg-white/98 p-3 shadow-lg">
-                      <div className="text-xs font-semibold mb-2">{data.x}</div>
-                      <div className="space-y-1 text-xs">
-                        <div className="flex justify-between gap-4">
-                          <span className="text-gray-600">Open:</span>
-                          <span className="font-medium">${data.open?.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between gap-4">
-                          <span className="text-gray-600">High:</span>
-                          <span className="font-medium text-green-600">${data.high?.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between gap-4">
-                          <span className="text-gray-600">Low:</span>
-                          <span className="font-medium text-red-600">${data.low?.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between gap-4">
-                          <span className="text-gray-600">Close:</span>
-                          <span className="font-medium">${data.close?.toFixed(2)}</span>
-                        </div>
-                        {data.volume > 0 && (
-                          <div className="flex justify-between gap-4 pt-1 border-t">
-                            <span className="text-gray-600">Volume:</span>
-                            <span className="font-medium">{data.volume?.toLocaleString()}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                }
-                return null;
-              }}
-            />
-            {/* Volume bars */}
-            <Bar
-              yAxisId="volume"
-              dataKey="volume"
-              fill="#cbd5e1"
-              opacity={0.3}
-              isAnimationActive={false}
-            />
-            {/* Candlesticks - use Bar with custom shape */}
-            <Bar
-              yAxisId="price"
-              dataKey="high"
-              shape={(props: any) => <Candlestick {...props} />}
-              isAnimationActive={false}
-            />
-          </ComposedChart>
-        );
-
       case 'line':
         return (
           <LineChart {...commonProps}>

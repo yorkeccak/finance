@@ -99,7 +99,6 @@ function FinancialChartComponent({
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Error downloading chart:', error);
     } finally {
       setIsDownloading(false);
     }
@@ -156,7 +155,6 @@ function FinancialChartComponent({
     );
 
     if (validPoints.length === 0) {
-      console.warn('Scatter/quadrant chart requires y values for all data points');
       return null;
     }
 

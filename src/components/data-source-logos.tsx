@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
+import { motion, useAnimation } from "framer-motion";
 import { useTheme } from "next-themes";
-import CodeSnippetDialog from "./code-snippet-dialog";
+import Image from "next/image";
 
 const logos = [
   {
@@ -44,8 +44,6 @@ const response = await valyu.search({
 
 // Access the results
 response.results.forEach(result => {
-    console.log(\`Title: \${result.title}\`);
-    console.log(\`Content: \${result.content.substring(0, 200)}...\`);
 });`,
       },
       {
@@ -97,9 +95,6 @@ const response = await valyu.search({
 
 // Get paper details
 response.results.forEach(paper => {
-    console.log(\`Title: \${paper.title}\`);
-    console.log(\`Authors: \${paper.metadata?.authors || []}\`);
-    console.log(\`Abstract: \${paper.content.substring(0, 300)}...\`);
 });`,
       },
       {
@@ -167,9 +162,6 @@ const response = await valyu.search({
 
 // Extract financial data
 response.results.forEach(statement => {
-    console.log(\`Company: \${statement.metadata?.company}\`);
-    console.log(\`Period: \${statement.metadata?.period}\`);
-    console.log(\`Data: \${statement.content}\`);
 });`,
       },
       {
@@ -239,9 +231,6 @@ const response = await valyu.search({
 
 // Get market insights
 response.results.forEach(item => {
-    console.log(\`Symbol: \${item.metadata?.symbol}\`);
-    console.log(\`Price: $\${item.metadata?.price}\`);
-    console.log(\`Analysis: \${item.content}\`);
 });`,
       },
       {
@@ -297,10 +286,6 @@ const response = await valyu.search({
 
 // Get ranked results
 response.results.forEach(result => {
-    console.log(\`Title: \${result.title}\`);
-    console.log(\`URL: \${result.metadata?.url}\`);
-    console.log(\`Relevance: \${result.metadata?.relevance_score}\`);
-    console.log(\`Content: \${result.content.substring(0, 200)}...\`);
 });`,
       },
       {
@@ -358,8 +343,6 @@ const response = await valyu.search({
 
 // Access research papers
 response.results.forEach(paper => {
-    console.log(\`DOI: \${paper.doi}\`);
-    console.log(\`Content: \${paper.content}\`);
 });`,
       },
       {
@@ -380,96 +363,131 @@ response.results.forEach(paper => {
 ];
 
 const DataSourceLogos = () => {
-  const [selectedLogo, setSelectedLogo] = useState<any>(null);
-  const [hoveredLogo, setHoveredLogo] = useState<string | null>(null);
-  const [animatedLogo, setAnimatedLogo] = useState<number>(0);
-  const { theme, resolvedTheme } = useTheme();
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const controls = useAnimation();
+  const animationRef = useRef<any>(null);
+
+  // All logos from assets/banner
+  const allLogos = [
+    { name: "Reddit", src: "/assets/banner/reddit.png" },
+    { name: "SEC", src: "/assets/banner/sec.png" },
+    { name: "Wikipedia", src: "/assets/banner/wikipedia.png" },
+    { name: "Medium", src: "/assets/banner/medium.png" },
+    { name: "arXiv", src: "/assets/banner/arxiv.png" },
+    { name: "PubMed", src: "/assets/banner/pubmed.png" },
+    { name: "GitHub", src: "/assets/banner/github.png" },
+    { name: "Kalshi", src: "/assets/banner/kalshi.png" },
+    { name: "Crunchbase", src: "/assets/banner/crunchbase.png" },
+    { name: "PitchBook", src: "/assets/banner/pitchbook.png" },
+    { name: "LinkedIn", src: "/assets/banner/linkedin.png" },
+    { name: "FRED", src: "/assets/banner/fred.png" },
+    { name: "BLS", src: "/assets/banner/bls.png" },
+    { name: "USPTO", src: "/assets/banner/uspto.png" },
+    { name: "Wiley", src: "/assets/banner/wiley.png" },
+    { name: "ClinicalTrials", src: "/assets/banner/clinicaltrials.png" },
+    { name: "Polymarket", src: "/assets/banner/polymarket.png" },
+  ];
+
+  // Duplicate logos for seamless infinite scroll
+  const duplicatedLogos = [...allLogos, ...allLogos, ...allLogos];
 
   // Prevent hydration mismatch
   useEffect(() => {
     setMounted(true);
   }, []);
-  
-  // Keep the exact same logos as before
-  const displayLogos = [
-    { name: "SEC Filings", src: "/sec.svg", sizeClass: "h-6 sm:h-7" },
-    { name: "arXiv Papers", src: "/arxiv.svg", sizeClass: "h-5 sm:h-6" },
-    { name: "Web Search", src: "/web.svg", sizeClass: "h-6 sm:h-7" },
-    { name: "Financial Statements", src: "/balancesheet.svg", sizeClass: "h-5 sm:h-6" },
-    { name: "Market Data", src: "/stocks.svg", sizeClass: "h-7 sm:h-9" },
-    // { name: "Wiley", src: "/wy.svg", sizeClass: "h-4 sm:h-4" },
-  ];
 
-  // Cycling animation effect - pauses when user is hovering
+  // Start continuous animation
   useEffect(() => {
-    // Don't run animation if user is hovering over any logo
-    if (hoveredLogo) return;
-    
-    const interval = setInterval(() => {
-      setAnimatedLogo((prev) => (prev + 1) % displayLogos.length);
-    }, 2000); // Change every 2 seconds
+    const animate = async () => {
+      await controls.start({
+        x: [0, -100 * allLogos.length],
+        transition: {
+          // ↓↓↓ Decrease duration by 1.5x for 1.5x speed ↑↑↑
+          duration: (allLogos.length * 3) / 1.5,
+          ease: "linear",
+          repeat: Infinity,
+        }
+      });
+    };
 
-    return () => clearInterval(interval);
-  }, [displayLogos.length, hoveredLogo]);
+    animate();
+  }, [controls, allLogos.length]);
+
+  const handleMouseEnter = (index: number) => {
+    setHoveredIndex(index);
+    controls.stop();
+  };
+
+  const handleMouseLeave = () => {
+    setHoveredIndex(null);
+    // Resume from current position at 1.5x speed
+    controls.start({
+      x: -100 * allLogos.length,
+      transition: {
+        duration: (allLogos.length * 3) / 1.5,
+        ease: "linear",
+        repeat: Infinity,
+      }
+    });
+  };
+
+  const isDark = mounted && resolvedTheme === 'dark';
 
   return (
-    <>
+    <div className="relative w-full overflow-hidden py-4">
       <motion.div
-        className="flex justify-center items-center space-x-6 sm:space-x-8"
+        className="flex gap-12"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 1, duration: 0.5, ease: "easeOut" }}
+        transition={{ delay: 1, duration: 0.5 }}
       >
-        {displayLogos.map((displayLogo, index) => {
-          const logoData = logos.find(l => l.name === displayLogo.name);
-          const isHovered = hoveredLogo === displayLogo.name;
-          const isAnimated = animatedLogo === index;
-          const shouldShowColor = isHovered || isAnimated;
-          const isDark = mounted && (resolvedTheme === 'dark' || (theme === 'system' && resolvedTheme === 'dark'));
-          
-          return (
-            <div
-              key={displayLogo.name}
-              className="relative"
-              onMouseEnter={() => setHoveredLogo(displayLogo.name)}
-              onMouseLeave={() => setHoveredLogo(null)}
-            >
-              <motion.img
-                src={displayLogo.src}
-                alt={displayLogo.name}
-                className={`cursor-pointer transition-all duration-500 ${displayLogo.sizeClass}`}
-                style={{
-                  filter: shouldShowColor 
-                    ? (isDark ? 'invert(1)' : 'none')
-                    : (isDark 
-                        ? 'grayscale(100%) opacity(0.4) invert(1)'
-                        : 'grayscale(100%) opacity(0.4)'),
-                  opacity: shouldShowColor ? 1 : 0.4
-                }}
+        <motion.div
+          className="flex gap-12 flex-shrink-0"
+          animate={controls}
+        >
+          {duplicatedLogos.map((logo, index) => {
+            const isHovered = hoveredIndex === index;
+
+            return (
+              <motion.div
+                key={`${logo.name}-${index}`}
+                className="relative flex-shrink-0"
+                onMouseEnter={() => handleMouseEnter(index)}
+                onMouseLeave={handleMouseLeave}
                 animate={{
-                  scale: isAnimated ? 1.1 : 1,
+                  scale: isHovered ? 1.3 : 1,
                 }}
                 transition={{
-                  duration: 0.3,
-                  ease: "easeOut"
+                  scale: { duration: 0.3 }
                 }}
-                onClick={() => logoData && setSelectedLogo(logoData)}
-              />
-            </div>
-          );
-        })}
+              >
+                <div className="relative w-16 h-16">
+                  <Image
+                    src={logo.src}
+                    alt={logo.name}
+                    fill
+                    className="object-contain transition-all duration-500"
+                    style={{
+                      filter: isHovered
+                        ? 'grayscale(0%)'
+                        : isDark
+                          ? 'grayscale(100%) opacity(0.3) brightness(2)'
+                          : 'grayscale(100%) opacity(0.3)',
+                    }}
+                  />
+                </div>
+              </motion.div>
+            );
+          })}
+        </motion.div>
       </motion.div>
 
-      {selectedLogo && (
-        <CodeSnippetDialog
-          isOpen={!!selectedLogo}
-          onClose={() => setSelectedLogo(null)}
-          title={selectedLogo.name}
-          snippets={selectedLogo.snippets}
-        />
-      )}
-    </>
+      {/* Gradient edges for infinite scroll effect */}
+      <div className="absolute top-0 left-0 h-full w-32 bg-gradient-to-r from-[#F5F5F5] dark:from-gray-950 to-transparent pointer-events-none" />
+      <div className="absolute top-0 right-0 h-full w-32 bg-gradient-to-l from-[#F5F5F5] dark:from-gray-950 to-transparent pointer-events-none" />
+    </div>
   );
 };
 

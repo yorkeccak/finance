@@ -139,8 +139,20 @@ export async function POST(req: Request) {
 
     let selectedModel: any;
     let modelInfo: string;
+    let supportsThinking = false;
 
-    if (isDevelopment) {
+    // Check if Ollama is enabled via header
+    const ollamaEnabled = req.headers.get('x-ollama-enabled') !== 'false';
+
+    // Models that support thinking/reasoning
+    const thinkingModels = [
+      'deepseek-r1', 'deepseek-v3', 'deepseek-v3.1',
+      'qwen3', 'qwq',
+      'phi4-reasoning', 'phi-4-reasoning',
+      'cogito'
+    ];
+
+    if (isDevelopment && ollamaEnabled) {
       // Development mode: Try to use Ollama first, fallback to OpenAI
       try {
         // Try to connect to Ollama first
@@ -148,19 +160,22 @@ export async function POST(req: Request) {
           method: 'GET',
           signal: AbortSignal.timeout(3000), // 3 second timeout
         });
-        
+
         if (ollamaResponse.ok) {
           const data = await ollamaResponse.json();
           const models = data.models || [];
-          
+
           if (models.length > 0) {
-            // Prioritize Llama 3.1 which is explicitly listed as supporting tools
-            const preferredModels = ['llama3.1', 'gemma3:4b', 'gemma3', 'llama3.2', 'llama3', 'qwen2.5', 'codestral', 'deepseek-r1'];
+            // Prioritize reasoning models, then other capable models
+            const preferredModels = [
+              'deepseek-r1', 'qwen3', 'phi4-reasoning', 'cogito', // Reasoning models
+              'llama3.1', 'gemma3:4b', 'gemma3', 'llama3.2', 'llama3', 'qwen2.5', 'codestral' // Regular models
+            ];
             let selectedModelName = models[0].name;
             
             // Check if user has a specific model preference from the request
             const userPreferredModel = req.headers.get('x-ollama-model');
-            
+
             // Try to find a preferred model
             if (userPreferredModel && models.some((m: any) => m.name === userPreferredModel)) {
               selectedModelName = userPreferredModel;
@@ -172,20 +187,26 @@ export async function POST(req: Request) {
                 }
               }
             }
-            
+
+            // Check if the selected model supports thinking
+            supportsThinking = thinkingModels.some(thinkModel =>
+              selectedModelName.toLowerCase().includes(thinkModel.toLowerCase())
+            );
+
             // Debug: Log the exact configuration
             console.log(`[Chat API] Attempting to configure Ollama with baseURL: ${ollamaBaseUrl}/v1`);
             console.log(`[Chat API] Selected model name: ${selectedModelName}`);
-            
+            console.log(`[Chat API] Model supports thinking: ${supportsThinking}`);
+
             // Use OpenAI provider and explicitly create a chat model (not responses model)
             const ollamaAsOpenAI = createOpenAI({
               baseURL: `${ollamaBaseUrl}/v1`, // This should hit /v1/chat/completions
               apiKey: 'ollama', // Dummy API key for Ollama
             });
-            
+
             // Create a chat model explicitly
             selectedModel = ollamaAsOpenAI.chat(selectedModelName);
-            modelInfo = `Ollama (${selectedModelName}) - Development Mode`;
+            modelInfo = `Ollama (${selectedModelName})${supportsThinking ? ' [Reasoning]' : ''} - Development Mode`;
             console.log(`[Chat API] Created model with provider:`, typeof selectedModel);
             console.log(`[Chat API] Model baseURL should be: ${ollamaBaseUrl}/v1`);
           } else {
@@ -259,7 +280,37 @@ export async function POST(req: Request) {
 
     console.log(`[Chat API] About to call streamText with model:`, selectedModel);
     console.log(`[Chat API] Model info:`, modelInfo);
-    
+
+    // Build provider options conditionally based on whether we're using Ollama
+    const isUsingOllama = isDevelopment && ollamaEnabled && modelInfo.includes('Ollama');
+    const providerOptions: any = {};
+
+    if (isUsingOllama) {
+      // For Ollama models using OpenAI compatibility layer
+      // We need to use the openai provider options since createOpenAI is used
+      if (supportsThinking) {
+        // Enable thinking for reasoning models
+        providerOptions.openai = {
+          think: true
+        };
+        console.log('[Chat API] Enabled thinking mode for Ollama reasoning model');
+      } else {
+        // Explicitly disable thinking for non-reasoning models
+        providerOptions.openai = {
+          think: false
+        };
+        console.log('[Chat API] Disabled thinking mode for Ollama non-reasoning model');
+      }
+    } else {
+      // OpenAI-specific options (only when using OpenAI)
+      providerOptions.openai = {
+        store: true,
+        reasoningEffort: 'medium',
+        reasoningSummary: 'auto',
+        include: ['reasoning.encrypted_content'],
+      };
+    }
+
     const result = streamText({
       model: selectedModel as any,
       messages: convertToModelMessages(messages),
@@ -270,14 +321,7 @@ export async function POST(req: Request) {
         userTier,
         sessionId,
       },
-      providerOptions: {
-        openai: {
-          store: true,
-          reasoningEffort: 'medium',
-          reasoningSummary: 'auto',
-          include: ['reasoning.encrypted_content'],
-        },
-      },
+      providerOptions,
       system: `You are a helpful assistant with access to comprehensive tools for Python code execution, financial data, web search, academic research, and data visualization.
       
       CRITICAL CITATION INSTRUCTIONS:
@@ -614,12 +658,34 @@ export async function POST(req: Request) {
         ? error
         : 'An unexpected error occurred';
 
+    // Check if it's a tool/function calling compatibility error
+    const isToolError = errorMessage.toLowerCase().includes('tool') ||
+                       errorMessage.toLowerCase().includes('function');
+    const isThinkingError = errorMessage.toLowerCase().includes('thinking');
+
     // Log full error details for debugging
     console.error("[Chat API] Error details:", {
       message: errorMessage,
       stack: error instanceof Error ? error.stack : undefined,
-      error: error
+      error: error,
+      isToolError,
+      isThinkingError
     });
+
+    // Return specific error codes for compatibility issues
+    if (isToolError || isThinkingError) {
+      return new Response(
+        JSON.stringify({
+          error: "MODEL_COMPATIBILITY_ERROR",
+          message: errorMessage,
+          compatibilityIssue: isToolError ? "tools" : "thinking"
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
 
     return new Response(
       JSON.stringify({

@@ -49,7 +49,6 @@ const CsvRendererComponent = ({ csvId, alt }: { csvId: string; alt?: string }) =
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
-        console.error('[CsvRenderer] Error fetching CSV:', err);
         setError(true);
         setLoading(false);
       }
@@ -81,7 +80,6 @@ const CsvRendererComponent = ({ csvId, alt }: { csvId: string; alt?: string }) =
 
   // Validate that rows is an array
   if (!Array.isArray(csvData.rows)) {
-    console.error('[CsvRenderer] rows is not an array:', typeof csvData.rows, csvData.rows);
     return (
       <div className="my-4 border border-red-200 dark:border-red-700 rounded-lg p-4 text-center">
         <div className="text-sm text-red-600 dark:text-red-400">Invalid table data format</div>

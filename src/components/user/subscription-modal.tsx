@@ -70,7 +70,6 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
         window.location.href = checkoutUrl;
       }
     } catch (error) {
-      console.error('Failed to create checkout:', error);
     } finally {
       setLoading(false);
     }

@@ -50,21 +50,24 @@ export function OllamaStatusIndicator({ hasMessages = false }: { hasMessages?: b
     // Only check Ollama status in development mode
     if (process.env.NEXT_PUBLIC_APP_MODE === 'development') {
       checkOllamaStatus();
-      
-      // Show initial dialog if Ollama is available but not connected
-      const hasShownDialog = localStorage.getItem('ollama-dialog-shown');
-      if (!hasShownDialog) {
-        setTimeout(() => {
-          if (status && !status.connected && status.available) {
-            setShowInitialDialog(true);
-            localStorage.setItem('ollama-dialog-shown', 'true');
-          }
-        }, 2000);
-      }
-      
+
       // Check status every 30 seconds
       const interval = setInterval(checkOllamaStatus, 30000);
       return () => clearInterval(interval);
+    }
+  }, []); // Empty dependency array - only run once on mount
+
+  // Separate useEffect for initial dialog
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_APP_MODE === 'development' && status) {
+      const hasShownDialog = localStorage.getItem('ollama-dialog-shown');
+      if (!hasShownDialog && !status.connected && status.available) {
+        const timer = setTimeout(() => {
+          setShowInitialDialog(true);
+          localStorage.setItem('ollama-dialog-shown', 'true');
+        }, 2000);
+        return () => clearTimeout(timer);
+      }
     }
   }, [status]);
 

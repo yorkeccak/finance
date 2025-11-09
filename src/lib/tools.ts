@@ -208,14 +208,10 @@ export const financeTools = {
           .single();
 
         if (error) {
-          console.error('[createChart] Error saving chart to database:', error);
-          console.error('[createChart] Insert data:', insertData);
         } else {
           chartId = savedChart.id;
-          console.log('[createChart] Successfully saved chart with ID:', chartId);
         }
       } catch (error) {
-        console.error('[createChart] Database error:', error);
       }
 
       // Track chart creation
@@ -357,8 +353,6 @@ export const financeTools = {
         try {
           const supabase = await createClient();
 
-          console.log('[createCSV] Saving CSV with rows type:', typeof rows, 'isArray:', Array.isArray(rows));
-          console.log('[createCSV] First row sample:', rows[0]);
 
           // Build insert data - include anonymous_id if no user_id
           const insertData: any = {
@@ -384,15 +378,10 @@ export const financeTools = {
             .single();
 
           if (error) {
-            console.error('[createCSV] Error saving CSV to database:', error);
-            console.error('[createCSV] Error details:', JSON.stringify(error, null, 2));
-            console.error('[createCSV] Insert data:', insertData);
           } else {
             csvId = savedCsv.id;
-            console.log('[createCSV] Successfully saved CSV with ID:', csvId);
           }
         } catch (error) {
-          console.error('[createCSV] Database error:', error);
         }
 
         // Track CSV creation
@@ -419,7 +408,6 @@ export const financeTools = {
             : undefined,
         };
 
-        console.log('[createCSV] Returning result with instructions:', result._instructions);
 
         return result;
       } catch (error: any) {
@@ -544,7 +532,6 @@ export const financeTools = {
                 }
               );
             } catch (error) {
-              console.error('[CodeExecution] Failed to track Daytona usage:', error);
               // Don't fail the tool execution if usage tracking fails
             }
           }
@@ -586,12 +573,10 @@ ${execution.result || "(No output produced)"}
               await sandbox.delete();
             }
           } catch (cleanupError) {
-            console.error('[CodeExecution] Failed to delete Daytona sandbox:', cleanupError);
           }
         }
         
       } catch (error: any) {
-        console.error('[CodeExecution] Error:', error);
         
         return `❌ **Error**: Failed to execute Python code. ${error.message || 'Unknown error occurred'}`;
       }
@@ -682,7 +667,6 @@ ${execution.result || "(No output produced)"}
               }
             );
           } catch (error) {
-            console.error('[FinancialSearch] Failed to track Valyu API usage:', error);
             // Don't fail the search if usage tracking fails
           }
         }
@@ -803,7 +787,6 @@ ${execution.result || "(No output produced)"}
               }
             );
           } catch (error) {
-            console.error('[WileySearch] Failed to track Valyu API usage:', error);
             // Don't fail the search if usage tracking fails
           }
         }
@@ -929,7 +912,6 @@ ${execution.result || "(No output produced)"}
               }
             );
           } catch (error) {
-            console.error('[WebSearch] Failed to track Valyu API usage:', error);
             // Don't fail the search if usage tracking fails
           }
         }

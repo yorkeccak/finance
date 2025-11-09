@@ -11,7 +11,6 @@ export class PolarEventTracker {
     // Only initialize Polar in production
     if (!this.isDevelopment) {
       if (!process.env.POLAR_ACCESS_TOKEN) {
-        console.error('[PolarEvents] POLAR_ACCESS_TOKEN not configured for production');
         throw new Error('Polar access token required for production event tracking');
       }
       
@@ -19,9 +18,7 @@ export class PolarEventTracker {
         accessToken: process.env.POLAR_ACCESS_TOKEN,
       });
       
-      console.log('[PolarEvents] Polar client initialized for production');
     } else {
-      console.log('[PolarEvents] Development mode detected - Polar events disabled');
     }
   }
 
@@ -38,24 +35,20 @@ export class PolarEventTracker {
   ) {
     // Skip in development
     if (this.isDevelopment || !this.polar) {
-      console.log('[PolarEvents] Skipping Valyu API tracking (development mode)');
       return;
     }
 
     // Input validation
     if (!userId || !sessionId || !toolName) {
-      console.error('[PolarEvents] Missing required parameters for Valyu API tracking');
       return;
     }
 
     if (valyuCostDollars < 0) {
-      console.error('[PolarEvents] Invalid Valyu API cost:', valyuCostDollars);
       return;
     }
 
     // Skip zero-cost API calls
     if (valyuCostDollars === 0) {
-      console.log('[PolarEvents] Skipping zero-cost Valyu API call');
       return;
     }
 
@@ -65,14 +58,7 @@ export class PolarEventTracker {
       const markupMultiplier = 1.2; // 20% markup
       const billableAmount = Math.ceil(valyuCostDollars * markupMultiplier * 100);
 
-      console.log(`[PolarEvents] Tracking Valyu API usage: ${toolName}`, {
-        userId,
-        sessionId,
-        valyuCostDollars,
-        billableAmount,
-        finalCost: billableAmount * 0.01
-      });
-
+      
       // Send event to Polar
       await this.polar.events.ingest({
         events: [{
@@ -90,9 +76,7 @@ export class PolarEventTracker {
         }]
       });
 
-      console.log('[PolarEvents] Valyu API usage sent to Polar successfully');
     } catch (error) {
-      console.error('[PolarEvents] Error sending Valyu API usage to Polar:', error);
     }
   }
 
@@ -108,18 +92,15 @@ export class PolarEventTracker {
   ) {
     // Skip in development
     if (this.isDevelopment || !this.polar) {
-      console.log('[PolarEvents] Skipping Daytona tracking (development mode)');
       return;
     }
 
     // Input validation
     if (!userId || !sessionId) {
-      console.error('[PolarEvents] Missing required parameters for Daytona tracking');
       return;
     }
 
     if (executionTimeMs < 0) {
-      console.error('[PolarEvents] Invalid execution time:', executionTimeMs);
       return;
     }
 
@@ -132,16 +113,7 @@ export class PolarEventTracker {
       const markupMultiplier = 1.2;
       const billableAmount = Math.ceil(baseCostDollars * markupMultiplier * 100);
 
-      console.log(`[PolarEvents] Tracking Daytona execution:`, {
-        userId,
-        sessionId,
-        executionTimeMs,
-        executionSeconds,
-        baseCostDollars,
-        billableAmount,
-        finalCost: billableAmount * 0.01
-      });
-
+      
       // Send event to Polar
       await this.polar.events.ingest({
         events: [{
@@ -160,9 +132,7 @@ export class PolarEventTracker {
         }]
       });
 
-      console.log('[PolarEvents] Daytona usage sent to Polar successfully');
     } catch (error) {
-      console.error('[PolarEvents] Error sending Daytona usage to Polar:', error);
     }
   }
 
@@ -179,13 +149,11 @@ export class PolarEventTracker {
   ) {
     // Skip in development
     if (this.isDevelopment || !this.polar) {
-      console.log('[PolarEvents] Skipping dark mode tracking (development mode)');
       return;
     }
 
     // Input validation
     if (!userId || !sessionId) {
-      console.error('[PolarEvents] Missing required parameters for dark mode tracking');
       return;
     }
 
@@ -193,13 +161,7 @@ export class PolarEventTracker {
       // Fixed $0.01 charge per toggle (1 unit at $0.01 pricing)
       const billableAmount = 1;
 
-      console.log(`[PolarEvents] Tracking dark mode switch: ${fromTheme} → ${toTheme}`, {
-        userId,
-        sessionId,
-        billableAmount,
-        finalCost: billableAmount * 0.01
-      });
-
+      
       // Send event to Polar
       await this.polar.events.ingest({
         events: [{
@@ -217,9 +179,7 @@ export class PolarEventTracker {
         }]
       });
 
-      console.log('[PolarEvents] Dark mode switch sent to Polar successfully');
     } catch (error) {
-      console.error('[PolarEvents] Error sending dark mode switch to Polar:', error);
     }
   }
 

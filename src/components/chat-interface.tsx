@@ -20,6 +20,7 @@ import { track } from '@vercel/analytics';
 import { OllamaStatusIndicator } from '@/components/ollama-status-indicator';
 import { AuthModal } from '@/components/auth/auth-modal';
 import { RateLimitBanner } from '@/components/rate-limit-banner';
+import { ModelCompatibilityDialog } from '@/components/model-compatibility-dialog';
 
 import {
   Dialog,
@@ -339,7 +340,6 @@ const ChartImageRendererComponent = ({ chartId, alt }: { chartId: string; alt?: 
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
-        console.error('[ChartImageRenderer] Error fetching chart:', err);
         setError(true);
         setLoading(false);
       }
@@ -472,7 +472,6 @@ const markdownComponents = {
       return null;
     }
 
-    console.log('[chat-interface markdownComponents] img src:', src);
 
     // Validate URL for regular images - must be absolute URL or start with /
     try {
@@ -481,7 +480,6 @@ const markdownComponents = {
     } catch {
       // Check if it starts with / (valid relative path for Next.js)
       if (!src.startsWith('/') && !src.startsWith('csv:') && !src.match(/^\/api\/(charts|csvs)\//)) {
-        console.warn(`Invalid image src: ${src}. Skipping image render.`);
         return (
           <span className="text-xs text-gray-500 italic">
             [Image: {alt || src}]
@@ -517,7 +515,6 @@ const markdownComponents = {
         />
       );
     } catch (error) {
-      console.warn("KaTeX rendering error:", error);
       return (
         <code className="math-fallback bg-gray-100 px-1 rounded">
           {mathContent}
@@ -595,24 +592,20 @@ function groupMessageParts(parts: any[]): any[] {
   let currentReasoningGroup: any[] = [];
   const seenToolCallIds = new Set<string>();
 
-  console.log('[groupMessageParts] Processing', parts.length, 'parts');
 
   parts.forEach((part, index) => {
     // Skip step-start markers entirely - they're metadata from AI SDK
     if (part.type === "step-start") {
-      console.log('[groupMessageParts] Skipping step-start at index', index);
       return;
     }
 
     // Deduplicate tool calls by toolCallId - skip if we've already seen this tool call
     if (part.toolCallId && seenToolCallIds.has(part.toolCallId)) {
-      console.log('[groupMessageParts] DUPLICATE toolCallId detected:', part.toolCallId, 'type:', part.type, 'at index', index);
       return;
     }
 
     // Track this tool call ID
     if (part.toolCallId) {
-      console.log('[groupMessageParts] First time seeing toolCallId:', part.toolCallId, 'type:', part.type);
       seenToolCallIds.add(part.toolCallId);
     }
 
@@ -642,8 +635,6 @@ function groupMessageParts(parts: any[]): any[] {
     });
   }
 
-  console.log('[groupMessageParts] Returning', groupedParts.length, 'grouped parts');
-  console.log('[groupMessageParts] Grouped part types:', groupedParts.map(g => g.type === 'reasoning-group' ? 'reasoning-group' : g.part?.type).join(', '));
 
   return groupedParts;
 }
@@ -712,7 +703,6 @@ const MemoizedMarkdown = memo(function MemoizedMarkdown({
 }: {
   text: string;
 }) {
-  console.log('[MemoizedMarkdown] Rendering text:', text?.substring(0, 200), '... includes csv:', text?.includes('![csv](csv:'));
   const enableRawHtml = (text?.length || 0) < 20000;
 
   // Parse special references (CSV/charts) - MUST be before any conditional returns
@@ -723,7 +713,6 @@ const MemoizedMarkdown = memo(function MemoizedMarkdown({
   const processed = useMemo(
     () => {
       const result = preprocessMarkdownText(cleanFinancialText(text || ""));
-      console.log('[MemoizedMarkdown] Processed text:', result?.substring(0, 200), '... includes csv:', result?.includes('![csv](csv:'));
       return result;
     },
     [text]
@@ -796,10 +785,6 @@ const MemoizedTextPartWithCitations = memo(
       const citationMap: CitationMap = {};
       let citationNumber = 1;
 
-      console.log('[citation extraction] Total parts:', messageParts.length, 'currentPartIndex:', currentPartIndex);
-      console.log('[citation extraction] All part types:', messageParts.map(p => p.type).join(', '));
-      console.log('[citation extraction] Text being rendered:', text.substring(0, 100));
-      console.log('[citation extraction] Scanning', allMessages?.length || 0, 'total messages, current:', currentMessageIndex);
 
       // Scan ALL previous messages AND current message for tool results
       if (allMessages && currentMessageIndex !== undefined) {
@@ -807,12 +792,10 @@ const MemoizedTextPartWithCitations = memo(
           const msg = allMessages[msgIdx];
           const parts = msg.parts || (Array.isArray(msg.content) ? msg.content : []);
 
-          console.log('[citation extraction] Message', msgIdx, 'has', parts.length, 'parts, types:', parts.map((p: any) => p.type).join(', '));
 
           for (let i = 0; i < parts.length; i++) {
             const p = parts[i];
 
-        console.log('[citation extraction] Part', i, 'type:', p.type, 'toolName:', p.toolName, 'keys:', Object.keys(p));
 
         // Check for search tool results - handle both live streaming and saved message formats
         // Live: p.type = "tool-financialSearch", Saved: p.type = "tool-result" with toolName
@@ -1026,7 +1009,6 @@ const SearchResultCard = ({
     try {
       await navigator.clipboard.writeText(text);
     } catch (err) {
-      console.error("Failed to copy text: ", err);
     }
   };
 
@@ -1644,6 +1626,11 @@ export function ChatInterface({
   const [isStartingNewChat, setIsStartingNewChat] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [queryStartTime, setQueryStartTime] = useState<number | null>(null);
+  const [modelCompatibilityError, setModelCompatibilityError] = useState<{
+    message: string;
+    compatibilityIssue: string;
+  } | null>(null);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [liveProcessingTime, setLiveProcessingTime] = useState<number>(0);
 
   // Live reasoning preview - no longer needed as global state
@@ -1798,12 +1785,22 @@ export function ChatInterface({
         const { session: newSession } = await response.json();
         
         // Generate better AI title in background (don't wait)
+        const titleHeaders: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        };
+
+        // Add Ollama preference header if in development mode
+        if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_APP_MODE === 'development') {
+          const ollamaEnabled = localStorage.getItem('ollama-enabled');
+          if (ollamaEnabled !== null) {
+            titleHeaders['x-ollama-enabled'] = ollamaEnabled;
+          }
+        }
+
         fetch('/api/chat/generate-title', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token}`
-          },
+          headers: titleHeaders,
           body: JSON.stringify({ message: firstMessage })
         }).then(async (titleResponse) => {
           if (titleResponse.ok) {
@@ -1819,20 +1816,18 @@ export function ChatInterface({
             });
           }
         }).catch(() => {
-          console.log('[Chat Interface] AI title generation failed, keeping fallback');
         });
         
         return newSession.id;
       }
     } catch (error) {
-      console.error('[Chat Interface] Failed to create session:', error);
     }
     return null;
   }, [user, generateSessionTitle]);
 
   // Placeholder for loadSessionMessages - will be defined after useChat hook
   
-  const transport = useMemo(() => 
+  const transport = useMemo(() =>
     new DefaultChatTransport({
       api: "/api/chat",
       prepareSendMessagesRequest: async ({ messages }) => {
@@ -1840,6 +1835,15 @@ export function ChatInterface({
         if (selectedModel) {
           headers['x-ollama-model'] = selectedModel;
         }
+
+        // Check if Ollama is enabled in localStorage (only in development mode)
+        if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_APP_MODE === 'development') {
+          const ollamaEnabled = localStorage.getItem('ollama-enabled');
+          if (ollamaEnabled !== null) {
+            headers['x-ollama-enabled'] = ollamaEnabled;
+          }
+        }
+
         if (user) {
           const supabase = createClient();
           const { data: { session } } = await supabase.auth.getSession();
@@ -1847,9 +1851,9 @@ export function ChatInterface({
             headers['Authorization'] = `Bearer ${session.access_token}`;
           }
         }
-        
+
         // Rate limit increment is handled by the backend API
-        
+
         return {
           body: {
             messages,
@@ -1878,6 +1882,25 @@ export function ChatInterface({
       // Sync with server when chat completes (server has definitely processed increment by now)
       if (user) {
         queryClient.invalidateQueries({ queryKey: ['rateLimit'] });
+      }
+    },
+    onError: (error: Error) => {
+      console.error('[Chat Interface] Error:', error);
+
+      // Check if this is a model compatibility error
+      if (error.message.includes('MODEL_COMPATIBILITY_ERROR')) {
+        try {
+          // Parse the error details from the message
+          const errorData = JSON.parse(error.message.replace(/^Error: /, ''));
+          if (errorData.error === 'MODEL_COMPATIBILITY_ERROR') {
+            setModelCompatibilityError({
+              message: errorData.message,
+              compatibilityIssue: errorData.compatibilityIssue
+            });
+          }
+        } catch (e) {
+          console.error('Failed to parse compatibility error:', e);
+        }
       }
     },
   });
@@ -1934,7 +1957,6 @@ export function ChatInterface({
         }, 500);
       }
     } catch (error) {
-      console.error('[Chat Interface] Failed to load session:', error);
     } finally {
       setIsLoadingSession(false);
     }
@@ -2115,7 +2137,6 @@ export function ChatInterface({
       try {
         decodedQuery = decodeURIComponent(queryParam);
       } catch (e) {
-        console.warn("Failed to decode query param:", e);
         // fallback: use raw queryParam
       }
       setInput(decodedQuery);
@@ -2152,7 +2173,6 @@ export function ChatInterface({
       setLiveProcessingTime(finalTime);
       setQueryStartTime(null);
 
-      console.log('[Processing Time] Final time captured:', finalTime, 'ms');
     }
 
     if (isLoading && queryStartTime) {
@@ -2365,7 +2385,6 @@ export function ChatInterface({
             onSessionCreated?.(newSessionId);
           }
         } catch (error) {
-          console.error("[Chat Interface] Failed to create session:", error);
           // Continue with message sending even if session creation fails
         }
       }
@@ -2375,7 +2394,6 @@ export function ChatInterface({
         try {
           const result = await increment();
         } catch (error) {
-          console.error("[Chat Interface] Failed to increment anonymous rate limit:", error);
           // Continue with message sending even if increment fails
         }
       }
@@ -2471,7 +2489,6 @@ export function ChatInterface({
       await navigator.clipboard.writeText(text);
       // You could add a toast notification here if desired
     } catch (err) {
-      console.error("Failed to copy text: ", err);
     }
   }, []);
 
@@ -2481,7 +2498,6 @@ export function ChatInterface({
   // Download professional PDF report with charts and citations
   const handleDownloadPDF = useCallback(async () => {
     if (!sessionIdRef.current) {
-      console.warn('No session ID available for PDF generation');
       return;
     }
 
@@ -2494,7 +2510,6 @@ export function ChatInterface({
     setIsDownloadingPDF(true);
 
     try {
-      console.log('[PDF Download] Starting PDF generation for session:', sessionIdRef.current);
 
       // Call server-side PDF generation API
       const response = await fetch('/api/reports/generate-pdf', {
@@ -2531,14 +2546,12 @@ export function ChatInterface({
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      console.log('[PDF Download] PDF downloaded successfully');
 
       track('PDF Downloaded', {
         sessionId: sessionIdRef.current,
         messageCount: messages.length,
       });
     } catch (err) {
-      console.error('Failed to generate PDF:', err);
       alert('Failed to generate PDF. Please try again.');
     } finally {
       setIsDownloadingPDF(false);
@@ -2635,7 +2648,6 @@ export function ChatInterface({
       if ((message as any).processing_time_ms || (message as any).processingTimeMs) {
         const msgProcessingTime = (message as any).processing_time_ms || (message as any).processingTimeMs || 0;
         totalMetrics.processingTimeMs += msgProcessingTime;
-        console.log('[Metrics] Message processing time:', msgProcessingTime, 'ms, total so far:', totalMetrics.processingTimeMs, 'ms');
       }
 
       // Accumulate breakdown
@@ -2647,11 +2659,9 @@ export function ChatInterface({
 
     // Add live processing time if currently loading
     if (liveProcessingTime > 0) {
-      console.log('[Metrics] Adding live processing time:', liveProcessingTime, 'ms');
       totalMetrics.processingTimeMs += liveProcessingTime;
     }
 
-    console.log('[Metrics] Final total processing time:', totalMetrics.processingTimeMs, 'ms');
     return totalMetrics;
   }, [messages, liveProcessingTime]);
 
@@ -3986,6 +3996,22 @@ export function ChatInterface({
       <AuthModal
         open={showAuthModal}
         onClose={() => setShowAuthModal(false)}
+      />
+
+      {/* Model Compatibility Dialog */}
+      <ModelCompatibilityDialog
+        open={!!modelCompatibilityError}
+        onClose={() => {
+          setModelCompatibilityError(null);
+          setPendingMessage(null);
+        }}
+        onContinue={() => {
+          // TODO: Implement retry without tools
+          setModelCompatibilityError(null);
+          setPendingMessage(null);
+        }}
+        error={modelCompatibilityError?.message || ''}
+        modelName={selectedModel || undefined}
       />
     </div>
   );

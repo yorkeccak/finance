@@ -79,7 +79,6 @@ export const ThemeSwitcher = ({
             })
           });
         } catch (error) {
-          console.error('[ThemeSwitcher] Error tracking dark mode switch:', error);
         }
       }
 

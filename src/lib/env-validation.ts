@@ -79,14 +79,11 @@ export function logEnvironmentStatus(): void {
   const isDevelopment = process.env.NODE_ENV === 'development';
   
   if (validation.valid) {
-    console.log('[Environment] ✅ All required environment variables are set');
   } else {
-    console.error('[Environment] ❌ Missing required environment variables:');
     validation.errors.forEach(error => console.error(`  - ${error}`));
   }
   
   if (validation.warnings.length > 0) {
-    console.warn('[Environment] ⚠️ Configuration warnings:');
     validation.warnings.forEach(warning => console.warn(`  - ${warning}`));
   }
 }
@@ -95,7 +92,6 @@ export function logEnvironmentStatus(): void {
 if (process.env.NODE_ENV !== 'development') {
   const validation = validatePaymentEnvironment();
   if (!validation.valid) {
-    console.error('[Environment] CRITICAL: Missing required environment variables for production');
     validation.errors.forEach(error => console.error(`  - ${error}`));
     // Don't throw in production to avoid complete app failure, but log critically
   }

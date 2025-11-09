@@ -7,7 +7,6 @@ let llmIngestion: any = null;
 
 export function initializePolarLLMStrategy() {
   if (!process.env.POLAR_ACCESS_TOKEN) {
-    console.error('[PolarLLM] POLAR_ACCESS_TOKEN not found');
     throw new Error('POLAR_ACCESS_TOKEN required for LLM tracking');
   }
 
@@ -40,7 +39,6 @@ export function getPolarTrackedModel(userId: string, modelName: string = "gpt-5"
 // Alternative function to get different model types
 export function getPolarTrackedOpenAIModel(userId: string, modelName: string = "gpt-5") {
   if (!process.env.POLAR_ACCESS_TOKEN) {
-    console.error('[PolarLLM] POLAR_ACCESS_TOKEN not found - returning unwrapped model');
     return openai(modelName);
   }
 
@@ -55,7 +53,6 @@ export function getPolarTrackedOpenAIModel(userId: string, modelName: string = "
       externalCustomerId: userId
     });
   } catch (error) {
-    console.error('[PolarLLM] Failed to create tracked model:', error);
     return openai(modelName);
   }
 }

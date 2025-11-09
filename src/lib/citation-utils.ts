@@ -62,7 +62,6 @@ export function extractCitationsFromToolResults(toolResults: any[]): CitationMap
         });
       }
     } catch (error) {
-      console.error('Error extracting citations from tool result:', error);
     }
   });
 

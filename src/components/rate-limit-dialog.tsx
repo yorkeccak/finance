@@ -163,7 +163,6 @@ export function RateLimitDialog({ open, onOpenChange, resetTime, onShowAuth }: R
         window.location.href = checkoutUrl;
       }
     } catch (error) {
-      console.error('Failed to create checkout:', error);
     } finally {
       setLoading(false);
     }

@@ -181,7 +181,6 @@ export function Sidebar({
         window.open(redirectUrl, '_blank');
       }
     } catch (error) {
-      console.error('[Sidebar] Error accessing billing portal:', error);
     }
   };
 

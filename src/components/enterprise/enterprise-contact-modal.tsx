@@ -113,7 +113,6 @@ export function EnterpriseContactModal({ open, onClose }: EnterpriseContactModal
         }, 3000);
       }
     } catch (error) {
-      console.error('Error submitting enterprise inquiry:', error);
     } finally {
       setIsSubmitting(false);
     }

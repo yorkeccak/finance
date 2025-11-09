@@ -130,14 +130,12 @@ function HomeContent() {
             // Refresh auth state to update subscription tier
             window.location.reload();
           } else {
-            console.error('[Home] Checkout processing failed:', result);
             setNotification({ 
               type: 'error', 
               message: `Failed to complete upgrade: ${result.error || 'Unknown error'}` 
             });
           }
         } catch (error) {
-          console.error('[Home] Checkout processing error:', error);
           setNotification({ 
             type: 'error', 
             message: 'Failed to process checkout. Please contact support.' 

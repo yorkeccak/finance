@@ -67,7 +67,6 @@ const InlineChartRenderer = React.memo(({ chartId, alt }: { chartId: string; alt
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
-        console.error('[InlineChartRenderer] Error fetching chart:', err);
         setError(true);
         setLoading(false);
       }
@@ -292,7 +291,6 @@ const createMarkdownComponents = (citations: CitationMap) => ({
   img: ({ src, alt, ...props }: any) => {
     if (!src || src.trim() === "") return null;
 
-    console.log('[CitationTextRenderer] img handler - src:', src, 'alt:', alt);
 
     try {
       new URL(src);

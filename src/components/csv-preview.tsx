@@ -45,7 +45,6 @@ function CSVPreviewComponent({
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Error downloading CSV:', error);
     }
   };
 
@@ -56,7 +55,6 @@ function CSVPreviewComponent({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
-      console.error('Error copying CSV:', error);
     }
   };
 

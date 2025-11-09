@@ -191,7 +191,6 @@ export async function transferAnonymousToUser(userId: string): Promise<void> {
     clearAnonymousCookies();
 
   } catch (error) {
-    console.error('[Rate Limit] Error transferring usage:', error);
     throw error;
   }
 }

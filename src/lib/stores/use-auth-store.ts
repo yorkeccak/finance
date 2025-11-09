@@ -86,7 +86,6 @@ export const useAuthStore = create<AuthStore>()(
         const supabase = createClient();
         
         try {
-          console.log('[Auth Store] Initiating Google OAuth...');
           
           const result = await supabase.auth.signInWithOAuth({
             provider: 'google',
@@ -100,14 +99,11 @@ export const useAuthStore = create<AuthStore>()(
           });
           
           if (result.error) {
-            console.error('[Auth Store] Google OAuth error:', result.error);
             return { error: result.error };
           }
           
-          console.log('[Auth Store] Google OAuth initiated successfully');
           return { data: result.data };
         } catch (error) {
-          console.error('[Auth Store] Google OAuth exception:', error);
           return { error };
         }
       },
@@ -134,21 +130,18 @@ export const useAuthStore = create<AuthStore>()(
         
         // Failsafe: if nothing happens in 3 seconds, stop loading
         const timeoutId = setTimeout(() => {
-          console.log('Auth initialization timeout - stopping loader');
           set({ loading: false });
         }, 3000);
         
         // Get initial session
         supabase.auth.getSession().then(({ data: { session } }) => {
           clearTimeout(timeoutId);
-          console.log('Initial session check:', session?.user?.email || 'No user');
           set({ 
             user: session?.user ?? null,
             loading: false
           });
         }).catch((error) => {
           clearTimeout(timeoutId);
-          console.error('Failed to get initial session:', error);
           set({ 
             user: null,
             loading: false
@@ -158,7 +151,6 @@ export const useAuthStore = create<AuthStore>()(
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
           async (event, session) => {
-            console.log('Auth state changed:', event, session?.user?.email);
             
             set({ 
               user: session?.user ?? null,
@@ -167,7 +159,6 @@ export const useAuthStore = create<AuthStore>()(
 
             // Handle sign out event
             if (event === 'SIGNED_OUT') {
-              console.log('[Auth Store] User signed out, user is now anonymous');
               // Clear rate limit cache so anonymous rate limiting can take over
               if (typeof window !== 'undefined') {
                 // Use a small delay to ensure this runs after React Query is available
@@ -180,7 +171,6 @@ export const useAuthStore = create<AuthStore>()(
 
             // Transfer anonymous usage on successful sign in
             if (event === 'SIGNED_IN' && session?.user) {
-              console.log('[Auth Store] Transferring anonymous usage for sign in');
 
               // Track sign in (captures both email and OAuth)
               track('Sign In Success', {
@@ -199,19 +189,15 @@ export const useAuthStore = create<AuthStore>()(
                 
                 if (response.ok) {
                   const data = await response.json();
-                  console.log('[Auth Store] Successfully transferred anonymous usage:', data.message);
                   
                   // Clear anonymous cookies after successful transfer
                   if (typeof window !== 'undefined') {
                     document.cookie = 'rl_data=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-                    console.log('[Auth Store] Cleared anonymous rate limit cookies');
                   }
                 } else {
                   const errorData = await response.json();
-                  console.error('[Auth Store] Failed to transfer usage:', errorData.error);
                 }
               } catch (error) {
-                console.error('[Auth Store] Error transferring usage:', error);
               }
             }
           }

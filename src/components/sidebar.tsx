@@ -460,7 +460,7 @@ export function Sidebar({
               )}
 
               {/* Enterprise */}
-              {user && process.env.NEXT_PUBLIC_APP_MODE !== 'development' && (
+              {user && process.env.NEXT_PUBLIC_APP_MODE !== 'development' && process.env.NEXT_PUBLIC_ENTERPRISE === 'true' && (
                 <div className="relative group/tooltip">
                   <button
                     onClick={() => setShowEnterpriseModal(true)}

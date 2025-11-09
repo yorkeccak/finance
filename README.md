@@ -425,6 +425,229 @@ cp -r .local-data/ .local-data-backup/
 
 For more details, see [DEVELOPMENT_MODE.md](DEVELOPMENT_MODE.md)
 
+## Production Deployment Guide
+
+This guide walks you through setting up Finance for production with full authentication, billing, and database functionality.
+
+### 1. Get API Keys
+
+#### Valyu API (Required)
+
+Valyu provides all the institutional-grade financial data - SEC filings, stock prices, financial statements, insider trading data, and 50+ other data sources. Without this API key, the app cannot access any financial data.
+
+1. Go to [platform.valyu.ai](https://platform.valyu.ai)
+2. Sign up for an account
+3. Navigate to API Keys section
+4. Create a new API key
+5. Copy your API key (starts with `valyu_`)
+
+#### OpenAI API (Required)
+
+Used for AI chat responses, natural language understanding, and function calling.
+
+1. Go to [platform.openai.com](https://platform.openai.com)
+2. Create an account or sign in
+3. Navigate to API keys
+4. Create a new secret key
+5. Copy the key (starts with `sk-`)
+
+#### Daytona API (Required)
+
+Used for secure Python code execution, enabling data analysis, visualizations, and ML models.
+
+1. Go to [daytona.io](https://daytona.io)
+2. Sign up for an account
+3. Get your API key from the dashboard
+4. Copy the key
+
+### 2. Set Up Supabase Database
+
+#### Create Supabase Project
+
+1. Go to [supabase.com](https://supabase.com)
+2. Create a new project
+3. Wait for the project to be provisioned (2-3 minutes)
+4. Go to Project Settings → API
+5. Copy these values:
+   - `Project URL` → `NEXT_PUBLIC_SUPABASE_URL`
+   - `anon public` key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `service_role` key → `SUPABASE_SERVICE_ROLE_KEY` (keep this secret!)
+
+#### Create Database Tables
+
+1. In Supabase Dashboard, go to **SQL Editor**
+2. Click **New Query**
+3. Copy the contents of [`supabase/schema.sql`](supabase/schema.sql) and run it
+
+#### Set Up Row Level Security
+
+1. In the SQL Editor, create another new query
+2. Copy the contents of [`supabase/policies.sql`](supabase/policies.sql) and run it
+
+#### Configure Authentication
+
+1. Go to **Authentication** → **Providers** in Supabase
+2. Enable **Email** provider (enabled by default)
+3. **Optional:** Enable OAuth providers (Google, GitHub, etc.)
+   - For Google: Add OAuth credentials from Google Cloud Console
+   - For GitHub: Add OAuth app credentials from GitHub Settings
+
+4. Go to **Authentication** → **URL Configuration**
+5. Add your site URL and redirect URLs:
+   - Site URL: `https://yourdomain.com` (or `http://localhost:3000` for testing)
+   - Redirect URLs: `https://yourdomain.com/auth/callback`
+
+### 3. Set Up Polar Billing (Optional)
+
+Polar provides subscription billing and payments.
+
+1. Go to [polar.sh](https://polar.sh)
+2. Create an account
+3. Create your products:
+   - **Pay Per Use** plan (e.g., $9.99/month)
+   - **Unlimited** plan (e.g., $49.99/month)
+4. Copy the Product IDs
+5. Go to Settings → Webhooks
+6. Create a webhook:
+   - URL: `https://yourdomain.com/api/webhooks/polar`
+   - Events: Select all `customer.*` and `subscription.*` events
+7. Copy the webhook secret
+
+**If you don't want billing:**
+- Skip this section
+- Remove billing UI from the codebase
+- All users will have unlimited access
+
+### 4. Configure Environment Variables
+
+Create `.env.local` in your project root:
+
+```env
+# App Configuration
+NEXT_PUBLIC_APP_MODE=production
+NEXT_PUBLIC_APP_URL=https://yourdomain.com
+
+# Valyu API (Required - powers all financial data)
+# Get yours at: https://platform.valyu.ai
+VALYU_API_KEY=valyu_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# OpenAI Configuration
+OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# Daytona Configuration (Code Execution)
+DAYTONA_API_KEY=your-daytona-api-key
+DAYTONA_API_URL=https://api.daytona.io
+DAYTONA_TARGET=latest
+
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxxxxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+# Polar Billing (Optional - remove if not using billing)
+POLAR_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxxxxxxxxxx
+POLAR_UNLIMITED_PRODUCT_ID=prod_xxxxxxxxxxxxxxxxxxxxx
+```
+
+### 5. Deploy to Production
+
+#### Deploy to Vercel (Recommended)
+
+1. Push your code to GitHub
+2. Go to [vercel.com](https://vercel.com)
+3. Import your repository
+4. Add all environment variables from `.env.local`
+5. Deploy!
+
+**Important Vercel Settings:**
+- Framework Preset: Next.js
+- Node.js Version: 18.x or higher
+- Build Command: `npm run build`
+- Output Directory: `.next`
+
+#### Other Deployment Options
+
+- **Netlify**: Similar to Vercel
+- **Railway**: Good for full-stack apps
+- **Self-hosted**: Use Docker with PM2 or similar
+
+### 6. Post-Deployment Setup
+
+1. **Test Authentication:**
+   - Visit your site
+   - Try signing up with email
+   - Check that user appears in Supabase Users table
+
+2. **Test Polar Webhooks:**
+   - Subscribe to a plan
+   - Check Supabase users table for `subscription_tier` update
+   - Check Polar dashboard for webhook delivery
+
+3. **Test Financial Data:**
+   - Ask a question like "What is Apple's latest stock price?"
+   - Verify Valyu API is returning data
+   - Check that charts and CSVs are saving to database
+
+### 7. Troubleshooting
+
+**Authentication Issues:**
+- Verify Supabase URL and keys are correct
+- Check redirect URLs in Supabase dashboard
+- Clear browser cookies/localStorage and try again
+
+**Database Errors:**
+- Verify all tables were created successfully
+- Check RLS policies are enabled
+- Review Supabase logs for detailed errors
+
+**Billing Not Working:**
+- Verify Polar webhook secret is correct
+- Check Polar dashboard for webhook delivery status
+- Review app logs for webhook processing errors
+
+**No Financial Data:**
+- Verify Valyu API key is set correctly in environment variables
+- Check Valyu dashboard for API usage/errors
+- Test API key with a curl request to Valyu
+
+**Rate Limiting:**
+- Check `user_rate_limits` table in Supabase
+- Verify user's subscription tier is set correctly
+- Review rate limit logic in `/api/rate-limit`
+
+### 8. Security Best Practices
+
+**Do:**
+- Keep `SUPABASE_SERVICE_ROLE_KEY` secret (never expose client-side)
+- Use environment variables for all secrets
+- Enable RLS on all Supabase tables
+- Regularly rotate API keys
+- Use HTTPS in production
+- Enable Supabase Auth rate limiting
+
+**Don't:**
+- Commit `.env.local` to git (add to `.gitignore`)
+- Expose service role keys in client-side code
+- Disable RLS policies
+- Use the same API keys for dev and production
+
+### 9. Monitoring & Maintenance
+
+**Supabase:**
+- Monitor database usage in Supabase dashboard
+- Set up database backups (automatic in paid plan)
+- Review auth logs for suspicious activity
+
+**Polar:**
+- Monitor subscription metrics
+- Handle failed payments
+- Review webhook logs
+
+**Application:**
+- Set up error tracking (Sentry, LogRocket, etc.)
+- Monitor API usage (Valyu, OpenAI, Daytona)
+- Set up uptime monitoring (UptimeRobot, Better Uptime)
+
 ## 💡 Example Queries
 
 Try these powerful queries to see what Finance can do:

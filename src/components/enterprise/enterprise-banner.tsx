@@ -7,8 +7,8 @@ import { EnterpriseContactModal } from './enterprise-contact-modal';
 export function EnterpriseBanner() {
   const [showModal, setShowModal] = useState(false);
 
-  // Hide in development mode
-  if (process.env.NEXT_PUBLIC_APP_MODE === 'development') {
+  // Hide in development mode or if enterprise features disabled
+  if (process.env.NEXT_PUBLIC_APP_MODE === 'development' || process.env.NEXT_PUBLIC_ENTERPRISE !== 'true') {
     return null;
   }
 

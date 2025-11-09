@@ -192,7 +192,7 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
           </div>
 
           {/* Hint for individuals vs enterprises */}
-          {process.env.NEXT_PUBLIC_APP_MODE !== 'development' && (
+          {process.env.NEXT_PUBLIC_APP_MODE !== 'development' && process.env.NEXT_PUBLIC_ENTERPRISE === 'true' && (
             <div className="text-center mb-4">
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 <span className="font-medium">Individual plans below.</span> Need enterprise deployment? <button onClick={handleEnterpriseClick} className="text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 underline underline-offset-2 font-medium">Book a demo</button> to explore custom infrastructure for your organization.
@@ -201,7 +201,7 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
           )}
 
           {/* Plans Grid */}
-          <div className={`grid gap-4 ${process.env.NEXT_PUBLIC_APP_MODE === 'development' ? 'md:grid-cols-2' : 'md:grid-cols-3'}`}>
+          <div className={`grid gap-4 ${(process.env.NEXT_PUBLIC_APP_MODE === 'development' || process.env.NEXT_PUBLIC_ENTERPRISE !== 'true') ? 'md:grid-cols-2' : 'md:grid-cols-3'}`}>
             {/* Pay Per Use - For Occasional Users */}
             <motion.div
               className="relative group cursor-pointer"
@@ -326,7 +326,7 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
             </motion.div>
 
             {/* Enterprise - For Teams */}
-            {process.env.NEXT_PUBLIC_APP_MODE !== 'development' && (
+            {process.env.NEXT_PUBLIC_APP_MODE !== 'development' && process.env.NEXT_PUBLIC_ENTERPRISE === 'true' && (
               <motion.div
                 className="relative group cursor-pointer"
                 whileHover={{ y: -4 }}
@@ -348,8 +348,11 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
                   </div>
 
                   {/* Features */}
-                  <div className="space-y-3 mb-4 flex-1">
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">Everything in Pro Unlimited, plus:</p>
+                  <div className="space-y-3 mb-6 flex-1">
+                    <div className="flex items-start gap-2">
+                      <Check className="h-4 w-4 text-slate-600 dark:text-slate-400 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-gray-700 dark:text-gray-300"><span className="font-medium">Everything in Pro Unlimited</span>, plus:</p>
+                    </div>
                     <div className="flex items-start gap-2">
                       <Check className="h-4 w-4 text-slate-600 dark:text-slate-400 mt-0.5 flex-shrink-0" />
                       <p className="text-sm text-gray-700 dark:text-gray-300"><span className="font-medium">Custom data integrations</span></p>
@@ -373,9 +376,9 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
                   </div>
 
                   {/* Pricing */}
-                  <div className="mb-4">
-                    <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                      Custom
+                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-baseline gap-2 mb-1">
+                      <span className="text-3xl font-bold text-gray-900 dark:text-gray-100">Custom</span>
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Built specifically for your organization</p>
 

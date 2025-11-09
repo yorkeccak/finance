@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -44,7 +45,6 @@ AGENTS.MD
 .mcp.json
 IMPLEMENTATION_SPEC.md
 
-migrations/
 docs/
 
 # local development database

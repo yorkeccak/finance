@@ -3019,7 +3019,11 @@ export function ChatInterface({
 
                         // Calculate duration (if available in message metadata)
                         const hasTextOutput = groupedParts.some(g => g.part?.type === "text");
-                        const messageIsComplete = !isLoading && hasTextOutput;
+                        // A message is complete if it has text output AND either:
+                        // 1. It's not the last message, OR
+                        // 2. It's the last message and we're not currently loading
+                        const isLastMessage = realIndex === messages.length - 1;
+                        const messageIsComplete = hasTextOutput && (!isLastMessage || !isLoading);
 
                         // Show header if there's any reasoning/tool activity (not just text)
                         const hasActivity = groupedParts.some(g =>

@@ -18,6 +18,9 @@ export const maxDuration = 800;
 export async function POST(req: Request) {
   try {
     const { messages, sessionId }: { messages: FinanceUIMessage[], sessionId?: string } = await req.json();
+    console.log("[Chat API] ========== NEW REQUEST ==========");
+    console.log("[Chat API] Received sessionId:", sessionId);
+    console.log("[Chat API] Number of messages:", messages.length);
     // console.log(
     //   "[Chat API] Incoming messages:",
     //   JSON.stringify(messages, null, 2)
@@ -327,6 +330,36 @@ export async function POST(req: Request) {
       };
     }
 
+    // Save user message immediately (before streaming starts)
+    if (user && sessionId && messages.length > 0) {
+      console.log('[Chat API] Saving user message immediately before streaming');
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.role === 'user') {
+        const { randomUUID } = await import('crypto');
+        const userMessageToSave = {
+          id: randomUUID(), // Generate proper UUID instead of using AI SDK's short ID
+          role: 'user' as const,
+          content: lastMessage.parts || [],
+        };
+
+        // Get existing messages first
+        const { data: existingMessages } = await db.getChatMessages(sessionId);
+        const allMessages = [...(existingMessages || []), userMessageToSave];
+
+        await saveChatMessages(sessionId, allMessages.map((msg: any) => ({
+          id: msg.id,
+          role: msg.role,
+          content: typeof msg.content === 'string' ? JSON.parse(msg.content) : msg.content,
+        })));
+
+        // Update session timestamp
+        await db.updateChatSession(sessionId, user.id, {
+          last_message_at: new Date()
+        });
+        console.log('[Chat API] User message saved');
+      }
+    }
+
     const result = streamText({
       model: selectedModel as any,
       messages: convertToModelMessages(messages),
@@ -381,10 +414,12 @@ export async function POST(req: Request) {
       For financial data searches, you can access:
       • Real-time stock prices, crypto rates, and forex data
       • Quarterly and annual earnings reports
-      • SEC filings (10-K, 10-Q, 8-K documents)  
+      • SEC filings (10-K, 10-Q, 8-K documents)
       • Financial news from Bloomberg, Reuters, WSJ
       • Regulatory updates from SEC, Federal Reserve
       • Market intelligence and insider trading data
+
+      **IMPORTANT**: When retrieving stock data, if some days appear to be missing in the results, this is normal - stock markets are closed on weekends and public holidays. This does NOT apply to cryptocurrency data, as crypto markets trade 24/7.
       
       For Wiley academic searches, you can access:
       • Peer-reviewed finance and economics journals
@@ -624,12 +659,14 @@ export async function POST(req: Request) {
         // Save all messages to database
         console.log('[Chat API] onFinish called - user:', !!user, 'sessionId:', sessionId);
         console.log('[Chat API] Total messages in conversation:', allMessages.length);
+        console.log('[Chat API] Will save messages:', !!(user && sessionId));
 
         if (user && sessionId) {
           console.log('[Chat API] Saving messages to session:', sessionId);
 
           // The correct pattern: Save ALL messages from the conversation
           // This replaces all messages in the session with the complete, up-to-date conversation
+          const { randomUUID } = await import('crypto');
           const messagesToSave = allMessages.map((message: any, index: number) => {
             // AI SDK v5 uses 'parts' array for UIMessage
             let contentToSave = [];
@@ -646,7 +683,9 @@ export async function POST(req: Request) {
             }
 
             return {
-              id: message.id || `msg-${Date.now()}-${index}`,
+              id: message.id && message.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+                ? message.id
+                : randomUUID(), // Generate UUID if message.id is not a valid UUID
               role: message.role,
               content: contentToSave,
               processing_time_ms:
@@ -658,7 +697,24 @@ export async function POST(req: Request) {
             };
           });
 
-          await saveChatMessages(sessionId, messagesToSave);
+          const saveResult = await saveChatMessages(sessionId, messagesToSave);
+          if (saveResult.error) {
+            console.error('[Chat API] Error saving messages:', saveResult.error);
+          } else {
+            console.log('[Chat API] Successfully saved', messagesToSave.length, 'messages to session:', sessionId);
+
+            // Update session's last_message_at timestamp
+            const updateResult = await db.updateChatSession(sessionId, user.id, {
+              last_message_at: new Date()
+            });
+            if (updateResult.error) {
+              console.error('[Chat API] Error updating session timestamp:', updateResult.error);
+            } else {
+              console.log('[Chat API] Updated session timestamp for:', sessionId);
+            }
+          }
+        } else {
+          console.log('[Chat API] Skipping message save - user:', !!user, 'sessionId:', sessionId);
         }
 
         // No manual usage tracking needed - Polar LLM Strategy handles this automatically!

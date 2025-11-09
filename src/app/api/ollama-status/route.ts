@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(request: NextRequest) {
   try {
     // Check if we're in development mode with Ollama support
-    const isDevelopment = process.env.APP_MODE === 'development';
+    const isDevelopment = process.env.NEXT_PUBLIC_APP_MODE === 'development';
     
     if (!isDevelopment) {
       return NextResponse.json({

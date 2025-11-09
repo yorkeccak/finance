@@ -9,7 +9,7 @@ import { QueryProvider } from "@/components/query-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { PostHogProvider } from "@/components/posthog-provider";
 import { logEnvironmentStatus } from "@/lib/env-validation";
-import OllamaStatus from "@/components/ollama-status";
+import { LocalModelStatus } from "@/components/local-model-status";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -86,7 +86,7 @@ export default function RootLayout({
               <PostHogProvider>
                 <OllamaProvider>
                   <MissingKeysDialog />
-                  <OllamaStatus />
+                  <LocalModelStatus />
                   {children}
                   <Analytics />
                 </OllamaProvider>

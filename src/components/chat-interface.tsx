@@ -12,12 +12,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { useOllama } from "@/lib/ollama-context";
+import { useLocalProvider } from "@/lib/ollama-context";
 import { useAuthStore } from "@/lib/stores/use-auth-store";
 import { useSubscription } from "@/hooks/use-subscription";
 import { createClient } from '@/utils/supabase/client-wrapper';
 import { track } from '@vercel/analytics';
-import { OllamaStatusIndicator } from '@/components/ollama-status-indicator';
 import { AuthModal } from '@/components/auth/auth-modal';
 import { RateLimitBanner } from '@/components/rate-limit-banner';
 import { ModelCompatibilityDialog } from '@/components/model-compatibility-dialog';
@@ -1678,7 +1677,7 @@ export function ChatInterface({
   });
 
 
-  const { selectedModel } = useOllama();
+  const { selectedModel, selectedProvider } = useLocalProvider();
   const user = useAuthStore((state) => state.user);
   const subscription = useSubscription();
 
@@ -1836,11 +1835,15 @@ export function ChatInterface({
           headers['x-ollama-model'] = selectedModel;
         }
 
-        // Check if Ollama is enabled in localStorage (only in development mode)
+        // Check if local provider is enabled in localStorage (only in development mode)
         if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_APP_MODE === 'development') {
-          const ollamaEnabled = localStorage.getItem('ollama-enabled');
-          if (ollamaEnabled !== null) {
-            headers['x-ollama-enabled'] = ollamaEnabled;
+          const localEnabled = localStorage.getItem('ollama-enabled');
+          if (localEnabled !== null) {
+            headers['x-ollama-enabled'] = localEnabled;
+          }
+          // Add selected provider
+          if (selectedProvider) {
+            headers['x-local-provider'] = selectedProvider;
           }
         }
 
@@ -1862,7 +1865,7 @@ export function ChatInterface({
           headers,
         };
       }
-    }), [selectedModel, user, increment]
+    }), [selectedModel, selectedProvider, user, increment]
   );
 
   const {
@@ -2668,11 +2671,6 @@ export function ChatInterface({
   return (
     <div className="w-full max-w-3xl mx-auto relative min-h-0">
       {/* Removed duplicate New Chat button - handled by parent page */}
-      {process.env.NEXT_PUBLIC_APP_MODE === 'development' && (
-        <div className="fixed top-4 left-4 z-50">
-          <OllamaStatusIndicator hasMessages={messages.length > 0} />
-        </div>
-      )}
 
       {/* Messages */}
       <div

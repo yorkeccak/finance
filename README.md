@@ -15,7 +15,7 @@ Traditional financial research is fragmented across dozens of expensive platform
 - **🐍 Advanced Analytics** - Execute Python code in secure Daytona sandboxes for ML models, backtesting, and custom analysis
 - **📈 Interactive Visualizations** - Beautiful charts and dashboards that bring data to life
 - **🌐 Real-Time Intelligence** - Web search integration for breaking news and market updates
-- **🏠 Local AI Models** - Run with Ollama for unlimited, private queries using your own hardware
+- **🏠 Local AI Models** - Run with Ollama or LM Studio for unlimited, private queries using your own hardware
 - **🎯 Natural Language** - Just ask questions like you would to a colleague
 
 ## Key Features
@@ -55,7 +55,7 @@ Finance supports two distinct operating modes:
 - **Unlimited queries** - No rate limits
 - **No billing/tracking** - Polar integration disabled
 - **Works offline** - Complete local development
-- **Ollama integration** - Use local LLMs for privacy and unlimited usage
+- **Ollama/LM Studio integration** - Use local LLMs for privacy and unlimited usage
 
 ### Prerequisites
 
@@ -73,7 +73,7 @@ Finance supports two distinct operating modes:
 - npm or yarn
 - Valyu API key (get one at [platform.valyu.ai](https://platform.valyu.ai))
 - Daytona API key (for code execution)
-- [Ollama](https://ollama.com) installed (optional but recommended)
+- [Ollama](https://ollama.com) or [LM Studio](https://lmstudio.ai) installed (optional but recommended)
 
 ### Installation
 
@@ -105,10 +105,11 @@ Finance supports two distinct operating modes:
    DAYTONA_API_URL=https://api.daytona.io  # Optional
    DAYTONA_TARGET=latest  # Optional
 
-   # Ollama Configuration (Optional - for local LLMs)
-   OLLAMA_BASE_URL=http://localhost:11434  # Default Ollama URL
+   # Local LLM Configuration (Optional - for unlimited, private queries)
+   OLLAMA_BASE_URL=http://localhost:11434   # Default Ollama URL
+   LMSTUDIO_BASE_URL=http://localhost:1234  # Default LM Studio URL
 
-   # OpenAI Configuration (Optional - fallback if Ollama unavailable)
+   # OpenAI Configuration (Optional - fallback if local models unavailable)
    OPENAI_API_KEY=your-openai-api-key
    ```
 
@@ -182,10 +183,35 @@ When `NEXT_PUBLIC_APP_MODE=development`:
 
 4. **LLM Selection**
    - **Ollama models** (if installed) - Used first, unlimited and free
-   - **OpenAI** (if API key provided) - Fallback if Ollama unavailable
-   - See Ollama status indicator in top-right corner
+   - **LM Studio models** (if installed) - Alternative local option with GUI
+   - **OpenAI** (if API key provided) - Fallback if no local models available
+   - See local models indicator in top-right corner with provider switching
 
-### Setting Up Ollama (Recommended)
+### Choosing Between Ollama and LM Studio
+
+Finance supports both **Ollama** and **LM Studio** for running local LLMs. Both are free, private, and work offline - choose based on your preferences:
+
+**🦙 Ollama** - Best for developers and terminal users
+- ✅ Lightweight and fast
+- ✅ Simple CLI commands
+- ✅ Automatic model management
+- ✅ Great for headless servers
+- ✅ Lower resource usage
+- ❌ Less visual feedback
+- ❌ No built-in GPU monitoring
+
+**🎨 LM Studio** - Best for visual users and beginners
+- ✅ Beautiful GUI with model browser
+- ✅ Real-time GPU/CPU monitoring
+- ✅ Easy model downloading and management
+- ✅ Visual server status and controls
+- ✅ Built-in prompt testing
+- ❌ Slightly more resource intensive
+- ❌ GUI required (not headless)
+
+**💡 You can use both!** Finance detects both automatically and lets you switch between them with a provider selector in the UI.
+
+### Setting Up Ollama
 
 Ollama provides unlimited, private LLM inference on your local machine - completely free and runs offline!
 
@@ -233,7 +259,69 @@ ollama pull deepseek-r1:7b      # For reasoning/thinking mode
 - Finance automatically detects Ollama when it's running
 - No configuration needed
 - Automatically falls back to OpenAI if Ollama is unavailable
-- Switch between models anytime via the Ollama popup
+- Switch between models anytime via the local models popup
+
+### Setting Up LM Studio (Alternative)
+
+LM Studio provides a beautiful GUI for running local LLMs - perfect if you prefer visual interfaces over terminal commands!
+
+**🎨 Easy Setup with GUI:**
+
+1. **Download LM Studio**
+   - Visit [lmstudio.ai](https://lmstudio.ai) and download for your OS
+   - Install and open LM Studio
+   - The app provides a full GUI for managing models
+
+2. **Download Models**
+   - Click on the 🔍 Search icon in LM Studio
+   - Browse available models or search for:
+     - `qwen/qwen3-14b` (recommended - excellent tool support)
+     - `openai/gpt-oss-20b` (OpenAI's open source model with reasoning)
+     - `google/gemma-3-12b` (Google's model with good performance)
+     - `qwen/qwen3-4b-thinking-2507` (reasoning model)
+   - Click download and wait for it to complete
+   - Models are cached locally for offline use
+
+3. **Start the Server**
+   - Click the LM Studio logo in your macOS menu bar (top-right corner)
+   - Select **"Start Server on Port 1234..."**
+
+   ![LM Studio Start Server](public/lmstudio-start.png)
+
+   - Server starts immediately - you'll see the status change to "Running"
+   - That's it! Finance will automatically detect it
+
+4. **Use in Finance**
+   - Start Finance in development mode
+   - Local models indicator appears in top-right corner
+   - If both Ollama and LM Studio are running, you'll see a provider switcher
+   - Click to select which provider and model to use
+   - Icons show capabilities: 🔧 (tools) and 🧠 (reasoning)
+
+**⚙️ Configuration:**
+- Default URL: `http://localhost:1234`
+- Can be customized in `.env.local`:
+  ```env
+  LMSTUDIO_BASE_URL=http://localhost:1234
+  ```
+
+**💡 LM Studio Features:**
+- Real-time GPU/CPU usage monitoring
+- Easy model comparison and testing
+- Visual prompt builder
+- Chat history within LM Studio
+- No terminal commands needed
+
+### Switching Between Providers
+
+If you have both Ollama and LM Studio running, Finance automatically detects both and shows a beautiful provider switcher in the local models popup:
+
+- **Visual Selection**: Click provider buttons with logos
+- **Seamless Switching**: Switch between providers without reloading
+- **Independent Models**: Each provider shows its own model list
+- **Automatic Detection**: No manual configuration needed
+
+The provider switcher appears automatically when multiple providers are detected!
 
 ### Model Capabilities
 
@@ -317,10 +405,14 @@ cp -r .local-data/ .local-data-backup/
 **Sidebar won't open on homepage:**
 - Fixed! Sidebar now respects dock setting even on homepage
 
-**Ollama not detected:**
-- Make sure Ollama is running: `ollama serve`
-- Check Ollama URL in `.env.local` (default: `http://localhost:11434`)
-- Verify models are installed: `ollama list`
+**Local models not detected:**
+- **Ollama**: Make sure Ollama is running: `ollama serve`
+  - Check Ollama URL in `.env.local` (default: `http://localhost:11434`)
+  - Verify models are installed: `ollama list`
+- **LM Studio**: Click LM Studio menu bar icon → "Start Server on Port 1234..."
+  - Check LM Studio URL in `.env.local` (default: `http://localhost:1234`)
+  - Verify at least one model is downloaded in LM Studio
+  - Server must be running for Finance to detect it
 
 **Database errors:**
 - Delete and recreate: `rm -rf .local-data/`
@@ -344,20 +436,21 @@ Try these powerful queries to see what Finance can do:
 - "Do an in-depth report on COVID-19's effect on Pfizer with insider trading data"
 - "Analyze PepsiCo's recent SEC filings and calculate key financial ratios"
 
-**With Local Models (Ollama):**
+**With Local Models (Ollama/LM Studio):**
 - Run unlimited queries without API costs
 - Keep all your financial analysis completely private
 - Perfect for sensitive research and proprietary strategies
+- Choose your preferred interface: terminal (Ollama) or GUI (LM Studio)
 
 ## 🏗️ Architecture
 
 - **Frontend**: Next.js 15 with App Router, Tailwind CSS, shadcn/ui
-- **AI**: OpenAI GPT-5 with function calling + Ollama for local models
+- **AI**: OpenAI GPT-5 with function calling + Ollama/LM Studio for local models
 - **Data**: Valyu API for comprehensive financial data
 - **Code Execution**: Daytona sandboxes for secure Python execution
 - **Visualizations**: Recharts for interactive charts
 - **Real-time**: Streaming responses with Vercel AI SDK
-- **Local Models**: Ollama integration for private, unlimited queries
+- **Local Models**: Ollama and LM Studio integration for private, unlimited queries
 
 ## 🔒 Security
 

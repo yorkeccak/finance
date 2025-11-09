@@ -144,13 +144,16 @@ export async function POST(req: Request) {
     // Detect available API keys and select provider/tools accordingly
     const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
     const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+    const lmstudioBaseUrl = process.env.LMSTUDIO_BASE_URL || 'http://localhost:1234';
 
     let selectedModel: any;
     let modelInfo: string;
     let supportsThinking = false;
 
-    // Check if Ollama is enabled via header
-    const ollamaEnabled = req.headers.get('x-ollama-enabled') !== 'false';
+    // Check if local models are enabled and which provider to use
+    const localEnabled = req.headers.get('x-ollama-enabled') !== 'false'; // Legacy header name
+    const localProvider = (req.headers.get('x-local-provider') as 'ollama' | 'lmstudio' | null) || 'ollama';
+    const userPreferredModel = req.headers.get('x-ollama-model'); // Works for both providers
 
     // Models that support thinking/reasoning
     const thinkingModels = [
@@ -160,75 +163,88 @@ export async function POST(req: Request) {
       'cogito'
     ];
 
-    if (isDevelopment && ollamaEnabled) {
-      // Development mode: Try to use Ollama first, fallback to OpenAI
+    if (isDevelopment && localEnabled) {
+      // Development mode: Try to use local provider (Ollama or LM Studio) first, fallback to OpenAI
       try {
-        // Try to connect to Ollama first
-        const ollamaResponse = await fetch(`${ollamaBaseUrl}/api/tags`, {
-          method: 'GET',
-          signal: AbortSignal.timeout(3000), // 3 second timeout
-        });
+        let models: any[] = [];
+        let providerName = '';
+        let baseURL = '';
 
-        if (ollamaResponse.ok) {
-          const data = await ollamaResponse.json();
-          const models = data.models || [];
+        // Try selected provider first
+        if (localProvider === 'lmstudio') {
+          // Try LM Studio
+          const lmstudioResponse = await fetch(`${lmstudioBaseUrl}/v1/models`, {
+            method: 'GET',
+            signal: AbortSignal.timeout(3000),
+          });
 
-          if (models.length > 0) {
-            // Prioritize reasoning models, then other capable models
-            const preferredModels = [
-              'deepseek-r1', 'qwen3', 'phi4-reasoning', 'cogito', // Reasoning models
-              'llama3.1', 'gemma3:4b', 'gemma3', 'llama3.2', 'llama3', 'qwen2.5', 'codestral' // Regular models
-            ];
-            let selectedModelName = models[0].name;
-            
-            // Check if user has a specific model preference from the request
-            const userPreferredModel = req.headers.get('x-ollama-model');
-
-            // Try to find a preferred model
-            if (userPreferredModel && models.some((m: any) => m.name === userPreferredModel)) {
-              selectedModelName = userPreferredModel;
-            } else {
-              for (const preferred of preferredModels) {
-                if (models.some((m: any) => m.name.includes(preferred))) {
-                  selectedModelName = models.find((m: any) => m.name.includes(preferred))?.name;
-                  break;
-                }
-              }
-            }
-
-            // Check if the selected model supports thinking
-            supportsThinking = thinkingModels.some(thinkModel =>
-              selectedModelName.toLowerCase().includes(thinkModel.toLowerCase())
-            );
-
-            // Debug: Log the exact configuration
-            console.log(`[Chat API] Attempting to configure Ollama with baseURL: ${ollamaBaseUrl}/v1`);
-            console.log(`[Chat API] Selected model name: ${selectedModelName}`);
-            console.log(`[Chat API] Model supports thinking: ${supportsThinking}`);
-
-            // Use OpenAI provider and explicitly create a chat model (not responses model)
-            const ollamaAsOpenAI = createOpenAI({
-              baseURL: `${ollamaBaseUrl}/v1`, // This should hit /v1/chat/completions
-              apiKey: 'ollama', // Dummy API key for Ollama
-            });
-
-            // Create a chat model explicitly
-            selectedModel = ollamaAsOpenAI.chat(selectedModelName);
-            modelInfo = `Ollama (${selectedModelName})${supportsThinking ? ' [Reasoning]' : ''} - Development Mode`;
-            console.log(`[Chat API] Created model with provider:`, typeof selectedModel);
-            console.log(`[Chat API] Model baseURL should be: ${ollamaBaseUrl}/v1`);
+          if (lmstudioResponse.ok) {
+            const data = await lmstudioResponse.json();
+            models = data.data.map((m: any) => ({ name: m.id })) || [];
+            providerName = 'LM Studio';
+            baseURL = `${lmstudioBaseUrl}/v1`;
           } else {
-            throw new Error('No models available in Ollama');
+            throw new Error(`LM Studio API responded with status ${lmstudioResponse.status}`);
           }
         } else {
-          throw new Error(`Ollama API responded with status ${ollamaResponse.status}`);
+          // Try Ollama
+          const ollamaResponse = await fetch(`${ollamaBaseUrl}/api/tags`, {
+            method: 'GET',
+            signal: AbortSignal.timeout(3000),
+          });
+
+          if (ollamaResponse.ok) {
+            const data = await ollamaResponse.json();
+            models = data.models || [];
+            providerName = 'Ollama';
+            baseURL = `${ollamaBaseUrl}/v1`;
+          } else {
+            throw new Error(`Ollama API responded with status ${ollamaResponse.status}`);
+          }
+        }
+
+        if (models.length > 0) {
+          // Prioritize reasoning models, then other capable models
+          const preferredModels = [
+            'deepseek-r1', 'qwen3', 'phi4-reasoning', 'cogito', // Reasoning models
+            'llama3.1', 'gemma3:4b', 'gemma3', 'llama3.2', 'llama3', 'qwen2.5', 'codestral' // Regular models
+          ];
+          let selectedModelName = models[0].name;
+
+          // Try to find a preferred model
+          if (userPreferredModel && models.some((m: any) => m.name === userPreferredModel)) {
+            selectedModelName = userPreferredModel;
+          } else {
+            for (const preferred of preferredModels) {
+              if (models.some((m: any) => m.name.includes(preferred))) {
+                selectedModelName = models.find((m: any) => m.name.includes(preferred))?.name;
+                break;
+              }
+            }
+          }
+
+          // Check if the selected model supports thinking
+          supportsThinking = thinkingModels.some(thinkModel =>
+            selectedModelName.toLowerCase().includes(thinkModel.toLowerCase())
+          );
+
+          // Create OpenAI-compatible client
+          const localProviderClient = createOpenAI({
+            baseURL: baseURL,
+            apiKey: localProvider === 'lmstudio' ? 'lm-studio' : 'ollama', // Dummy API keys
+          });
+
+          // Create a chat model explicitly
+          selectedModel = localProviderClient.chat(selectedModelName);
+          modelInfo = `${providerName} (${selectedModelName})${supportsThinking ? ' [Reasoning]' : ''} - Development Mode`;
+        } else {
+          throw new Error(`No models available in ${localProvider}`);
         }
       } catch (error) {
-        console.log("[Chat API] Ollama not available, falling back to OpenAI:", error);
         // Fallback to OpenAI in development mode
         selectedModel = hasOpenAIKey ? openai("gpt-5") : "openai/gpt-5";
-        modelInfo = hasOpenAIKey 
-          ? "OpenAI (gpt-5) - Development Mode Fallback" 
+        modelInfo = hasOpenAIKey
+          ? "OpenAI (gpt-5) - Development Mode Fallback"
           : 'Vercel AI Gateway ("gpt-5") - Development Mode Fallback';
       }
     } else {
@@ -281,25 +297,25 @@ export async function POST(req: Request) {
     console.log(`[Chat API] About to call streamText with model:`, selectedModel);
     console.log(`[Chat API] Model info:`, modelInfo);
 
-    // Build provider options conditionally based on whether we're using Ollama
-    const isUsingOllama = isDevelopment && ollamaEnabled && modelInfo.includes('Ollama');
+    // Build provider options conditionally based on whether we're using local providers
+    const isUsingLocalProvider = isDevelopment && localEnabled && (modelInfo.includes('Ollama') || modelInfo.includes('LM Studio'));
     const providerOptions: any = {};
 
-    if (isUsingOllama) {
-      // For Ollama models using OpenAI compatibility layer
+    if (isUsingLocalProvider) {
+      // For local models using OpenAI compatibility layer
       // We need to use the openai provider options since createOpenAI is used
       if (supportsThinking) {
         // Enable thinking for reasoning models
         providerOptions.openai = {
           think: true
         };
-        console.log('[Chat API] Enabled thinking mode for Ollama reasoning model');
+        console.log(`[Chat API] Enabled thinking mode for ${localProvider} reasoning model`);
       } else {
         // Explicitly disable thinking for non-reasoning models
         providerOptions.openai = {
           think: false
         };
-        console.log('[Chat API] Disabled thinking mode for Ollama non-reasoning model');
+        console.log(`[Chat API] Disabled thinking mode for ${localProvider} non-reasoning model`);
       }
     } else {
       // OpenAI-specific options (only when using OpenAI)

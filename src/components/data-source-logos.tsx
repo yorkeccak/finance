@@ -385,7 +385,7 @@ const DataSourceLogos = () => {
     { name: "FRED", src: "/assets/banner/fred.png" },
     { name: "BLS", src: "/assets/banner/bls.png" },
     { name: "USPTO", src: "/assets/banner/uspto.png" },
-    { name: "Wiley", src: "/assets/banner/wiley.png" },
+    // { name: "Wiley", src: "/assets/banner/wiley.png" },
     { name: "ClinicalTrials", src: "/assets/banner/clinicaltrials.png" },
     { name: "Polymarket", src: "/assets/banner/polymarket.png" },
   ];

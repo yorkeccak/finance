@@ -3,13 +3,14 @@
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ExternalLink, Copy, Check, Github, CreditCard, Code, ChartLine } from 'lucide-react';
+import { ExternalLink, Copy, Check, Github, CreditCard, Code, ChartLine, Building2 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { track } from '@vercel/analytics';
 import { useAuthStore } from '@/lib/stores/use-auth-store';
 import { useRateLimit } from '@/lib/hooks/use-rate-limit';
 import { createClient } from '@/utils/supabase/client';
+import { EnterpriseContactModal } from '@/components/enterprise/enterprise-contact-modal';
 
 interface RateLimitDialogProps {
   open: boolean;
@@ -21,9 +22,10 @@ interface RateLimitDialogProps {
 export function RateLimitDialog({ open, onOpenChange, resetTime, onShowAuth }: RateLimitDialogProps) {
   const user = useAuthStore((state) => state.user);
   const { tier, hasPolarCustomer } = useRateLimit();
-  
+
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showEnterpriseModal, setShowEnterpriseModal] = useState(false);
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('preferredLanguage') || 'Python';
@@ -241,7 +243,35 @@ export function RateLimitDialog({ open, onOpenChange, resetTime, onShowAuth }: R
                     </Button>
                   </div>
                 )}
-                
+
+                {/* Enterprise Option */}
+                {user && process.env.NEXT_PUBLIC_APP_MODE !== 'development' && (
+                  <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div className="flex items-start gap-3 mb-3">
+                      <Building2 className="h-5 w-5 text-slate-600 dark:text-slate-400 mt-0.5" />
+                      <div>
+                        <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100 mb-1">
+                          Need enterprise deployment?
+                        </h4>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                          Deploy Valyu's infrastructure in your organization with custom data integrations and AI agents
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => {
+                        setShowEnterpriseModal(true);
+                        track('Enterprise CTA Clicked', { source: 'rate_limit_dialog' });
+                      }}
+                      variant="outline"
+                      className="w-full text-sm border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    >
+                      <Building2 className="mr-2 h-4 w-4" />
+                      Book a Demo
+                    </Button>
+                  </div>
+                )}
+
                 <div className="flex gap-2">
                   <Button
                     onClick={() => {
@@ -293,6 +323,10 @@ export function RateLimitDialog({ open, onOpenChange, resetTime, onShowAuth }: R
           </DialogContent>
         </Dialog>
       )}
+      <EnterpriseContactModal
+        open={showEnterpriseModal}
+        onClose={() => setShowEnterpriseModal(false)}
+      />
     </AnimatePresence>
   );
 }

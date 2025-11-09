@@ -20,6 +20,7 @@ import { AuthModal } from '@/components/auth/auth-modal';
 import { useAuthStore } from '@/lib/stores/use-auth-store';
 import { Sidebar } from '@/components/sidebar';
 import { SignupPrompt } from '@/components/signup-prompt';
+import { EnterpriseBanner } from '@/components/enterprise/enterprise-banner';
 
 function HomeContent() {
   const { user, loading } = useAuthStore();
@@ -250,6 +251,9 @@ function HomeContent() {
 
   return (
     <div className='min-h-screen bg-[#F5F5F5] dark:bg-gray-950 flex'>
+      {/* Enterprise Banner */}
+      <EnterpriseBanner />
+
       {/* Notification Toast */}
       <AnimatePresence>
         {notification && (
@@ -388,7 +392,7 @@ function HomeContent() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.6, ease: "easeOut" }}
               >
-                AI-powered financial analysis with real-time data, calculations, and interactive visualizations
+                Powered by Valyu's institutional-grade search infrastructure for real-time financial analysis
               </motion.p>
             </motion.div>
           )}

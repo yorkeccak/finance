@@ -18,6 +18,7 @@ import {
   CreditCard,
   BarChart3,
   Plus,
+  Building2,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -25,6 +26,7 @@ import { Button } from '@/components/ui/button';
 import { SettingsModal } from '@/components/user/settings-modal';
 import { SubscriptionModal } from '@/components/user/subscription-modal';
 import { useSubscription } from '@/hooks/use-subscription';
+import { EnterpriseContactModal } from '@/components/enterprise/enterprise-contact-modal';
 
 interface SidebarProps {
   currentSessionId?: string;
@@ -51,12 +53,13 @@ export function Sidebar({
   const pathname = usePathname();
   const queryClient = useQueryClient();
 
-  const [isOpen, setIsOpen] = useState(false);
-  const [alwaysOpen, setAlwaysOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
+  const [alwaysOpen, setAlwaysOpen] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showSubscription, setShowSubscription] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showEnterpriseModal, setShowEnterpriseModal] = useState(false);
 
   // Fetch chat sessions
   const { data: sessions = [], isLoading: loadingSessions } = useQuery({
@@ -448,6 +451,21 @@ export function Sidebar({
                 </>
               )}
 
+              {/* Enterprise */}
+              {user && process.env.NEXT_PUBLIC_APP_MODE !== 'development' && (
+                <div className="relative group/tooltip">
+                  <button
+                    onClick={() => setShowEnterpriseModal(true)}
+                    className="w-12 h-12 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-[20px] transition-all duration-200 group hover:scale-110 active:scale-95"
+                  >
+                    <Building2 className="h-6 w-6 text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors" />
+                  </button>
+                  <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                    Enterprise Solutions
+                  </div>
+                </div>
+              )}
+
               {/* Settings */}
               <div className="relative group/tooltip">
                 <button
@@ -478,20 +496,29 @@ export function Sidebar({
                       </AvatarFallback>
                     </Avatar>
                   </button>
-                  <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
-                    Account
-                  </div>
+                  {/* Only show tooltip when menu is NOT open */}
+                  {!showProfileMenu && (
+                    <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                      Account
+                    </div>
+                  )}
 
                   {/* Profile Dropdown */}
                   <AnimatePresence>
                     {showProfileMenu && (
-                      <motion.div
-                        initial={{ opacity: 0, x: -10, scale: 0.95 }}
-                        animate={{ opacity: 1, x: 0, scale: 1 }}
-                        exit={{ opacity: 0, x: -10, scale: 0.95 }}
-                        transition={{ duration: 0.15 }}
-                        className="absolute left-full ml-4 bottom-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl py-2 px-1 min-w-[220px] z-50"
-                      >
+                      <>
+                        {/* Backdrop to close on click away */}
+                        <div
+                          className="fixed inset-0 z-40"
+                          onClick={() => setShowProfileMenu(false)}
+                        />
+                        <motion.div
+                          initial={{ opacity: 0, x: -10, scale: 0.95 }}
+                          animate={{ opacity: 1, x: 0, scale: 1 }}
+                          exit={{ opacity: 0, x: -10, scale: 0.95 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute left-full ml-4 bottom-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl py-2 px-1 min-w-[220px] z-50"
+                        >
                         {/* User Email */}
                         <div className="px-3 py-2.5 mb-1">
                           <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Signed in as</p>
@@ -518,6 +545,7 @@ export function Sidebar({
                           <span className="font-medium">Sign out</span>
                         </button>
                       </motion.div>
+                      </>
                     )}
                   </AnimatePresence>
                 </div>
@@ -662,6 +690,11 @@ export function Sidebar({
       <SubscriptionModal
         open={showSubscription}
         onClose={() => setShowSubscription(false)}
+      />
+
+      <EnterpriseContactModal
+        open={showEnterpriseModal}
+        onClose={() => setShowEnterpriseModal(false)}
       />
     </>
   );

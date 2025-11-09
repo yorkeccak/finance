@@ -12,8 +12,9 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
-import { ArrowRight, Zap, TrendingUp, Clock, Shield, Sparkles, Check, Crown, BarChart3 } from 'lucide-react';
+import { ArrowRight, Zap, TrendingUp, Clock, Shield, Sparkles, Check, Crown, BarChart3, Building2 } from 'lucide-react';
 import { track } from '@vercel/analytics';
+import { EnterpriseContactModal } from '@/components/enterprise/enterprise-contact-modal';
 
 interface SubscriptionModalProps {
   open: boolean;
@@ -24,6 +25,16 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
   const user = useAuthStore((state) => state.user);
   const subscription = useSubscription();
   const [loading, setLoading] = useState(false);
+  const [showEnterpriseModal, setShowEnterpriseModal] = useState(false);
+
+  const handleEnterpriseClick = () => {
+    track('Enterprise CTA Clicked', { source: 'subscription_modal' });
+    onClose(); // Close subscription modal
+    // Use a small delay to prevent both modals from closing
+    setTimeout(() => {
+      setShowEnterpriseModal(true);
+    }, 100);
+  };
 
   const handleUpgrade = async (planType: string) => {
     // Track plan selection
@@ -149,6 +160,7 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
 
   // Show upgrade options for free users
   return (
+    <>
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="!max-w-5xl sm:!max-w-5xl md:!max-w-5xl lg:!max-w-5xl !w-[95vw] sm:!w-[90vw] md:!w-[85vw] lg:!w-[1000px] bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
         <DialogHeader className="space-y-3 pb-6">
@@ -180,8 +192,17 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
             </div>
           </div>
 
+          {/* Hint for individuals vs enterprises */}
+          {process.env.NEXT_PUBLIC_APP_MODE !== 'development' && (
+            <div className="text-center mb-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                <span className="font-medium">Individual plans below.</span> Need enterprise deployment? <button onClick={handleEnterpriseClick} className="text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 underline underline-offset-2 font-medium">Book a demo</button> to explore custom infrastructure for your organization.
+              </p>
+            </div>
+          )}
+
           {/* Plans Grid */}
-          <div className="grid md:grid-cols-2 gap-4 items-stretch">
+          <div className={`grid gap-4 ${process.env.NEXT_PUBLIC_APP_MODE === 'development' ? 'md:grid-cols-2' : 'md:grid-cols-3'}`}>
             {/* Pay Per Use - For Occasional Users */}
             <motion.div
               className="relative group cursor-pointer"
@@ -189,7 +210,7 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
               transition={{ duration: 0.2 }}
               onClick={() => handleUpgrade('pay_per_use')}
             >
-              <div className="h-full border-2 border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 rounded-xl p-6 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-xl transition-all duration-200">
+              <div className="h-full border-2 border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 rounded-xl p-6 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-xl transition-all duration-200 flex flex-col">
                 {/* Header */}
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -204,7 +225,7 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
                 </div>
 
                 {/* Features */}
-                <div className="space-y-3 mb-6 min-h-[180px]">
+                <div className="space-y-3 mb-6 flex-1">
                   <div className="flex items-start gap-2">
                     <Check className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                     <p className="text-sm text-gray-700 dark:text-gray-300"><span className="font-medium">Unlimited queries</span> – No daily caps</p>
@@ -251,7 +272,7 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
                 <span>Most Popular</span>
               </div>
 
-              <div className="h-full border-2 border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl p-6 hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow-2xl transition-all duration-200">
+              <div className="h-full border-2 border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl p-6 hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow-2xl transition-all duration-200 flex flex-col">
                 {/* Header */}
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -266,7 +287,7 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
                 </div>
 
                 {/* Features */}
-                <div className="space-y-3 mb-6 min-h-[180px]">
+                <div className="space-y-3 mb-6 flex-1">
                   <div className="flex items-start gap-2">
                     <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
                     <p className="text-sm text-gray-700 dark:text-gray-300"><span className="font-medium">Everything in Pay-As-You-Go</span>, plus:</p>
@@ -304,6 +325,69 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
                 </div>
               </div>
             </motion.div>
+
+            {/* Enterprise - For Teams */}
+            {process.env.NEXT_PUBLIC_APP_MODE !== 'development' && (
+              <motion.div
+                className="relative group cursor-pointer"
+                whileHover={{ y: -4 }}
+                transition={{ duration: 0.2 }}
+                onClick={handleEnterpriseClick}
+              >
+                <div className="h-full border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 rounded-xl p-6 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-xl transition-all duration-200 flex flex-col">
+                  {/* Header */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-slate-200 dark:bg-slate-700 rounded-lg">
+                        <Building2 className="h-5 w-5 text-slate-700 dark:text-slate-300" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">Enterprise</h3>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">For organizations</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Features */}
+                  <div className="space-y-3 mb-4 flex-1">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">Everything in Pro Unlimited, plus:</p>
+                    <div className="flex items-start gap-2">
+                      <Check className="h-4 w-4 text-slate-600 dark:text-slate-400 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-gray-700 dark:text-gray-300"><span className="font-medium">Custom data integrations</span></p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Check className="h-4 w-4 text-slate-600 dark:text-slate-400 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-gray-700 dark:text-gray-300"><span className="font-medium">Tailored AI agents & workflows</span></p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Check className="h-4 w-4 text-slate-600 dark:text-slate-400 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-gray-700 dark:text-gray-300"><span className="font-medium">On-premise or cloud deployment</span></p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Check className="h-4 w-4 text-slate-600 dark:text-slate-400 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-gray-700 dark:text-gray-300"><span className="font-medium">White-label capabilities</span></p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Check className="h-4 w-4 text-slate-600 dark:text-slate-400 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-gray-700 dark:text-gray-300"><span className="font-medium">& much more tailored to your needs</span></p>
+                    </div>
+                  </div>
+
+                  {/* Pricing */}
+                  <div className="mb-4">
+                    <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                      Custom
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Built specifically for your organization</p>
+
+                    <button className="w-full bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-slate-200 dark:text-slate-900 text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 group">
+                      <span>Book a Demo</span>
+                      <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
           </div>
 
           {/* Trust Signals */}
@@ -320,5 +404,12 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Enterprise modal rendered outside to prevent state loss */}
+    <EnterpriseContactModal
+      open={showEnterpriseModal}
+      onClose={() => setShowEnterpriseModal(false)}
+    />
+    </>
   );
 }

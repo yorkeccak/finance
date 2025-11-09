@@ -15,21 +15,43 @@ export async function GET(request: Request) {
       console.log('[Auth Callback] OAuth successful for user:', data.session.user.email);
       
       // Create or update user profile
-      const { error: profileError } = await supabase
+      // First check if user already exists
+      const { data: existingUser } = await supabase
         .from('users')
-        .upsert({
-          id: data.session.user.id,
-          email: data.session.user.email,
-          subscription_tier: 'free'
-        }, {
-          onConflict: 'id',
-          ignoreDuplicates: false
-        });
+        .select('id, subscription_tier')
+        .eq('id', data.session.user.id)
+        .single();
 
-      if (profileError) {
-        console.error('[Auth Callback] Profile creation error:', profileError);
+      // Only create/update if user doesn't exist, or update email without touching subscription
+      if (!existingUser) {
+        // New user - set default free tier
+        const { error: profileError } = await supabase
+          .from('users')
+          .insert({
+            id: data.session.user.id,
+            email: data.session.user.email,
+            subscription_tier: 'free'
+          });
+
+        if (profileError) {
+          console.error('[Auth Callback] Profile creation error:', profileError);
+        } else {
+          console.log('[Auth Callback] New user profile created successfully');
+        }
       } else {
-        console.log('[Auth Callback] User profile created/updated successfully');
+        // Existing user - only update email if changed, preserve subscription
+        const { error: profileError } = await supabase
+          .from('users')
+          .update({
+            email: data.session.user.email
+          })
+          .eq('id', data.session.user.id);
+
+        if (profileError) {
+          console.error('[Auth Callback] Profile update error:', profileError);
+        } else {
+          console.log('[Auth Callback] Existing user email updated, subscription preserved');
+        }
       }
 
       // Transfer anonymous usage to user account

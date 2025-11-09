@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/lib/stores/use-auth-store';
-import { createClient } from '@/utils/supabase/client';
+import { createClient } from '@/utils/supabase/client-wrapper';
 import {
   MessageSquare,
   MessagesSquare,
@@ -52,6 +52,7 @@ export function Sidebar({
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
+  const isDevelopment = process.env.NEXT_PUBLIC_APP_MODE === 'development';
 
   const [isOpen, setIsOpen] = useState(true);
   const [alwaysOpen, setAlwaysOpen] = useState(true);
@@ -139,16 +140,21 @@ export function Sidebar({
       );
 
       if (confirmed) {
-        setIsOpen(false);
+        // Only close sidebar if not in alwaysOpen mode
+        if (!alwaysOpen) {
+          setIsOpen(false);
+        }
         setShowHistory(false);
         onNewChat?.(); // Call onNewChat to properly reset the chat interface
       }
       return;
     }
 
-    // If on homepage without active chat, just collapse the sidebar
+    // If on homepage without active chat, collapse sidebar only if not in alwaysOpen mode
     if (pathname === '/') {
-      setIsOpen(false);
+      if (!alwaysOpen) {
+        setIsOpen(false);
+      }
       setShowHistory(false);
       return;
     }
@@ -159,7 +165,10 @@ export function Sidebar({
     );
 
     if (confirmed) {
-      setIsOpen(false);
+      // Only close sidebar if not in alwaysOpen mode
+      if (!alwaysOpen) {
+        setIsOpen(false);
+      }
       setShowHistory(false);
       router.push('/');
     }
@@ -417,10 +426,10 @@ export function Sidebar({
               )}
 
               {/* Divider */}
-              {user && <div className="w-10 h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-600 to-transparent my-1" />}
+              {user && !isDevelopment && <div className="w-10 h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-600 to-transparent my-1" />}
 
-              {/* Billing/Subscription */}
-              {user && (
+              {/* Billing/Subscription - Hidden in development mode */}
+              {user && !isDevelopment && (
                 <>
                   {!isPaid ? (
                     <div className="relative group/tooltip">

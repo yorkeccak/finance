@@ -1,19 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
+import * as db from '@/lib/db';
+import { randomUUID } from 'crypto';
 
 export async function GET(req: Request) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      global: {
-        headers: {
-          Authorization: req.headers.get('Authorization') || '',
-        },
-      },
-    }
-  );
+  const { data: { user } } = await db.getUser();
 
-  const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
@@ -21,12 +11,7 @@ export async function GET(req: Request) {
     });
   }
 
-  const { data: sessions, error } = await supabase
-    .from('chat_sessions')
-    .select('id, title, created_at, updated_at, last_message_at')
-    .eq('user_id', user.id)
-    .order('last_message_at', { ascending: false })
-    .limit(50);
+  const { data: sessions, error } = await db.getChatSessions(user.id);
 
   if (error) {
     return new Response(JSON.stringify({ error: error.message }), {
@@ -35,27 +20,25 @@ export async function GET(req: Request) {
     });
   }
 
-  return new Response(JSON.stringify({ sessions }), {
+  // Normalize field names (SQLite uses camelCase, Supabase uses snake_case)
+  const normalizedSessions = sessions?.map((s: any) => ({
+    id: s.id,
+    title: s.title,
+    created_at: s.created_at || s.createdAt,
+    updated_at: s.updated_at || s.updatedAt,
+    last_message_at: s.last_message_at || s.lastMessageAt,
+  })) || [];
+
+  return new Response(JSON.stringify({ sessions: normalizedSessions }), {
     headers: { "Content-Type": "application/json" }
   });
 }
 
 export async function POST(req: Request) {
   const { title = "New Chat" } = await req.json();
-  
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      global: {
-        headers: {
-          Authorization: req.headers.get('Authorization') || '',
-        },
-      },
-    }
-  );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await db.getUser();
+
   if (!user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
@@ -63,21 +46,22 @@ export async function POST(req: Request) {
     });
   }
 
-  const { data: session, error } = await supabase
-    .from('chat_sessions')
-    .insert({
-      user_id: user.id,
-      title
-    })
-    .select()
-    .single();
+  const sessionId = randomUUID();
+  const { error } = await db.createChatSession({
+    id: sessionId,
+    user_id: user.id,
+    title
+  });
 
   if (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: error.message || error }), {
       status: 500,
       headers: { "Content-Type": "application/json" }
     });
   }
+
+  // Fetch the newly created session
+  const { data: session } = await db.getChatSession(sessionId, user.id);
 
   return new Response(JSON.stringify({ session }), {
     headers: { "Content-Type": "application/json" }

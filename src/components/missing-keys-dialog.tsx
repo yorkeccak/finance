@@ -165,7 +165,7 @@ export function MissingKeysDialog() {
             </a>
           )}
           <a
-            href="https://platform.valyu.network"
+            href="https://platform.valyu.ai"
             target="_blank"
             rel="noreferrer"
           >

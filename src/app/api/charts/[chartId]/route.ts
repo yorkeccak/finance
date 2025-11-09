@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import * as db from '@/lib/db';
 
 /**
  * GET /api/charts/[chartId]
@@ -20,14 +20,8 @@ export async function GET(
       );
     }
 
-    const supabase = await createClient();
-
-    // Fetch chart from database
-    const { data: chartData, error } = await supabase
-      .from('charts')
-      .select('chart_data')
-      .eq('id', chartId)
-      .single();
+    // Fetch chart from database (works with both Supabase and local SQLite)
+    const { data: chartData, error } = await db.getChart(chartId);
 
     if (error || !chartData) {
       console.error('[GET /api/charts/[chartId]] Chart not found:', error);
@@ -37,10 +31,11 @@ export async function GET(
       );
     }
 
-    // Parse chart_data if it's a string
-    const parsedChartData = typeof chartData.chart_data === 'string'
-      ? JSON.parse(chartData.chart_data)
-      : chartData.chart_data;
+    // Parse chart_data if it's a string (SQLite stores as TEXT, Supabase as JSONB)
+    const chartDataField = (chartData as any).chart_data || (chartData as any).chartData;
+    const parsedChartData = typeof chartDataField === 'string'
+      ? JSON.parse(chartDataField)
+      : chartDataField;
 
     // Return chart configuration for FinancialChart component
     return NextResponse.json({

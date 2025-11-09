@@ -1,20 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
+import * as db from '@/lib/db';
 
 export async function GET(req: Request, { params }: { params: Promise<{ sessionId: string }> }) {
   const { sessionId } = await params;
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      global: {
-        headers: {
-          Authorization: req.headers.get('Authorization') || '',
-        },
-      },
-    }
-  );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await db.getUser();
+
   if (!user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401
@@ -22,12 +12,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ sessionI
   }
 
   // Get session with messages
-  const { data: session, error: sessionError } = await supabase
-    .from('chat_sessions')
-    .select('*')
-    .eq('id', sessionId)
-    .eq('user_id', user.id)
-    .single();
+  const { data: session, error: sessionError } = await db.getChatSession(sessionId, user.id);
 
   if (sessionError || !session) {
     return new Response(JSON.stringify({ error: "Session not found" }), {
@@ -35,62 +20,56 @@ export async function GET(req: Request, { params }: { params: Promise<{ sessionI
     });
   }
 
-  const { data: messages, error: messagesError } = await supabase
-    .from('chat_messages')
-    .select('*')
-    .eq('session_id', sessionId)
-    .order('created_at', { ascending: true });
+  const { data: messages, error: messagesError } = await db.getChatMessages(sessionId);
 
   if (messagesError) {
-    return new Response(JSON.stringify({ error: messagesError.message }), {
+    return new Response(JSON.stringify({ error: messagesError.message || messagesError }), {
       status: 500
     });
   }
 
-  return new Response(JSON.stringify({
-    session,
-    messages: messages.map(msg => ({
-      // Use database ID as message ID
+  // Normalize messages format
+  const normalizedMessages = messages?.map(msg => {
+    // Parse content if it's a string (SQLite stores as TEXT)
+    let parsedContent = msg.content;
+    if (typeof msg.content === 'string') {
+      try {
+        parsedContent = JSON.parse(msg.content);
+      } catch (e) {
+        parsedContent = [];
+      }
+    }
+
+    return {
       id: msg.id,
       role: msg.role,
-      // AI SDK v5 uses 'parts' for UIMessage
-      // The 'content' column in DB stores the parts array
-      parts: msg.content || [],
-      createdAt: msg.created_at,
-      processing_time_ms: msg.processing_time_ms,
-    }))
+      parts: parsedContent || [],
+      createdAt: (msg as any).created_at || (msg as any).createdAt,
+      processing_time_ms: (msg as any).processing_time_ms || (msg as any).processingTimeMs,
+    };
+  }) || [];
+
+  return new Response(JSON.stringify({
+    session,
+    messages: normalizedMessages
   }));
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ sessionId: string }> }) {
   const { sessionId } = await params;
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      global: {
-        headers: {
-          Authorization: req.headers.get('Authorization') || '',
-        },
-      },
-    }
-  );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await db.getUser();
+
   if (!user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401
     });
   }
 
-  const { error } = await supabase
-    .from('chat_sessions')
-    .delete()
-    .eq('id', sessionId)
-    .eq('user_id', user.id);
+  const { error } = await db.deleteChatSession(sessionId, user.id);
 
   if (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: error.message || error }), {
       status: 500
     });
   }
@@ -101,34 +80,19 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ sessi
 export async function PATCH(req: Request, { params }: { params: Promise<{ sessionId: string }> }) {
   const { sessionId } = await params;
   const { title } = await req.json();
-  
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      global: {
-        headers: {
-          Authorization: req.headers.get('Authorization') || '',
-        },
-      },
-    }
-  );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await db.getUser();
+
   if (!user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401
     });
   }
 
-  const { error } = await supabase
-    .from('chat_sessions')
-    .update({ title })
-    .eq('id', sessionId)
-    .eq('user_id', user.id);
+  const { error } = await db.updateChatSession(sessionId, user.id, { title });
 
   if (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: error.message || error }), {
       status: 500
     });
   }

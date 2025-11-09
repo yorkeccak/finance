@@ -3,7 +3,7 @@
 import { User } from '@supabase/supabase-js';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { createClient } from '@/utils/supabase/client';
+import { createClient } from '@/utils/supabase/client-wrapper';
 import { track } from '@vercel/analytics';
 
 interface AuthState {

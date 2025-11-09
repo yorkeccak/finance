@@ -9,7 +9,7 @@ import Image from 'next/image';
 import { track } from '@vercel/analytics';
 import { useAuthStore } from '@/lib/stores/use-auth-store';
 import { useRateLimit } from '@/lib/hooks/use-rate-limit';
-import { createClient } from '@/utils/supabase/client';
+import { createClient } from '@/utils/supabase/client-wrapper';
 import { EnterpriseContactModal } from '@/components/enterprise/enterprise-contact-modal';
 
 interface RateLimitDialogProps {
@@ -172,10 +172,10 @@ export function RateLimitDialog({ open, onOpenChange, resetTime, onShowAuth }: R
     track('Platform Clickthrough', {
       source: 'rate_limit_dialog',
       action: 'build_your_own',
-      url: 'https://platform.valyu.network/?utm_source=finance.valyu.network&utm_medium=rate_limit_dialog'
+      url: 'https://platform.valyu.ai/?utm_source=finance.valyu.ai&utm_medium=rate_limit_dialog'
     });
     
-    window.open('https://platform.valyu.network/?utm_source=finance.valyu.network&utm_medium=rate_limit_dialog', '_blank');
+    window.open('https://platform.valyu.ai/?utm_source=finance.valyu.ai&utm_medium=rate_limit_dialog', '_blank');
   };
 
   const handleCreateAccount = () => {

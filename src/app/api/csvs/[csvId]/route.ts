@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import * as db from '@/lib/db';
 
 /**
  * GET /api/csvs/[csvId]
@@ -20,14 +20,8 @@ export async function GET(
       );
     }
 
-    const supabase = await createClient();
-
-    // Fetch CSV from database
-    const { data: csvData, error } = await supabase
-      .from('csvs')
-      .select('*')
-      .eq('id', csvId)
-      .single();
+    // Fetch CSV from database (works with both Supabase and local SQLite)
+    const { data: csvData, error } = await db.getCSV(csvId);
 
     if (error || !csvData) {
       console.error('[GET /api/csvs/[csvId]] CSV not found:', error);
@@ -37,8 +31,10 @@ export async function GET(
       );
     }
 
-    // Parse rows if they're stored as a JSON string (shouldn't happen, but handle it)
+    // Parse fields if they're stored as JSON strings (SQLite stores as TEXT)
     let parsedRows = csvData.rows;
+    let parsedHeaders = csvData.headers;
+
     if (typeof csvData.rows === 'string') {
       try {
         parsedRows = JSON.parse(csvData.rows);
@@ -51,14 +47,23 @@ export async function GET(
       }
     }
 
+    if (typeof csvData.headers === 'string') {
+      try {
+        parsedHeaders = JSON.parse(csvData.headers);
+      } catch (e) {
+        console.error('[GET /api/csvs/[csvId]] Failed to parse headers:', e);
+      }
+    }
+
     // Return CSV data for markdown table rendering
+    const createdAt = (csvData as any).created_at || (csvData as any).createdAt;
     return NextResponse.json({
       id: csvData.id,
       title: csvData.title,
       description: csvData.description,
-      headers: csvData.headers,
+      headers: parsedHeaders,
       rows: parsedRows,
-      createdAt: csvData.created_at,
+      createdAt: createdAt,
     });
   } catch (error: any) {
     console.error('[GET /api/csvs/[csvId]] Error:', error);

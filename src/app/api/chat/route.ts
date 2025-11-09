@@ -8,6 +8,9 @@ import { createClient } from '@supabase/supabase-js';
 import { checkUserRateLimit } from '@/lib/rate-limit';
 import { validateAccess } from '@/lib/polar-access-validation';
 import { getPolarTrackedModel } from '@/lib/polar-llm-strategy';
+import * as db from '@/lib/db';
+import { isDevelopmentMode } from '@/lib/local-db/local-auth';
+import { saveChatMessages } from '@/lib/db';
 
 // 13mins max streaming (vercel limit)
 export const maxDuration = 800;
@@ -37,31 +40,36 @@ export async function POST(req: Request) {
       totalMessages: messages.length
     });
 
-    // Get authenticated user using anon key
-    const supabaseAnon = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        global: {
-          headers: {
-            Authorization: req.headers.get('Authorization') || '',
-          },
-        },
-      }
-    );
-
-    // Create service role client for database operations
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    const { data: { user } } = await supabaseAnon.auth.getUser();
-    
     // Check app mode and configure accordingly
-    const isDevelopment = process.env.NEXT_PUBLIC_APP_MODE === 'development';
+    const isDevelopment = isDevelopmentMode();
     console.log("[Chat API] App mode:", isDevelopment ? 'development' : 'production');
+
+    // Get authenticated user (uses local auth in dev mode)
+    const { data: { user } } = await db.getUser();
     console.log("[Chat API] Authenticated user:", user?.id || 'anonymous');
+
+    // Legacy Supabase clients (only used in production mode)
+    let supabaseAnon: any = null;
+    let supabase: any = null;
+
+    if (!isDevelopment) {
+      supabaseAnon = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          global: {
+            headers: {
+              Authorization: req.headers.get('Authorization') || '',
+            },
+          },
+        }
+      );
+
+      supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+    }
 
     // Validate access for authenticated users (simplified validation)
     if (user && !isDevelopment) {
@@ -227,14 +235,10 @@ export async function POST(req: Request) {
       // Production mode: Use Polar-wrapped OpenAI ONLY for pay-per-use users
       if (user) {
         // Get user subscription tier to determine billing approach
-        const { data: userData } = await supabase
-          .from('users')
-          .select('subscription_tier, subscription_status')
-          .eq('id', user.id)
-          .single();
-        
-        const userTier = userData?.subscription_tier || 'free';
-        const isActive = userData?.subscription_status === 'active';
+        const { data: userData } = await db.getUserProfile(user.id);
+
+        const userTier = userData?.subscription_tier || userData?.subscriptionTier || 'free';
+        const isActive = (userData?.subscription_status || userData?.subscriptionStatus) === 'active';
         
         // Only use Polar LLM Strategy for pay-per-use users
         if (isActive && userTier === 'pay_per_use') {
@@ -262,12 +266,8 @@ export async function POST(req: Request) {
     // User tier is already determined above in model selection
     let userTier = 'free';
     if (user) {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('subscription_tier')
-        .eq('id', user.id)
-        .single();
-      userTier = userData?.subscription_tier || 'free';
+      const { data: userData } = await db.getUserProfile(user.id);
+      userTier = userData?.subscription_tier || userData?.subscriptionTier || 'free';
       console.log("[Chat API] User tier:", userTier);
     }
 
@@ -614,7 +614,35 @@ export async function POST(req: Request) {
 
           // The correct pattern: Save ALL messages from the conversation
           // This replaces all messages in the session with the complete, up-to-date conversation
-          await saveMessagesToSession(supabase, sessionId, allMessages, processingTimeMs);
+          const messagesToSave = allMessages.map((message: any, index: number) => {
+            // AI SDK v5 uses 'parts' array for UIMessage
+            let contentToSave = [];
+
+            if (message.parts && Array.isArray(message.parts)) {
+              contentToSave = message.parts;
+            } else if (message.content) {
+              // Fallback for older format
+              if (typeof message.content === 'string') {
+                contentToSave = [{ type: 'text', text: message.content }];
+              } else if (Array.isArray(message.content)) {
+                contentToSave = message.content;
+              }
+            }
+
+            return {
+              id: message.id || `msg-${Date.now()}-${index}`,
+              role: message.role,
+              content: contentToSave,
+              processing_time_ms:
+                message.role === 'assistant' &&
+                index === allMessages.length - 1 &&
+                processingTimeMs !== undefined
+                  ? processingTimeMs
+                  : undefined,
+            };
+          });
+
+          await saveChatMessages(sessionId, messagesToSave);
         }
 
         // No manual usage tracking needed - Polar LLM Strategy handles this automatically!
@@ -701,76 +729,3 @@ export async function POST(req: Request) {
   }
 }
 
-async function saveMessagesToSession(
-  supabase: any,
-  sessionId: string,
-  messages: any[],
-  processingTimeMs?: number
-) {
-  try {
-    console.log('[saveMessagesToSession] Saving', messages.length, 'messages for session:', sessionId);
-
-    // Delete all existing messages for this session first
-    const { error: deleteError } = await supabase
-      .from('chat_messages')
-      .delete()
-      .eq('session_id', sessionId);
-
-    if (deleteError) {
-      console.error('[saveMessagesToSession] Error deleting old messages:', deleteError);
-      return;
-    }
-
-    // Prepare all messages for insertion
-    const messagesToInsert = messages.map((message, index) => {
-      // AI SDK v5 uses 'parts' array for UIMessage
-      // Store it in the 'content' JSONB column in database
-      let partsToSave = [];
-
-      if (message.parts && Array.isArray(message.parts)) {
-        partsToSave = message.parts;
-      } else if (message.content) {
-        // Fallback for older format
-        if (typeof message.content === 'string') {
-          partsToSave = [{ type: 'text', text: message.content }];
-        } else if (Array.isArray(message.content)) {
-          partsToSave = message.content;
-        }
-      }
-
-      const messageData: any = {
-        session_id: sessionId,
-        role: message.role,
-        content: partsToSave, // Store parts array in content column
-        created_at: message.createdAt || new Date().toISOString(),
-      };
-
-      // Add processing time to the last assistant message (the new one)
-      if (
-        message.role === 'assistant' &&
-        index === messages.length - 1 &&
-        processingTimeMs !== undefined
-      ) {
-        messageData.processing_time_ms = processingTimeMs;
-      }
-
-      return messageData;
-    });
-
-    console.log('[saveMessagesToSession] Inserting', messagesToInsert.length, 'messages');
-    console.log('[saveMessagesToSession] Message roles:', messagesToInsert.map(m => m.role).join(', '));
-
-    // Insert all messages in a single operation
-    const { error: insertError } = await supabase
-      .from('chat_messages')
-      .insert(messagesToInsert);
-
-    if (insertError) {
-      console.error('[saveMessagesToSession] Database insert error:', insertError);
-    } else {
-      console.log('[saveMessagesToSession] Successfully saved all messages');
-    }
-  } catch (error) {
-    console.error('[saveMessagesToSession] Exception:', error);
-  }
-}

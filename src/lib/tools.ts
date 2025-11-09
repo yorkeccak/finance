@@ -5,6 +5,8 @@ import { track } from "@vercel/analytics/server";
 import { PolarEventTracker } from '@/lib/polar-events';
 import { Daytona } from '@daytonaio/sdk';
 import { createClient } from '@/utils/supabase/server';
+import * as db from '@/lib/db';
+import { randomUUID } from 'crypto';
 
 
 export const financeTools = {
@@ -185,10 +187,11 @@ export const financeTools = {
       // Save chart to database
       let chartId: string | null = null;
       try {
-        const supabase = await createClient();
+        chartId = randomUUID();
 
         // Build insert data - include anonymous_id if no user_id
         const insertData: any = {
+          id: chartId,
           session_id: sessionId || null,
           chart_data: chartData,
         };
@@ -201,17 +204,10 @@ export const financeTools = {
           insertData.anonymous_id = 'anonymous';
         }
 
-        const { data: savedChart, error } = await supabase
-          .from('charts')
-          .insert(insertData)
-          .select('id')
-          .single();
-
-        if (error) {
-        } else {
-          chartId = savedChart.id;
-        }
+        await db.createChart(insertData);
       } catch (error) {
+        console.error('[createChart] Error saving chart:', error);
+        chartId = null;
       }
 
       // Track chart creation
@@ -351,16 +347,16 @@ export const financeTools = {
         // Save CSV to database
         let csvId: string | null = null;
         try {
-          const supabase = await createClient();
-
+          csvId = randomUUID();
 
           // Build insert data - include anonymous_id if no user_id
           const insertData: any = {
+            id: csvId,
             session_id: sessionId || null,
             title,
-            description: description || null,
+            description: description || undefined,
             headers,
-            rows: rows, // Send as-is, let Postgres handle JSONB
+            rows: rows,
           };
 
           if (userId) {
@@ -371,17 +367,10 @@ export const financeTools = {
             insertData.anonymous_id = 'anonymous';
           }
 
-          const { data: savedCsv, error } = await supabase
-            .from('csvs')
-            .insert(insertData)
-            .select('id')
-            .single();
-
-          if (error) {
-          } else {
-            csvId = savedCsv.id;
-          }
+          await db.createCSV(insertData);
         } catch (error) {
+          console.error('[createCSV] Error saving CSV:', error);
+          csvId = null;
         }
 
         // Track CSV creation

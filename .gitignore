@@ -46,3 +46,6 @@ IMPLEMENTATION_SPEC.md
 
 migrations/
 docs/
+
+# local development database
+.local-data/

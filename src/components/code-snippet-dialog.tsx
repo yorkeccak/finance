@@ -178,7 +178,7 @@ export default function CodeSnippetDialog({
               <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 px-4 sm:px-6 pb-4 sm:pb-6'>
                 <div className='relative'>
                   <a
-                    href='https://platform.valyu.network'
+                    href='https://platform.valyu.ai'
                     target='_blank'
                     rel='noopener noreferrer'
                     className='text-sm font-light text-gray-900 dark:text-gray-100 hover:underline relative group'
@@ -187,7 +187,7 @@ export default function CodeSnippetDialog({
                         source: 'data_source_dialog',
                         dataSource: title,
                         action: 'get_api_key',
-                        url: 'https://platform.valyu.network'
+                        url: 'https://platform.valyu.ai'
                       });
                     }}
                   >
@@ -224,7 +224,7 @@ export default function CodeSnippetDialog({
                 </div>
 
                 <a
-                  href='https://docs.valyu.network'
+                  href='https://docs.valyu.ai'
                   target='_blank'
                   rel='noopener noreferrer'
                   className='text-sm font-light text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'

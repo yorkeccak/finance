@@ -149,7 +149,7 @@ const OllamaStatus = () => {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed top-6 right-6 z-40 max-w-sm"
+            className="fixed top-6 right-6 z-40 w-80"
           >
             <div className="bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-5 relative">
               <button

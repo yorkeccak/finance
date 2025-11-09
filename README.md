@@ -2,7 +2,7 @@
 
 > **We put Bloomberg terminal behind a chat interface and open-sourced it** - Access institutional-grade financial data, run complex code analyses, and create stunning visualizations through natural language. The backend? 1 search API.
 
-🚀 **[Try the live demo at finance.valyu.network](https://finance.valyu.network)**
+🚀 **[Try the live demo at finance.valyu.ai](https://finance.valyu.ai)**
 
 ![Finance by Valyu](public/valyu.png)
 
@@ -38,19 +38,42 @@ Traditional financial research is fragmented across dozens of expensive platform
 
 ## 🚀 Quick Start
 
+### Two Modes: Production vs Development
+
+Finance supports two distinct operating modes:
+
+**🌐 Production Mode** (Default)
+- Uses Supabase for authentication and database
+- OpenAI/Vercel AI Gateway for LLM
+- Rate limiting (5 queries/day for free tier)
+- Billing and usage tracking via Polar
+- Full authentication required
+
+**💻 Development Mode** (Recommended for Local Development)
+- **No Supabase required** - Uses local SQLite database
+- **No authentication needed** - Auto-login as dev user
+- **Unlimited queries** - No rate limits
+- **No billing/tracking** - Polar integration disabled
+- **Works offline** - Complete local development
+- **Ollama integration** - Use local LLMs for privacy and unlimited usage
+
 ### Prerequisites
 
-**For Cloud Usage:**
-- Node.js 18+ 
+**For Production Mode:**
+- Node.js 18+
 - npm or yarn
 - OpenAI API key
-- Valyu API key (get one at [platform.valyu.network](https://platform.valyu.network))
+- Valyu API key (get one at [platform.valyu.ai](https://platform.valyu.ai))
 - Daytona API key (for code execution)
+- Supabase account and project
+- Polar account (for billing)
 
-**For Local AI Models:**
-- All of the above, plus:
-- [Ollama](https://ollama.com) installed and running
-- At least one model installed (qwen2.5:7b recommended)
+**For Development Mode (Recommended for getting started):**
+- Node.js 18+
+- npm or yarn
+- Valyu API key (get one at [platform.valyu.ai](https://platform.valyu.ai))
+- Daytona API key (for code execution)
+- [Ollama](https://ollama.com) installed (optional but recommended)
 
 ### Installation
 
@@ -66,28 +89,51 @@ Traditional financial research is fragmented across dozens of expensive platform
    ```
 
 3. **Set up environment variables**
-   
+
    Create a `.env.local` file in the root directory:
+
+   **For Development Mode (Easy Setup):**
    ```env
-   # OpenAI Configuration
-   OPENAI_API_KEY=your-openai-api-key
-   
-   # Valyu API Configuration
+   # Enable Development Mode (No Supabase, No Auth, No Billing)
+   NEXT_PUBLIC_APP_MODE=development
+
+   # Valyu API Configuration (Required)
    VALYU_API_KEY=your-valyu-api-key
-   
-   # Daytona Configuration (for Python execution)
+
+   # Daytona Configuration (Required for Python execution)
    DAYTONA_API_KEY=your-daytona-api-key
    DAYTONA_API_URL=https://api.daytona.io  # Optional
    DAYTONA_TARGET=latest  # Optional
-   
-   # App Configuration
-   NEXT_PUBLIC_APP_URL=http://localhost:3000  # Your deployment URL in production
-   
-   # Ollama Configuration (Optional - for local models)
-   # By default, Ollama support is DISABLED for production mode
-   # To enable Ollama support, uncomment the line below:
-   # APP_MODE=development  # Enable local model support
+
+   # Ollama Configuration (Optional - for local LLMs)
    OLLAMA_BASE_URL=http://localhost:11434  # Default Ollama URL
+
+   # OpenAI Configuration (Optional - fallback if Ollama unavailable)
+   OPENAI_API_KEY=your-openai-api-key
+   ```
+
+   **For Production Mode:**
+   ```env
+   # OpenAI Configuration (Required)
+   OPENAI_API_KEY=your-openai-api-key
+
+   # Valyu API Configuration (Required)
+   VALYU_API_KEY=your-valyu-api-key
+
+   # Daytona Configuration (Required)
+   DAYTONA_API_KEY=your-daytona-api-key
+
+   # Supabase Configuration (Required)
+   NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+   # Polar Billing (Required)
+   POLAR_WEBHOOK_SECRET=your-polar-webhook-secret
+   POLAR_UNLIMITED_PRODUCT_ID=your-product-id
+
+   # App Configuration
+   NEXT_PUBLIC_APP_URL=http://localhost:3000
    ```
 
 4. **Run the development server**
@@ -95,53 +141,197 @@ Traditional financial research is fragmented across dozens of expensive platform
    npm run dev
    ```
 
-5. **Check your configuration (optional)**
-   ```bash
-   npm run check-config
-   ```
-   This will show you whether Ollama support is enabled or disabled.
+5. **Open your browser**
 
-6. **Open your browser**
-   
    Navigate to [http://localhost:3000](http://localhost:3000)
 
-### 🏠 Local Model Setup (Optional)
+   - **Development Mode**: You'll be automatically logged in as `dev@localhost`
+   - **Production Mode**: You'll need to sign up/sign in
 
-**Note**: By default, Ollama support is **disabled** for production mode. The app will use OpenAI/Vercel AI Gateway with rate limiting (5 queries/day).
+## 🏠 Development Mode Guide
 
-For unlimited, private queries using your own hardware:
+### What is Development Mode?
 
-1. **Install Ollama**
-   ```bash
-   # macOS
-   brew install ollama
-   
-   # Or download from https://ollama.com
-   ```
+Development mode provides a complete local development environment without any external dependencies beyond the core APIs (Valyu, Daytona). It's perfect for:
 
-2. **Start Ollama service**
-   ```bash
-   ollama serve
-   ```
+- **Local Development** - No Supabase setup required
+- **Offline Work** - All data stored locally in SQLite
+- **Testing Features** - Unlimited queries without billing
+- **Privacy** - Use local Ollama models, no cloud LLM needed
+- **Quick Prototyping** - No authentication or rate limits
 
-3. **Install recommended models**
-   ```bash
-   # Best for tool calling (recommended)
-   ollama pull qwen2.5:7b
-   
-   # Alternative options
-   ollama pull qwen2.5:14b    # Better but slower
-   ollama pull llama3.1:7b    # Good general performance
-   ```
+### How It Works
 
-4. **Switch to local model**
-   
-   Click the "Local Models" indicator in the top-right corner of the app to select your model.
+When `NEXT_PUBLIC_APP_MODE=development`:
 
-**Model Recommendations:**
-- **Qwen2.5:7B+** - Excellent for tool calling and financial analysis
-- **Llama 3.1:7B+** - Good general performance with tools
-- **Avoid smaller models** - Many struggle with complex function calling
+1. **Local SQLite Database** (`/.local-data/dev.db`)
+   - Automatically created on first run
+   - Stores chat sessions, messages, charts, and CSVs
+   - Full schema matching production Supabase tables
+   - Easy to inspect with `sqlite3 .local-data/dev.db`
+
+2. **Mock Authentication**
+   - Auto-login as dev user (`dev@localhost`)
+   - No sign-up/sign-in required
+   - Unlimited tier access with all features
+
+3. **No Rate Limits**
+   - Unlimited chat queries
+   - No usage tracking
+   - No billing integration
+
+4. **LLM Selection**
+   - **Ollama models** (if installed) - Used first, unlimited and free
+   - **OpenAI** (if API key provided) - Fallback if Ollama unavailable
+   - See Ollama status indicator in top-right corner
+
+### Setting Up Ollama (Recommended)
+
+Ollama provides unlimited, private LLM inference on your local machine - completely free and runs offline!
+
+**🚀 Quick Setup (No Terminal Required):**
+
+1. **Download Ollama App**
+   - Visit [ollama.com](https://ollama.com) and download the app for your OS
+   - Install and open the Ollama app
+   - It runs in your menu bar (macOS) or system tray (Windows/Linux)
+
+2. **Download a Model**
+   - Open Ollama app and browse available models
+   - Download `qwen2.5:7b` (recommended - best for Finance features)
+   - Or choose from: `llama3.1`, `mistral`, `deepseek-r1`
+   - That's it! Finance will automatically detect and use it
+
+3. **Use in Finance**
+   - Start Finance in development mode
+   - Ollama status indicator appears in top-right corner
+   - Shows your available models
+   - Click to select which model to use
+   - Icons show capabilities: 🔧 (tools) and 🧠 (reasoning)
+
+**⚡ Advanced Setup (Terminal):**
+
+If you prefer using the terminal:
+
+```bash
+# Install Ollama
+brew install ollama              # macOS
+# OR
+curl -fsSL https://ollama.com/install.sh | sh  # Linux
+
+# Start Ollama service
+ollama serve
+
+# Download recommended models
+ollama pull qwen2.5:7b          # Recommended - excellent tool support
+ollama pull llama3.1:8b         # Alternative - good performance
+ollama pull mistral:7b          # Alternative - fast
+ollama pull deepseek-r1:7b      # For reasoning/thinking mode
+```
+
+**💡 It Just Works:**
+- Finance automatically detects Ollama when it's running
+- No configuration needed
+- Automatically falls back to OpenAI if Ollama is unavailable
+- Switch between models anytime via the Ollama popup
+
+### Model Capabilities
+
+Not all models support all features. Here's what works:
+
+**Tool Calling Support** (Execute Python, search web, create charts):
+- ✅ qwen2.5, qwen3, deepseek-r1, deepseek-v3
+- ✅ llama3.1, llama3.2, llama3.3
+- ✅ mistral, mistral-nemo, mistral-small
+- ✅ See full list in Ollama popup (wrench icon)
+
+**Thinking/Reasoning Support** (Show reasoning steps):
+- ✅ deepseek-r1, qwen3, magistral
+- ✅ gpt-oss, cogito
+- ✅ See full list in Ollama popup (brain icon)
+
+**What happens if model lacks tool support?**
+- You'll see a friendly dialog explaining limitations
+- Can continue with text-only responses
+- Or switch to a different model that supports tools
+
+### Development Mode Features
+
+✅ **Full Chat History**
+- All conversations saved to local SQLite
+- Persists across restarts
+- View/delete old sessions
+
+✅ **Charts & Visualizations**
+- Created charts saved locally
+- Retrievable via markdown syntax
+- Rendered from local database
+
+✅ **CSV Data Tables**
+- Generated CSVs stored in SQLite
+- Inline table rendering
+- Full data persistence
+
+✅ **No Hidden Costs**
+- No OpenAI API usage (when using Ollama)
+- No Supabase database costs
+- No authentication service costs
+
+### Managing Local Database
+
+**View Database:**
+```bash
+sqlite3 .local-data/dev.db
+# Then run SQL queries
+SELECT * FROM chat_sessions;
+SELECT * FROM charts;
+```
+
+**Reset Database:**
+```bash
+rm -rf .local-data/
+# Database recreated on next app start
+```
+
+**Backup Database:**
+```bash
+cp -r .local-data/ .local-data-backup/
+```
+
+### Switching Between Modes
+
+**Development → Production:**
+1. Remove/comment `NEXT_PUBLIC_APP_MODE=development`
+2. Add all Supabase and Polar environment variables
+3. Restart server
+
+**Production → Development:**
+1. Add `NEXT_PUBLIC_APP_MODE=development`
+2. Restart server
+3. Local database automatically created
+
+**Note:** Your production Supabase data and local SQLite data are completely separate. Switching modes doesn't migrate data.
+
+### Troubleshooting Development Mode
+
+**Sidebar won't open on homepage:**
+- Fixed! Sidebar now respects dock setting even on homepage
+
+**Ollama not detected:**
+- Make sure Ollama is running: `ollama serve`
+- Check Ollama URL in `.env.local` (default: `http://localhost:11434`)
+- Verify models are installed: `ollama list`
+
+**Database errors:**
+- Delete and recreate: `rm -rf .local-data/`
+- Check file permissions in `.local-data/` directory
+
+**Auth errors:**
+- Verify `NEXT_PUBLIC_APP_MODE=development` is set
+- Clear browser localStorage and cache
+- Restart dev server
+
+For more details, see [DEVELOPMENT_MODE.md](DEVELOPMENT_MODE.md)
 
 ## 💡 Example Queries
 
@@ -186,7 +376,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 🙏 Acknowledgments
 
-- Built with [Valyu](https://platform.valyu.network) - The unified financial data API
+- Built with [Valyu](https://platform.valyu.ai) - The unified financial data API
 - Powered by [Daytona](https://daytona.io) - Secure code execution
 - UI components from [shadcn/ui](https://ui.shadcn.com)
 

@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useOllama } from "@/lib/ollama-context";
 import { useAuthStore } from "@/lib/stores/use-auth-store";
 import { useSubscription } from "@/hooks/use-subscription";
-import { createClient } from '@/utils/supabase/client';
+import { createClient } from '@/utils/supabase/client-wrapper';
 import { track } from '@vercel/analytics';
 import { OllamaStatusIndicator } from '@/components/ollama-status-indicator';
 import { AuthModal } from '@/components/auth/auth-modal';
@@ -2908,7 +2908,7 @@ export function ChatInterface({
                   Powered by
                 </span>
                 <a
-                  href="https://platform.valyu.network"
+                  href="https://platform.valyu.ai"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center hover:scale-105 transition-transform"

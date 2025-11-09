@@ -15,24 +15,24 @@ export function EnterpriseBanner() {
   return (
     <>
       {/* Subtle top-right banner */}
-      <div className="fixed top-6 right-6 z-40 max-w-sm">
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg p-4">
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center">
-              <Building2 className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+      <div className="fixed top-6 right-6 z-40 max-w-xs">
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3">
+          <div className="flex items-start gap-2.5">
+            <div className="flex-shrink-0 w-8 h-8 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center">
+              <Building2 className="w-4 h-4 text-slate-600 dark:text-slate-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">
+              <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
                 Enterprise AI Search
               </p>
-              <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+              <p className="text-[11px] leading-tight text-gray-600 dark:text-gray-400 mb-2">
                 Deploy Valyu&apos;s institutional-grade infrastructure in your organization
               </p>
               <button
                 onClick={() => setShowModal(true)}
-                className="text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 underline underline-offset-2 transition-colors"
+                className="text-xs font-medium text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 underline underline-offset-2 transition-colors"
               >
-                Book a demo →
+                Book a call →
               </button>
             </div>
           </div>

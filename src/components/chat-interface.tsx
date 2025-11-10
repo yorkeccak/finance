@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { VirtualizedContentDialog } from "@/components/virtualized-content-dialog";
 import {
@@ -1684,6 +1685,9 @@ export function ChatInterface({
   // Auth modal state for paywalls
   const [showAuthModal, setShowAuthModal] = useState(false);
 
+  // Signup prompt for non-authenticated users
+  const [showSignupPrompt, setShowSignupPrompt] = useState(false);
+
   // Listen for global auth modal trigger (from sidebar, etc.)
   useEffect(() => {
     const handleShowAuthModal = () => setShowAuthModal(true);
@@ -2343,7 +2347,7 @@ export function ChatInterface({
     }
   }, [status]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, skipSignupPrompt = false) => {
     e.preventDefault();
     if (input.trim() && status === "ready") {
       // Check current rate limit status immediately before sending
@@ -2357,6 +2361,12 @@ export function ChatInterface({
 
       // Store the input to send
       const queryText = input.trim();
+
+      // Show signup prompt for non-authenticated users on first message
+      if (!user && messages.length === 0 && !skipSignupPrompt) {
+        setShowSignupPrompt(true);
+        return; // Don't send message yet
+      }
 
       // Set submitting flag to prevent URL sync race condition
       setIsSubmitting(true);
@@ -3999,6 +4009,41 @@ export function ChatInterface({
         open={showAuthModal}
         onClose={() => setShowAuthModal(false)}
       />
+
+      {/* Signup Prompt Dialog for non-authenticated users */}
+      <Dialog open={showSignupPrompt} onOpenChange={setShowSignupPrompt}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Sign up to save your chat
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+              Create a free account to save your chat history and access it anytime.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 mt-6">
+            <button
+              onClick={() => {
+                setShowSignupPrompt(false);
+                setShowAuthModal(true);
+              }}
+              className="w-full px-4 py-2.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-medium rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200 transition-all"
+            >
+              Sign up (free)
+            </button>
+            <button
+              onClick={(e) => {
+                setShowSignupPrompt(false);
+                // Submit with skip flag to bypass the signup prompt
+                handleSubmit(e as any, true);
+              }}
+              className="w-full px-4 py-2.5 bg-transparent border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+            >
+              Continue without account
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Model Compatibility Dialog */}
       <ModelCompatibilityDialog

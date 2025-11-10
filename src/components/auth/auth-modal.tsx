@@ -8,11 +8,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Label } from '@/components/ui/label';
-import { AlertCircle } from 'lucide-react';
 import { FaGoogle } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -30,51 +25,65 @@ export function AuthModal({ open, onClose, onSignUpSuccess }: AuthModalProps) {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('signin');
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
 
-  const [signInData, setSignInData] = useState({
+  const [authData, setAuthData] = useState({
     email: '',
     password: ''
   });
 
-  const [signUpData, setSignUpData] = useState({
-    email: '',
-    password: ''
-  });
-
-  const handleSignIn = async (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      const { error } = await signIn(signInData.email, signInData.password);
-      if (error) {
-        setError(error.message);
-      } else {
-        onClose();
-      }
-    } catch (err) {
-      setError('An unexpected error occurred');
-    } finally {
-      setLoading(false);
-    }
-  };
+      // First, check if user exists by trying to sign in with a dummy request
+      // We'll use the actual password they provided
+      const { error: signInError } = await signIn(authData.email, authData.password);
 
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
+      if (signInError) {
+        // Email not confirmed - user exists but hasn't verified
+        if (signInError.message.includes('Email not confirmed')) {
+          setError('Please check your inbox and confirm your email first.');
+          setLoading(false);
+          return;
+        }
 
-    try {
-      const { error } = await signUp(signUpData.email, signUpData.password);
-      if (error) {
-        setError(error.message);
+        // Invalid credentials could mean: user exists with wrong password, OR user doesn't exist
+        // We need to check if the user actually exists
+        if (signInError.message.includes('Invalid login credentials')) {
+          // Try a password reset request to check if email exists
+          // This won't actually send an email, just checks if user exists
+          const supabase = (await import('@/utils/supabase/client')).createClient();
+
+          // Check if user exists by attempting signup - but check the response carefully
+          const { data: signUpData, error: signUpError } = await signUp(authData.email, authData.password);
+
+          // If signup returns a user but with identities = [], it means user already exists
+          // Supabase doesn't send confirmation email again for existing users
+          if (signUpData?.user && (!signUpData.user.identities || signUpData.user.identities.length === 0)) {
+            // User exists, wrong password
+            setError('Incorrect email or password.');
+          } else if (signUpError) {
+            // Signup failed for some other reason
+            setError('Incorrect email or password.');
+          } else if (signUpData?.user && signUpData.user.identities && signUpData.user.identities.length > 0) {
+            // New user created successfully
+            setUserEmail(authData.email);
+            setShowSuccess(true);
+            onSignUpSuccess?.('Check your email to confirm your account!');
+          } else {
+            // Unexpected case
+            setError('Incorrect email or password.');
+          }
+        } else {
+          // Other sign-in errors
+          setError(signInError.message);
+        }
       } else {
-        setError(null);
-        setActiveTab('signin');
-        // Show success notification and close modal
-        onSignUpSuccess?.('Check your email to confirm your account!');
+        // Sign in successful
         onClose();
       }
     } catch (err) {
@@ -104,8 +113,15 @@ export function AuthModal({ open, onClose, onSignUpSuccess }: AuthModalProps) {
 
   const isLoading = loading || authLoading;
 
+  const handleClose = () => {
+    setShowSuccess(false);
+    setError(null);
+    setAuthData({ email: '', password: '' });
+    onClose();
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-xs border-0 shadow-2xl bg-white dark:bg-gray-950 p-8">
         <DialogHeader className="text-center pb-6">
           <DialogTitle className="text-xl font-normal text-gray-900 dark:text-gray-100">
@@ -113,90 +129,70 @@ export function AuthModal({ open, onClose, onSignUpSuccess }: AuthModalProps) {
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Simple Tab Toggle */}
-          <div className="flex text-center border-b border-gray-200 dark:border-gray-700">
+        {/* Success Message */}
+        {showSuccess ? (
+          <div className="space-y-6 text-center py-8">
+            <div className="mx-auto w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+              <svg
+                className="w-8 h-8 text-green-600 dark:text-green-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                Check your inbox
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                We sent a confirmation email to
+              </p>
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mt-1">
+                {userEmail}
+              </p>
+            </div>
             <button
-              type="button"
-              onClick={() => setActiveTab('signin')}
-              className={`flex-1 pb-2 text-sm transition-colors ${
-                activeTab === 'signin' 
-                  ? 'text-gray-900 dark:text-gray-100 border-b-2 border-gray-900 dark:border-gray-100' 
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
+              onClick={handleClose}
+              className="w-full p-3 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-md hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
             >
-              Sign in
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('signup')}
-              className={`flex-1 pb-2 text-sm transition-colors ${
-                activeTab === 'signup' 
-                  ? 'text-gray-900 dark:text-gray-100 border-b-2 border-gray-900 dark:border-gray-100' 
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
-            >
-              Sign up
+              Got it
             </button>
           </div>
-
-          {/* Sign In Form */}
-          {activeTab === 'signin' && (
-            <form onSubmit={handleSignIn} className="space-y-4">
-              <input
-                type="email"
-                placeholder="Email"
-                value={signInData.email}
-                onChange={(e) => setSignInData(prev => ({ ...prev, email: e.target.value }))}
-                required
-                className="w-full p-3 border-0 border-b border-gray-200 dark:border-gray-700 bg-transparent focus:border-gray-400 dark:focus:border-gray-500 focus:outline-none transition-colors placeholder:text-gray-400 dark:placeholder:text-gray-500"
-              />
-              <input
-                type="password"
-                placeholder="Password"
-                value={signInData.password}
-                onChange={(e) => setSignInData(prev => ({ ...prev, password: e.target.value }))}
-                required
-                className="w-full p-3 border-0 border-b border-gray-200 dark:border-gray-700 bg-transparent focus:border-gray-400 dark:focus:border-gray-500 focus:outline-none transition-colors placeholder:text-gray-400 dark:placeholder:text-gray-500"
-              />
-              <button 
-                type="submit" 
-                disabled={isLoading}
-                className="w-full p-3 mt-6 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-md hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors disabled:opacity-50"
-              >
-                {isLoading ? 'Signing in...' : 'Sign in'}
-              </button>
-            </form>
-          )}
-
-          {/* Sign Up Form */}
-          {activeTab === 'signup' && (
-            <form onSubmit={handleSignUp} className="space-y-4">
-              <input
-                type="email"
-                placeholder="Email"
-                value={signUpData.email}
-                onChange={(e) => setSignUpData(prev => ({ ...prev, email: e.target.value }))}
-                required
-                className="w-full p-3 border-0 border-b border-gray-200 dark:border-gray-700 bg-transparent focus:border-gray-400 dark:focus:border-gray-500 focus:outline-none transition-colors placeholder:text-gray-400 dark:placeholder:text-gray-500"
-              />
-              <input
-                type="password"
-                placeholder="Password"
-                value={signUpData.password}
-                onChange={(e) => setSignUpData(prev => ({ ...prev, password: e.target.value }))}
-                required
-                className="w-full p-3 border-0 border-b border-gray-200 dark:border-gray-700 bg-transparent focus:border-gray-400 dark:focus:border-gray-500 focus:outline-none transition-colors placeholder:text-gray-400 dark:placeholder:text-gray-500"
-              />
-              <button 
-                type="submit" 
-                disabled={isLoading}
-                className="w-full p-3 mt-6 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-md hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors disabled:opacity-50"
-              >
-                {isLoading ? 'Creating account...' : 'Create account'}
-              </button>
-            </form>
-          )}
+        ) : (
+          <div className="space-y-6">
+            {/* Unified Auth Form */}
+            <form onSubmit={handleAuth} className="space-y-4">
+            <input
+              type="email"
+              placeholder="Email"
+              value={authData.email}
+              onChange={(e) => setAuthData(prev => ({ ...prev, email: e.target.value }))}
+              required
+              className="w-full p-3 border-0 border-b border-gray-200 dark:border-gray-700 bg-transparent focus:border-gray-400 dark:focus:border-gray-500 focus:outline-none transition-colors placeholder:text-gray-400 dark:placeholder:text-gray-500"
+            />
+            <input
+              type="password"
+              placeholder="Password"
+              value={authData.password}
+              onChange={(e) => setAuthData(prev => ({ ...prev, password: e.target.value }))}
+              required
+              className="w-full p-3 border-0 border-b border-gray-200 dark:border-gray-700 bg-transparent focus:border-gray-400 dark:focus:border-gray-500 focus:outline-none transition-colors placeholder:text-gray-400 dark:placeholder:text-gray-500"
+            />
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full p-3 mt-6 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-md hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors disabled:opacity-50"
+            >
+              {isLoading ? 'Please wait...' : 'Continue'}
+            </button>
+          </form>
 
           {/* Divider with better text */}
           <div className="relative text-center py-4">
@@ -262,7 +258,8 @@ export function AuthModal({ open, onClose, onSignUpSuccess }: AuthModalProps) {
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

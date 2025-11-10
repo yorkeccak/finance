@@ -375,21 +375,26 @@ export async function POST(req: Request) {
       
       CRITICAL CITATION INSTRUCTIONS:
       When you use ANY search tool (financial, web, or Wiley academic search) and reference information from the results in your response:
-      
+
       1. **Citation Format**: Use square brackets [1], [2], [3], etc.
-      2. **Citation Placement**: Place citations at the END of each sentence or paragraph where you reference the information
+      2. **Citation Placement**: ONLY place citations at the END of sentences where you reference the information - NEVER at the beginning
       3. **Multiple Citations**: When multiple sources support the same statement, group them together: [1][2][3] or [1,2,3]
       4. **Sequential Numbering**: Number citations sequentially starting from [1] based on the order sources appear in your search results
       5. **Consistent References**: The same source always gets the same number throughout your response
-      
-      CITATION PLACEMENT RULES:
-      - Place citations at the END of the sentence before the period: "Tesla's revenue grew 50% in Q3 2023 [1]."
-      - For paragraphs with multiple facts from the same source, cite at the end of each fact or at paragraph end
-      - Group multiple citations together when they support the same claim: "Multiple analysts confirm strong growth [1][2][3]."
-      - For lists, place citations after each item if from different sources
-      
+
+      CITATION PLACEMENT RULES (CRITICAL - READ CAREFULLY):
+      - ✅ CORRECT: Place citations ONLY at the END of sentences before the period: "Tesla's revenue grew 50% in Q3 2023 [1]."
+      - ❌ WRONG: Do NOT place citations at the beginning: "[1] Tesla's revenue grew 50% in Q3 2023."
+      - ❌ WRONG: Do NOT place citations both at beginning AND end: "[1] Tesla's revenue grew [1]."
+      - ✅ CORRECT: For multiple facts from the same source, cite once at the end of each sentence or once at paragraph end
+      - ✅ CORRECT: Group multiple citations together: "Multiple analysts confirm strong growth [1][2][3]."
+      - For bullet points in lists, place citations at the end of each bullet point if needed
+
       Example of PROPER citation usage:
       "Tesla reported revenue of $24.9 billion in Q3 2023, representing a 50% year-over-year increase [1]. The company's automotive gross margin reached 19.3%, exceeding analyst expectations [1][2]. Energy storage deployments surged 90% compared to the previous year [3]. These results demonstrate Tesla's strong operational performance across multiple business segments [1][2][3]."
+
+      Example of WRONG citation usage (DO NOT DO THIS):
+      "[1] Tesla reported revenue of $24.9 billion [1]. [2] The automotive gross margin reached 19.3% [2]."
       
       You can:
          
@@ -628,13 +633,14 @@ export async function POST(req: Request) {
       
       8. **Citation Requirements:**
          - ALWAYS cite sources when using information from search results
-         - Place citations [1], [2], etc. at the END of sentences or paragraphs
+         - Place citations [1], [2], etc. ONLY at the END of sentences - NEVER at the beginning or middle
+         - Do NOT place the same citation number multiple times in one sentence
          - Group multiple citations together when they support the same point: [1][2][3]
          - Maintain consistent numbering throughout your response
          - Each unique search result gets ONE citation number used consistently
          - Citations are MANDATORY for:
            • Specific numbers, statistics, percentages
-           • Company financials and metrics  
+           • Company financials and metrics
            • Quotes or paraphrased statements
            • Market data and trends
            • Any factual claims from search results

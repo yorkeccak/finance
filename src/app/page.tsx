@@ -282,21 +282,8 @@ function HomeContent() {
         currentSessionId={currentSessionId}
         onSessionSelect={handleSessionSelect}
         onNewChat={handleNewChat}
+        hasMessages={hasMessages}
       />
-
-      {/* Top Right Sign In Button */}
-      {!user && (
-        <div className="fixed top-4 right-4 z-50">
-          <Button
-            onClick={() => setShowAuthModal(true)}
-            variant="outline"
-            size="sm"
-            className="border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium"
-          >
-            Sign In
-          </Button>
-        </div>
-      )}
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col pt-0">

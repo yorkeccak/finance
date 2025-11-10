@@ -26,6 +26,7 @@
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-use-controllable-state": "^1.2.2",
+    "@sparticuz/chromium": "^135.0.0",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.55.0",
     "@tailwindcss/typography": "^0.5.16",

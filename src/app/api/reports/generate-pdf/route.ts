@@ -8,6 +8,18 @@ import { csvToMarkdownTable, formatCsvForMarkdown, CSVData } from '@/lib/csv-uti
 import * as fs from 'fs';
 import * as path from 'path';
 
+// Dynamic import for chromium in production
+let chromium: any = null;
+const isProduction = process.env.NODE_ENV === 'production';
+
+if (isProduction) {
+  try {
+    chromium = require('@sparticuz/chromium');
+  } catch (e) {
+    console.warn('[PDF Generation] @sparticuz/chromium not available, using local puppeteer');
+  }
+}
+
 // Allow longer execution time for PDF generation
 export const maxDuration = 300; // 5 minutes
 
@@ -204,18 +216,33 @@ export async function POST(request: NextRequest) {
 
     console.log('[PDF Generation] Converted', csvMarkdownMap.size, 'CSV tables to markdown');
 
-    // Step 5: Launch Puppeteer
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-web-security',
-        '--disable-features=IsolateOrigins,site-per-process',
-      ],
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-    });
+    // Step 5: Launch Puppeteer with appropriate configuration
+    let browser: Browser;
+
+    if (isProduction && chromium) {
+      // Production: Use @sparticuz/chromium for serverless environments
+      console.log('[PDF Generation] Using @sparticuz/chromium for production');
+      browser = await puppeteer.launch({
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        executablePath: await chromium.executablePath(),
+        headless: chromium.headless,
+      });
+    } else {
+      // Development: Use local Chrome/Chromium
+      console.log('[PDF Generation] Using local Puppeteer');
+      browser = await puppeteer.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-web-security',
+          '--disable-features=IsolateOrigins,site-per-process',
+        ],
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+      });
+    }
 
     console.log('[PDF Generation] Puppeteer browser launched');
 

@@ -291,7 +291,16 @@ LM Studio provides a beautiful GUI for running local LLMs - perfect if you prefe
    - Server starts immediately - you'll see the status change to "Running"
    - That's it! Finance will automatically detect it
 
-4. **Use in Finance**
+4. **Important: Configure Context Window**
+   - ⚠️ **CRITICAL**: This app uses extensive tool descriptions that require adequate context length
+   - In LM Studio, when loading a model:
+     - Click on the model settings (gear icon)
+     - Set **Context Length** to **at least 8192 tokens** (16384+ recommended)
+     - If you see errors like "tokens to keep is greater than context length", your context window is too small
+   - Without sufficient context length, you'll get errors when the AI tries to use tools
+   - This applies to all models in LM Studio - configure each model individually
+
+5. **Use in Finance**
    - Start Finance in development mode
    - Local models indicator appears in top-right corner
    - If both Ollama and LM Studio are running, you'll see a provider switcher
@@ -433,7 +442,7 @@ This guide walks you through setting up Finance for production with full authent
 
 #### Valyu API (Required)
 
-Valyu provides all the institutional-grade financial data - SEC filings, stock prices, financial statements, insider trading data, and 50+ other data sources. Without this API key, the app cannot access any financial data.
+Valyu provides all the financial data - SEC filings, stock prices, financial statements, insider trading data, and 50+ other data sources. Without this API key, the app cannot access any financial data.
 
 1. Go to [platform.valyu.ai](https://platform.valyu.ai)
 2. Sign up for an account

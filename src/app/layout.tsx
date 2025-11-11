@@ -29,12 +29,12 @@ export const metadata: Metadata = {
     template: "%s | Finance by Valyu",
   },
   description:
-    "Powered by Valyu's institutional-grade search infrastructure. AI financial analysis with real-time data, secure Python execution, and interactive visualizations for research and reporting.",
+    "Powered by Valyu's enterprise-grade search infrastructure. AI financial analysis with real-time data, secure Python execution, and interactive visualizations for research and reporting.",
   applicationName: "Finance by Valyu",
   openGraph: {
     title: "Finance by Valyu",
     description:
-      "Powered by Valyu's institutional-grade search infrastructure. AI financial analysis with real-time data, secure Python execution, and interactive visualizations.",
+      "Powered by Valyu's enterprise-grade search infrastructure. AI financial analysis with real-time data, secure Python execution, and interactive visualizations.",
     url: "/",
     siteName: "Finance by Valyu",
     images: [

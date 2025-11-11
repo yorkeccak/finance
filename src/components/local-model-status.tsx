@@ -56,6 +56,16 @@ export function LocalModelStatus() {
     try {
       const response = await fetch(endpoint);
       const data = await response.json();
+
+      // Filter out embedding models for LM Studio
+      if (provider === 'lmstudio' && data.models) {
+        data.models = data.models.filter((m: LocalModel) =>
+          !m.name.includes('embed') &&
+          !m.name.includes('embedding') &&
+          !m.name.includes('nomic')
+        );
+      }
+
       return data;
     } catch (error) {
       return {
@@ -76,10 +86,35 @@ export function LocalModelStatus() {
     setOllamaStatus(ollama);
     setLMStudioStatus(lmstudio);
 
-    // Auto-select first available model if none selected
-    const currentStatus = selectedProvider === 'ollama' ? ollama : lmstudio;
-    if (currentStatus.connected && currentStatus.models && currentStatus.models.length > 0 && !selectedModel) {
-      setSelectedModel(currentStatus.models[0].name);
+    console.log('[LocalModelStatus] Provider status - Ollama:', ollama.connected, 'LM Studio:', lmstudio.connected);
+    console.log('[LocalModelStatus] Current state - Provider:', selectedProvider, 'Model:', selectedModel);
+
+    // Auto-switch to available provider if current one is offline
+    if (selectedProvider === 'ollama' && !ollama.connected && lmstudio.connected) {
+      console.log('[LocalModelStatus] Auto-switching from Ollama to LM Studio');
+      setSelectedProvider('lmstudio');
+      // Only auto-select first model if no model is selected
+      if (!selectedModel && lmstudio.models && lmstudio.models.length > 0) {
+        setSelectedModel(lmstudio.models[0].name);
+        console.log('[LocalModelStatus] Auto-selected LM Studio model:', lmstudio.models[0].name);
+      }
+    } else if (selectedProvider === 'lmstudio' && !lmstudio.connected && ollama.connected) {
+      console.log('[LocalModelStatus] Auto-switching from LM Studio to Ollama');
+      setSelectedProvider('ollama');
+      // Only auto-select first model if no model is selected
+      if (!selectedModel && ollama.models && ollama.models.length > 0) {
+        setSelectedModel(ollama.models[0].name);
+        console.log('[LocalModelStatus] Auto-selected Ollama model:', ollama.models[0].name);
+      }
+    } else if (!selectedModel) {
+      // Auto-select first available model ONLY if none is selected
+      const currentStatus = selectedProvider === 'ollama' ? ollama : lmstudio;
+      if (currentStatus.connected && currentStatus.models && currentStatus.models.length > 0) {
+        setSelectedModel(currentStatus.models[0].name);
+        console.log('[LocalModelStatus] Auto-selected first model from', selectedProvider, ':', currentStatus.models[0].name);
+      }
+    } else {
+      console.log('[LocalModelStatus] Keeping existing model selection:', selectedModel);
     }
   };
 
@@ -118,38 +153,64 @@ export function LocalModelStatus() {
   const providerDisplayName = selectedProvider === 'lmstudio' ? 'LM Studio' : 'Ollama';
   const providerLogo = selectedProvider === 'lmstudio' ? '/lmstudio.png' : '/ollama.png';
 
+  // Check if any provider is connected
+  const anyConnected = ollamaStatus?.connected || lmstudioStatus?.connected;
+  const ollamaConnected = ollamaStatus?.connected || false;
+  const lmStudioConnected = lmstudioStatus?.connected || false;
+
   return (
     <>
-      {/* Minimized button */}
+      {/* Minimized button - ALWAYS show BOTH provider icons */}
       {isMinimized && (
         <motion.button
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.8 }}
           onClick={() => setIsMinimized(false)}
-          className={`fixed top-6 right-6 z-40 p-2.5 rounded-xl shadow-lg transition-all ${
-            isOnline && isEnabled
+          className={`fixed top-6 right-6 z-40 px-2.5 py-2 rounded-xl shadow-lg transition-all ${
+            anyConnected && isEnabled
               ? "bg-white dark:bg-gray-900 border-green-500 hover:shadow-xl hover:scale-105"
-              : isOnline && !isEnabled
+              : anyConnected && !isEnabled
               ? "bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 hover:shadow-xl hover:scale-105"
               : "bg-white dark:bg-gray-900 border-red-500 hover:shadow-xl hover:scale-105"
           } border-2`}
         >
-          <div className="relative">
-            <Image
-              src={providerLogo}
-              alt={providerDisplayName}
-              width={24}
-              height={24}
-              className={`transition-all ${
-                isOnline && isEnabled
-                  ? "opacity-100"
-                  : "opacity-50 grayscale"
-              }`}
-            />
-            {isOnline && isEnabled && (
-              <span className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-green-500 rounded-full animate-pulse ring-2 ring-white dark:ring-gray-900" />
-            )}
+          <div className="flex items-center gap-1.5">
+            {/* LM Studio icon */}
+            <div className="relative">
+              <Image
+                src="/lmstudio.png"
+                alt="LM Studio"
+                width={20}
+                height={20}
+                className={`transition-all ${
+                  lmStudioConnected && isEnabled
+                    ? "opacity-100"
+                    : "opacity-30 grayscale"
+                }`}
+              />
+              {lmStudioConnected && isEnabled && selectedProvider === 'lmstudio' && (
+                <span className="absolute -top-1 -right-1 h-2 w-2 bg-green-500 rounded-full animate-pulse ring-2 ring-white dark:ring-gray-900" />
+              )}
+            </div>
+
+            {/* Ollama icon */}
+            <div className="relative">
+              <Image
+                src="/ollama.png"
+                alt="Ollama"
+                width={20}
+                height={20}
+                className={`transition-all ${
+                  ollamaConnected && isEnabled
+                    ? "opacity-100"
+                    : "opacity-30 grayscale"
+                }`}
+              />
+              {ollamaConnected && isEnabled && selectedProvider === 'ollama' && (
+                <span className="absolute -top-1 -right-1 h-2 w-2 bg-green-500 rounded-full animate-pulse ring-2 ring-white dark:ring-gray-900" />
+              )}
+            </div>
           </div>
         </motion.button>
       )}
@@ -213,33 +274,52 @@ export function LocalModelStatus() {
                 </div>
               </div>
 
-              {/* Provider Switcher */}
-              {availableProviders.length > 1 && (
-                <div className="mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">
-                  <span className="text-xs text-gray-500 dark:text-gray-400 mb-2 block">Provider</span>
-                  <div className="flex gap-2">
-                    {availableProviders.map(({ type, status }) => (
-                      <button
-                        key={type}
-                        onClick={() => setSelectedProvider(type)}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-1 ${
-                          selectedProvider === type
-                            ? 'bg-primary/10 text-primary border border-primary/20'
-                            : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-transparent hover:border-gray-300 dark:hover:border-gray-600'
-                        }`}
-                      >
-                        <Image
-                          src={type === 'ollama' ? '/ollama.png' : '/lmstudio.png'}
-                          alt={type}
-                          width={16}
-                          height={16}
-                        />
-                        <span>{type === 'lmstudio' ? 'LM Studio' : 'Ollama'}</span>
-                      </button>
-                    ))}
-                  </div>
+              {/* Provider Switcher - Always show both options */}
+              <div className="mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">
+                <span className="text-xs text-gray-500 dark:text-gray-400 mb-2 block">Provider</span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSelectedProvider('ollama')}
+                    disabled={!ollamaStatus?.connected}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-1 ${
+                      selectedProvider === 'ollama'
+                        ? 'bg-primary/10 text-primary border border-primary/20'
+                        : ollamaStatus?.connected
+                        ? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-transparent hover:border-gray-300 dark:hover:border-gray-600'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 border border-transparent opacity-50 cursor-not-allowed'
+                    }`}
+                  >
+                    <Image
+                      src="/ollama.png"
+                      alt="Ollama"
+                      width={16}
+                      height={16}
+                      className={ollamaStatus?.connected ? '' : 'opacity-50 grayscale'}
+                    />
+                    <span>Ollama</span>
+                  </button>
+                  <button
+                    onClick={() => setSelectedProvider('lmstudio')}
+                    disabled={!lmstudioStatus?.connected}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-1 ${
+                      selectedProvider === 'lmstudio'
+                        ? 'bg-primary/10 text-primary border border-primary/20'
+                        : lmstudioStatus?.connected
+                        ? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-transparent hover:border-gray-300 dark:hover:border-gray-600'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 border border-transparent opacity-50 cursor-not-allowed'
+                    }`}
+                  >
+                    <Image
+                      src="/lmstudio.png"
+                      alt="LM Studio"
+                      width={16}
+                      height={16}
+                      className={lmstudioStatus?.connected ? '' : 'opacity-50 grayscale'}
+                    />
+                    <span>LM Studio</span>
+                  </button>
                 </div>
-              )}
+              </div>
 
               {isOnline && (
                 <>

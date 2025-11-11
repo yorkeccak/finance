@@ -167,7 +167,7 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
             Unlock Professional-Grade Financial Intelligence
           </DialogTitle>
           <p className="text-sm text-gray-600 dark:text-gray-400 text-center max-w-lg mx-auto">
-            Access institutional-quality research tools that save hours of analysis time. Choose the plan that fits your workflow.
+            Access enterprise-quality research tools that save hours of analysis time. Choose the plan that fits your workflow.
           </p>
         </DialogHeader>
 

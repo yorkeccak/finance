@@ -377,7 +377,7 @@ function HomeContent() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.6, ease: "easeOut" }}
               >
-                Powered by Valyu&apos;s institutional-grade search infrastructure for real-time financial analysis
+                Powered by Valyu&apos;s enterprise-grade search infrastructure for real-time financial analysis
               </motion.p>
             </motion.div>
           )}

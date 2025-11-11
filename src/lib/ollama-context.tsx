@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 export type LocalProvider = 'ollama' | 'lmstudio';
 
@@ -14,8 +14,33 @@ interface LocalProviderContextType {
 const LocalProviderContext = createContext<LocalProviderContextType | undefined>(undefined);
 
 export function OllamaProvider({ children }: { children: ReactNode }) {
-  const [selectedModel, setSelectedModel] = useState<string | null>(null);
-  const [selectedProvider, setSelectedProvider] = useState<LocalProvider>('ollama');
+  const [selectedModel, setSelectedModel] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('local-model-selected') || null;
+    }
+    return null;
+  });
+  const [selectedProvider, setSelectedProvider] = useState<LocalProvider>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('local-provider-selected') as LocalProvider | null;
+      return saved || 'lmstudio';
+    }
+    return 'lmstudio';
+  });
+
+  // Persist selected model to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined' && selectedModel) {
+      localStorage.setItem('local-model-selected', selectedModel);
+    }
+  }, [selectedModel]);
+
+  // Persist selected provider to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('local-provider-selected', selectedProvider);
+    }
+  }, [selectedProvider]);
 
   return (
     <LocalProviderContext.Provider value={{

@@ -183,9 +183,16 @@ export async function POST(req: Request) {
 
           if (lmstudioResponse.ok) {
             const data = await lmstudioResponse.json();
-            models = data.data.map((m: any) => ({ name: m.id })) || [];
+            // Filter out embedding models - only keep chat/LLM models
+            const allModels = data.data.map((m: any) => ({ name: m.id })) || [];
+            models = allModels.filter((m: any) =>
+              !m.name.includes('embed') &&
+              !m.name.includes('embedding') &&
+              !m.name.includes('nomic')
+            );
             providerName = 'LM Studio';
             baseURL = `${lmstudioBaseUrl}/v1`;
+            console.log(`[Chat API] LM Studio - Filtered ${allModels.length - models.length} embedding models from ${allModels.length} total models`);
           } else {
             throw new Error(`LM Studio API responded with status ${lmstudioResponse.status}`);
           }
@@ -231,20 +238,26 @@ export async function POST(req: Request) {
             selectedModelName.toLowerCase().includes(thinkModel.toLowerCase())
           );
 
-          // Create OpenAI-compatible client
+          // Both use OpenAI-compatible endpoints
           const localProviderClient = createOpenAI({
             baseURL: baseURL,
-            apiKey: localProvider === 'lmstudio' ? 'lm-studio' : 'ollama', // Dummy API keys
+            apiKey: localProvider === 'lmstudio' ? 'lm-studio' : 'ollama',
           });
 
-          // Create a chat model explicitly
           selectedModel = localProviderClient.chat(selectedModelName);
+
           modelInfo = `${providerName} (${selectedModelName})${supportsThinking ? ' [Reasoning]' : ''} - Development Mode`;
         } else {
           throw new Error(`No models available in ${localProvider}`);
         }
       } catch (error) {
         // Fallback to OpenAI in development mode
+        console.error(`[Chat API] Local provider error (${localProvider}):`, error);
+        console.log('[Chat API] Headers received:', {
+          'x-ollama-enabled': req.headers.get('x-ollama-enabled'),
+          'x-local-provider': req.headers.get('x-local-provider'),
+          'x-ollama-model': req.headers.get('x-ollama-model')
+        });
         selectedModel = hasOpenAIKey ? openai("gpt-5") : "openai/gpt-5";
         modelInfo = hasOpenAIKey
           ? "OpenAI (gpt-5) - Development Mode Fallback"

@@ -1,6 +1,6 @@
 # Supabase Database Setup
 
-This directory contains SQL scripts for setting up the BioMed AI database in Supabase.
+This directory contains SQL scripts for setting up the Finance database in Supabase.
 
 ## Quick Start
 

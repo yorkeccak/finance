@@ -77,53 +77,119 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // 3. Check if user exists
-    const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-
+    // 3. Try to create user first, handle email_exists by looking up existing user
     let userId: string;
-    const existingUser = existingUsers?.users?.find(u => u.email === valyuUser.email);
 
-    if (existingUser) {
-      // User exists
-      userId = existingUser.id;
-      console.log('[Valyu Session] Found existing user:', userId);
+    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email: valyuUser.email,
+      email_confirm: true, // Auto-confirm since Valyu already verified
+      user_metadata: {
+        valyu_sub: valyuUser.sub,
+        full_name: valyuUser.name || valyuUser.given_name,
+        avatar_url: valyuUser.picture,
+        valyu_user_type: valyuUser.valyu_user_type,
+        valyu_organisation_id: valyuUser.valyu_organisation_id,
+        valyu_organisation_name: valyuUser.valyu_organisation_name,
+      },
+    });
 
-      // Update user metadata with latest Valyu info
-      await supabaseAdmin.auth.admin.updateUserById(userId, {
-        user_metadata: {
-          valyu_sub: valyuUser.sub,
-          full_name: valyuUser.name || valyuUser.given_name,
-          avatar_url: valyuUser.picture,
-          valyu_user_type: valyuUser.valyu_user_type,
-          valyu_organisation_id: valyuUser.valyu_organisation_id,
-          valyu_organisation_name: valyuUser.valyu_organisation_name,
-        },
-      });
-    } else {
-      // Create new user
-      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-        email: valyuUser.email,
-        email_confirm: true, // Auto-confirm since Valyu already verified
-        user_metadata: {
-          valyu_sub: valyuUser.sub,
-          full_name: valyuUser.name || valyuUser.given_name,
-          avatar_url: valyuUser.picture,
-          valyu_user_type: valyuUser.valyu_user_type,
-          valyu_organisation_id: valyuUser.valyu_organisation_id,
-          valyu_organisation_name: valyuUser.valyu_organisation_name,
-        },
-      });
+    if (createError) {
+      // Check if user already exists (handle both error code and message)
+      const isEmailExists = createError.code === 'email_exists' ||
+        createError.message?.includes('already been registered');
 
-      if (createError) {
+      if (isEmailExists) {
+        console.log('[Valyu Session] User exists, looking up by email...');
+
+        // Find existing user by paginating through all users
+        // This is inefficient but Supabase Admin API doesn't have getUserByEmail
+        let page = 1;
+        let foundUser = null;
+
+        while (!foundUser) {
+          const { data: usersPage, error: listError } = await supabaseAdmin.auth.admin.listUsers({
+            page,
+            perPage: 1000,
+          });
+
+          if (listError || !usersPage?.users?.length) {
+            break;
+          }
+
+          foundUser = usersPage.users.find(u => u.email === valyuUser.email);
+          page++;
+
+          // Safety limit
+          if (page > 10) break;
+        }
+
+        if (!foundUser) {
+          console.error('[Valyu Session] User exists but could not find them');
+          return NextResponse.json(
+            { error: 'user_lookup_failed', error_description: 'User exists but could not be found' },
+            { status: 500 }
+          );
+        }
+
+        userId = foundUser.id;
+        console.log('[Valyu Session] Found existing user:', userId);
+
+        // Update user metadata with latest Valyu info
+        await supabaseAdmin.auth.admin.updateUserById(userId, {
+          user_metadata: {
+            valyu_sub: valyuUser.sub,
+            full_name: valyuUser.name || valyuUser.given_name,
+            avatar_url: valyuUser.picture,
+            valyu_user_type: valyuUser.valyu_user_type,
+            valyu_organisation_id: valyuUser.valyu_organisation_id,
+            valyu_organisation_name: valyuUser.valyu_organisation_name,
+          },
+        });
+
+        // Update users table
+        const { error: upsertError } = await supabaseAdmin
+          .from('users')
+          .upsert({
+            id: userId,
+            email: valyuUser.email,
+            avatar_url: valyuUser.picture,
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'id',
+          });
+
+        if (upsertError) {
+          console.error('[Valyu Session] Failed to upsert user profile:', upsertError);
+        } else {
+          console.log('[Valyu Session] Updated user profile');
+        }
+      } else {
+        // Some other error
         console.error('[Valyu Session] Failed to create user:', createError);
         return NextResponse.json(
           { error: 'create_user_failed', error_description: createError.message },
           { status: 500 }
         );
       }
-
+    } else {
+      // New user created successfully
       userId = newUser.user.id;
       console.log('[Valyu Session] Created new user:', userId);
+
+      // Create user profile in users table
+      const { error: insertError } = await supabaseAdmin
+        .from('users')
+        .insert({
+          id: userId,
+          email: valyuUser.email,
+          avatar_url: valyuUser.picture,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+
+      if (insertError) {
+        console.error('[Valyu Session] Failed to create user profile:', insertError);
+      }
     }
 
     // 4. Generate a magic link to create a session

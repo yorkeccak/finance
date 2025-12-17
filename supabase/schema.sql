@@ -1,8 +1,10 @@
 -- Finance Database Schema
 -- Run this in Supabase SQL Editor to create all required tables
+-- Safe to run multiple times (uses IF NOT EXISTS)
+-- NOTE: All users must authenticate with Valyu. Credits are handled by Valyu Platform.
 
 -- Users table (extends auth.users)
-CREATE TABLE public.users (
+CREATE TABLE IF NOT EXISTS public.users (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   email text NOT NULL UNIQUE,
   avatar_url text,
@@ -12,7 +14,7 @@ CREATE TABLE public.users (
 );
 
 -- Chat sessions
-CREATE TABLE public.chat_sessions (
+CREATE TABLE IF NOT EXISTS public.chat_sessions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   title text NOT NULL DEFAULT 'New Chat'::text,
@@ -24,7 +26,7 @@ CREATE TABLE public.chat_sessions (
 );
 
 -- Chat messages
-CREATE TABLE public.chat_messages (
+CREATE TABLE IF NOT EXISTS public.chat_messages (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   session_id uuid NOT NULL,
   role text NOT NULL CHECK (role = ANY (ARRAY['user'::text, 'assistant'::text, 'system'::text])),
@@ -38,7 +40,7 @@ CREATE TABLE public.chat_messages (
 );
 
 -- Charts (user must be authenticated)
-CREATE TABLE public.charts (
+CREATE TABLE IF NOT EXISTS public.charts (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   session_id text NOT NULL,
@@ -50,7 +52,7 @@ CREATE TABLE public.charts (
 );
 
 -- CSVs (user must be authenticated)
-CREATE TABLE public.csvs (
+CREATE TABLE IF NOT EXISTS public.csvs (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   session_id text NOT NULL,
@@ -65,7 +67,7 @@ CREATE TABLE public.csvs (
 );
 
 -- Collections (for saved research)
-CREATE TABLE public.collections (
+CREATE TABLE IF NOT EXISTS public.collections (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   title text NOT NULL,
@@ -77,7 +79,7 @@ CREATE TABLE public.collections (
 );
 
 -- Collection items
-CREATE TABLE public.collection_items (
+CREATE TABLE IF NOT EXISTS public.collection_items (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   collection_id uuid NOT NULL,
   title text NOT NULL,
@@ -92,11 +94,11 @@ CREATE TABLE public.collection_items (
   CONSTRAINT items_collection_id_fkey FOREIGN KEY (collection_id) REFERENCES public.collections(id) ON DELETE CASCADE
 );
 
--- Indexes for performance
-CREATE INDEX idx_chat_sessions_user_id ON public.chat_sessions(user_id);
-CREATE INDEX idx_chat_sessions_last_message ON public.chat_sessions(last_message_at DESC);
-CREATE INDEX idx_chat_messages_session_id ON public.chat_messages(session_id);
-CREATE INDEX idx_charts_user_id ON public.charts(user_id);
-CREATE INDEX idx_csvs_user_id ON public.csvs(user_id);
-CREATE INDEX idx_collections_user_id ON public.collections(user_id);
-CREATE INDEX idx_collection_items_collection_id ON public.collection_items(collection_id);
+-- Indexes for performance (IF NOT EXISTS)
+CREATE INDEX IF NOT EXISTS idx_chat_sessions_user_id ON public.chat_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_chat_sessions_last_message ON public.chat_sessions(last_message_at DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_session_id ON public.chat_messages(session_id);
+CREATE INDEX IF NOT EXISTS idx_charts_user_id ON public.charts(user_id);
+CREATE INDEX IF NOT EXISTS idx_csvs_user_id ON public.csvs(user_id);
+CREATE INDEX IF NOT EXISTS idx_collections_user_id ON public.collections(user_id);
+CREATE INDEX IF NOT EXISTS idx_collection_items_collection_id ON public.collection_items(collection_id);

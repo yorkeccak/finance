@@ -20,6 +20,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || '';
 // Allowed redirect URIs - must match exactly
 const ALLOWED_REDIRECT_URIS = [
   `${APP_URL}/auth/valyu/callback`,
+  'https://finance.valyu.ai/auth/valyu/callback',
   'http://localhost:3000/auth/valyu/callback',
   'http://127.0.0.1:3000/auth/valyu/callback',
 ].filter(Boolean); // Remove empty strings if APP_URL not set

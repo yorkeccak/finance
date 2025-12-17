@@ -2295,7 +2295,7 @@ export function ChatInterface({
 
       // In production mode, require Valyu sign-in to submit prompts
       if (!isDevelopment && !user && !skipSignupPrompt) {
-        setShowSignupPrompt(true);
+        setShowAuthModal(true);
         return; // Don't send message yet - require sign in
       }
 

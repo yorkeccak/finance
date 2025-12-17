@@ -1,5 +1,6 @@
 -- Row Level Security Policies
 -- Run this in Supabase SQL Editor after creating tables
+-- Safe to run multiple times (drops existing policies first)
 
 -- Enable RLS on all tables
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
@@ -11,6 +12,12 @@ ALTER TABLE public.collections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.collection_items ENABLE ROW LEVEL SECURITY;
 
 -- Users table policies
+DROP POLICY IF EXISTS "Users can view their own data" ON public.users;
+DROP POLICY IF EXISTS "Users can update their own data" ON public.users;
+DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.users;
+DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.users;
+DROP POLICY IF EXISTS "Enable update for authenticated users" ON public.users;
+
 CREATE POLICY "Users can view their own data" ON public.users
   FOR SELECT USING (auth.uid() = id);
 
@@ -27,10 +34,14 @@ CREATE POLICY "Enable update for authenticated users" ON public.users
   FOR UPDATE USING (true);
 
 -- Chat sessions policies (authenticated users only)
+DROP POLICY IF EXISTS "Users can manage own sessions" ON public.chat_sessions;
+
 CREATE POLICY "Users can manage own sessions" ON public.chat_sessions
   FOR ALL USING (auth.uid() = user_id);
 
 -- Chat messages policies (authenticated users only)
+DROP POLICY IF EXISTS "Users can manage own messages" ON public.chat_messages;
+
 CREATE POLICY "Users can manage own messages" ON public.chat_messages
   FOR ALL USING (
     EXISTS (
@@ -40,7 +51,12 @@ CREATE POLICY "Users can manage own messages" ON public.chat_messages
     )
   );
 
--- Charts policies (authenticated users only - no anonymous access)
+-- Charts policies (authenticated users only)
+DROP POLICY IF EXISTS "Users can view own charts" ON public.charts;
+DROP POLICY IF EXISTS "Users can insert own charts" ON public.charts;
+DROP POLICY IF EXISTS "Users can update own charts" ON public.charts;
+DROP POLICY IF EXISTS "Users can delete own charts" ON public.charts;
+
 CREATE POLICY "Users can view own charts" ON public.charts
   FOR SELECT USING (auth.uid() = user_id);
 
@@ -53,7 +69,12 @@ CREATE POLICY "Users can update own charts" ON public.charts
 CREATE POLICY "Users can delete own charts" ON public.charts
   FOR DELETE USING (auth.uid() = user_id);
 
--- CSVs policies (authenticated users only - no anonymous access)
+-- CSVs policies (authenticated users only)
+DROP POLICY IF EXISTS "Users can view own csvs" ON public.csvs;
+DROP POLICY IF EXISTS "Users can insert own csvs" ON public.csvs;
+DROP POLICY IF EXISTS "Users can update own csvs" ON public.csvs;
+DROP POLICY IF EXISTS "Users can delete own csvs" ON public.csvs;
+
 CREATE POLICY "Users can view own csvs" ON public.csvs
   FOR SELECT USING (auth.uid() = user_id);
 
@@ -67,6 +88,9 @@ CREATE POLICY "Users can delete own csvs" ON public.csvs
   FOR DELETE USING (auth.uid() = user_id);
 
 -- Collections policies (authenticated users only)
+DROP POLICY IF EXISTS "collections_select_own" ON public.collections;
+DROP POLICY IF EXISTS "collections_modify_own" ON public.collections;
+
 CREATE POLICY "collections_select_own" ON public.collections
   FOR SELECT USING (auth.uid() = user_id);
 
@@ -74,6 +98,9 @@ CREATE POLICY "collections_modify_own" ON public.collections
   FOR ALL USING (auth.uid() = user_id);
 
 -- Collection items policies (authenticated users only)
+DROP POLICY IF EXISTS "items_select_if_owns_parent" ON public.collection_items;
+DROP POLICY IF EXISTS "items_modify_if_owns_parent" ON public.collection_items;
+
 CREATE POLICY "items_select_if_owns_parent" ON public.collection_items
   FOR SELECT USING (
     EXISTS (

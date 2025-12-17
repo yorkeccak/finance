@@ -6,20 +6,15 @@ CREATE TABLE public.users (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   email text NOT NULL UNIQUE,
   avatar_url text,
-  subscription_tier text DEFAULT 'free'::text
-    CHECK (subscription_tier = ANY (ARRAY['free'::text, 'pay_per_use'::text, 'unlimited'::text])),
-  polar_customer_id text UNIQUE,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
-  subscription_id text,
-  subscription_status text DEFAULT 'inactive'::text,
   CONSTRAINT users_pkey PRIMARY KEY (id)
 );
 
 -- Chat sessions
 CREATE TABLE public.chat_sessions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  user_id uuid,
+  user_id uuid NOT NULL,
   title text NOT NULL DEFAULT 'New Chat'::text,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
@@ -31,7 +26,7 @@ CREATE TABLE public.chat_sessions (
 -- Chat messages
 CREATE TABLE public.chat_messages (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  session_id uuid,
+  session_id uuid NOT NULL,
   role text NOT NULL CHECK (role = ANY (ARRAY['user'::text, 'assistant'::text, 'system'::text])),
   content jsonb NOT NULL,
   tool_calls jsonb,
@@ -42,46 +37,31 @@ CREATE TABLE public.chat_messages (
   CONSTRAINT chat_messages_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.chat_sessions(id) ON DELETE CASCADE
 );
 
--- Charts
+-- Charts (user must be authenticated)
 CREATE TABLE public.charts (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  user_id uuid,
-  session_id text,
+  user_id uuid NOT NULL,
+  session_id text NOT NULL,
   chart_data jsonb NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
-  anonymous_id text,
   CONSTRAINT charts_pkey PRIMARY KEY (id),
   CONSTRAINT charts_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
 );
 
--- CSVs
+-- CSVs (user must be authenticated)
 CREATE TABLE public.csvs (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  user_id uuid,
-  session_id text,
+  user_id uuid NOT NULL,
+  session_id text NOT NULL,
   title text NOT NULL,
   description text,
   headers text[] NOT NULL,
   rows jsonb NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
-  anonymous_id text,
   CONSTRAINT csvs_pkey PRIMARY KEY (id),
   CONSTRAINT csvs_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
-);
-
--- Rate limits
-CREATE TABLE public.user_rate_limits (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  user_id uuid UNIQUE,
-  usage_count integer NOT NULL DEFAULT 0,
-  reset_date text NOT NULL,
-  last_request_at timestamp with time zone DEFAULT now(),
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT user_rate_limits_pkey PRIMARY KEY (id),
-  CONSTRAINT user_rate_limits_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE
 );
 
 -- Collections (for saved research)

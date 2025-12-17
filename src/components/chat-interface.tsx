@@ -14,11 +14,10 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { useLocalProvider } from "@/lib/ollama-context";
 import { useAuthStore } from "@/lib/stores/use-auth-store";
-import { useSubscription } from "@/hooks/use-subscription";
+// useSubscription removed - Valyu OAuth handles billing
 import { createClient } from '@/utils/supabase/client-wrapper';
 import { track } from '@vercel/analytics';
 import { AuthModal } from '@/components/auth/auth-modal';
-import { RateLimitBanner } from '@/components/rate-limit-banner';
 import { ModelCompatibilityDialog } from '@/components/model-compatibility-dialog';
 
 import {
@@ -1593,29 +1592,19 @@ const SearchResultsCarousel = ({
 export function ChatInterface({
   sessionId,
   onMessagesChange,
-  onRateLimitError,
   onSessionCreated,
   onNewChat,
-  rateLimitProps,
 }: {
   sessionId?: string;
   onMessagesChange?: (hasMessages: boolean) => void;
-  onRateLimitError?: (resetTime: string) => void;
   onSessionCreated?: (sessionId: string) => void;
   onNewChat?: () => void;
-  rateLimitProps?: {
-    allowed?: boolean;
-    remaining?: number;
-    resetTime?: Date;
-    increment: () => Promise<any>;
-  };
 }) {
   const [input, setInput] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
   const [isTraceExpanded, setIsTraceExpanded] = useState(false);
-  const [isRateLimited, setIsRateLimited] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | undefined>(undefined);
   const sessionIdRef = useRef<string | undefined>(undefined);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
@@ -1638,49 +1627,12 @@ export function ChatInterface({
 
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  // Rate limit props passed from parent
-  const { allowed, remaining, resetTime, increment } = rateLimitProps || {};
-  const canSendQuery = allowed;
 
-  // Optimistic rate limit increment mutation
-  const rateLimitMutation = useMutation({
-    mutationFn: async () => {
-      // This is a dummy mutation since the actual increment happens server-side
-      return Promise.resolve();
-    },
-    onMutate: async () => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['rateLimit'] });
-      
-      // Snapshot previous value
-      const previousData = queryClient.getQueryData(['rateLimit']);
-      
-      // Optimistically update
-      queryClient.setQueryData(['rateLimit'], (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          used: (old.used || 0) + 1,
-          remaining: Math.max(0, (old.remaining || 0) - 1),
-          allowed: (old.used || 0) + 1 < (old.limit || 5)
-        };
-      });
-      
-      return { previousData };
-    },
-    onError: (err, variables, context) => {
-      // Rollback on error
-      if (context?.previousData) {
-        queryClient.setQueryData(['rateLimit'], context.previousData);
-      }
-    },
-    // No onSettled - let the optimistic update persist until chat finishes
-  });
-
+  // Check if we're in development mode (no auth required)
+  const isDevelopment = process.env.NEXT_PUBLIC_APP_MODE === 'development';
 
   const { selectedModel, selectedProvider } = useLocalProvider();
   const user = useAuthStore((state) => state.user);
-  const subscription = useSubscription();
 
   // Auth modal state for paywalls
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -1830,6 +1782,9 @@ export function ChatInterface({
 
   // Placeholder for loadSessionMessages - will be defined after useChat hook
   
+  // Get Valyu access token for API proxy calls
+  const getValyuAccessToken = useAuthStore((state) => state.getValyuAccessToken);
+
   const transport = useMemo(() =>
     new DefaultChatTransport({
       api: "/api/chat",
@@ -1859,17 +1814,21 @@ export function ChatInterface({
           }
         }
 
+        // Get Valyu access token for API proxy calls
+        const valyuAccessToken = getValyuAccessToken();
+
         // Rate limit increment is handled by the backend API
 
         return {
           body: {
             messages,
             sessionId: sessionIdRef.current,
+            valyuAccessToken, // Pass Valyu token for API proxy
           },
           headers,
         };
       }
-    }), [selectedModel, selectedProvider, user, increment]
+    }), [selectedModel, selectedProvider, user, getValyuAccessToken]
   );
 
   const {
@@ -1886,10 +1845,7 @@ export function ChatInterface({
     // Automatically submit when all tool results are available
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
     onFinish: () => {
-      // Sync with server when chat completes (server has definitely processed increment by now)
-      if (user) {
-        queryClient.invalidateQueries({ queryKey: ['rateLimit'] });
-      }
+      // Chat completed successfully
     },
     onError: (error: Error) => {
       console.error('[Chat Interface] Error:', error);
@@ -2010,11 +1966,6 @@ export function ChatInterface({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]); // Only sessionId prop dependency - internal state changes should not retrigger this
 
-  // Check rate limit status 
-  useEffect(() => {
-    setIsRateLimited(!canSendQuery);
-  }, [canSendQuery]);
-
   // Detect mobile device
   useEffect(() => {
     const checkMobile = () => {
@@ -2033,26 +1984,15 @@ export function ChatInterface({
     return () => window.removeEventListener('resize', checkMobile);
   }, []); // Empty dependency array - only run on mount
 
-  // Handle rate limit errors
+  // Handle auth errors - show sign in prompt if AUTH_REQUIRED
   useEffect(() => {
     if (error) {
-      
-      // Check if it's a rate limit error
-      if (error.message && (error.message.includes('RATE_LIMIT_EXCEEDED') || error.message.includes('429'))) {
-        setIsRateLimited(true);
-        try {
-          // Try to extract reset time from error response
-          const errorData = JSON.parse(error.message);
-          const resetTime = errorData.resetTime || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-          onRateLimitError?.(resetTime);
-        } catch (e) {
-          // Fallback: use default reset time (next day)
-          const resetTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-          onRateLimitError?.(resetTime);
-        }
+      // Check if it's an auth required error
+      if (error.message && error.message.includes('AUTH_REQUIRED')) {
+        setShowSignupPrompt(true);
       }
     }
-  }, [error]); // Remove onRateLimitError from dependencies to prevent infinite loops
+  }, [error]);
 
   // Notify parent component about message state changes
   useEffect(() => {
@@ -2350,22 +2290,13 @@ export function ChatInterface({
   const handleSubmit = async (e: React.FormEvent, skipSignupPrompt = false) => {
     e.preventDefault();
     if (input.trim() && status === "ready") {
-      // Check current rate limit status immediately before sending
-
-      if (!canSendQuery) {
-        // Rate limit exceeded - show dialog and don't send message or update URL
-        setIsRateLimited(true);
-        onRateLimitError?.(resetTime?.toISOString() || new Date().toISOString());
-        return;
-      }
-
       // Store the input to send
       const queryText = input.trim();
 
-      // Show signup prompt for non-authenticated users on first message
-      if (!user && messages.length === 0 && !skipSignupPrompt) {
+      // In production mode, require Valyu sign-in to submit prompts
+      if (!isDevelopment && !user && !skipSignupPrompt) {
         setShowSignupPrompt(true);
-        return; // Don't send message yet
+        return; // Don't send message yet - require sign in
       }
 
       // Set submitting flag to prevent URL sync race condition
@@ -2379,7 +2310,6 @@ export function ChatInterface({
         query: queryText,
         queryLength: queryText.length,
         messageCount: messages.length,
-        remainingQueries: remaining ? remaining - 1 : 0
       });
 
       updateUrlWithQuery(queryText);
@@ -2402,22 +2332,8 @@ export function ChatInterface({
         }
       }
 
-      // Increment rate limit for anonymous users (authenticated users handled server-side)
-      if (!user && increment) {
-        try {
-          const result = await increment();
-        } catch (error) {
-          // Continue with message sending even if increment fails
-        }
-      }
-
       // Send message with sessionId available for usage tracking
       sendMessage({ text: queryText });
-      
-      // For authenticated users, trigger optimistic rate limit update
-      if (user) {
-        rateLimitMutation.mutate();
-      }
     }
   };
 
@@ -3754,7 +3670,7 @@ export function ChatInterface({
                       {/* Show download button only for last message when session exists */}
                       {deferredMessages[deferredMessages.length - 1]?.id === message.id &&
                        sessionIdRef.current && (
-                        subscription.canDownloadReports ? (
+                        user ? (
                           <button
                             onClick={handleDownloadPDF}
                             disabled={isDownloadingPDF}
@@ -3877,21 +3793,20 @@ export function ChatInterface({
           <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
             <AlertCircle className="h-4 w-4" />
             <span className="font-medium">
-              {error.message?.includes('PAYMENT_REQUIRED') ? 'Payment Setup Required' : 'Something went wrong'}
+              {error.message?.includes('CREDITS_REQUIRED') ? 'Valyu Credits Required' : 'Something went wrong'}
             </span>
           </div>
           <p className="text-red-600 dark:text-red-400 text-sm mt-1">
-            {error.message?.includes('PAYMENT_REQUIRED') 
-              ? 'You need to set up a payment method to use the pay-per-use plan. You only pay for what you use.'
-              : 'Please check your API keys and try again.'
+            {error.message?.includes('CREDITS_REQUIRED')
+              ? 'You need Valyu credits in your organization to use this feature. Add credits at platform.valyu.ai.'
+              : 'Please check your connection and try again.'
             }
           </p>
           <Button
             onClick={() => {
-              if (error.message?.includes('PAYMENT_REQUIRED')) {
-                // Redirect to subscription setup
-                const url = `/api/checkout?plan=pay_per_use&redirect=${encodeURIComponent(window.location.href)}`;
-                window.location.href = url;
+              if (error.message?.includes('CREDITS_REQUIRED')) {
+                // Redirect to Valyu Platform for credits
+                window.open('https://platform.valyu.ai', '_blank');
               } else {
                 window.location.reload();
               }
@@ -3900,10 +3815,10 @@ export function ChatInterface({
             size="sm"
             className="mt-2 text-red-700 border-red-300 hover:bg-red-100 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-900/20"
           >
-            {error.message?.includes('PAYMENT_REQUIRED') ? (
+            {error.message?.includes('CREDITS_REQUIRED') ? (
               <>
                 <span className="mr-1">💳</span>
-                Setup Payment
+                Add Credits
               </>
             ) : (
               <>
@@ -4001,45 +3916,38 @@ export function ChatInterface({
         )}
       </AnimatePresence>
 
-      {/* Rate Limit Banner */}
-      <RateLimitBanner />
-
-      {/* Auth Modal for Paywalls */}
+      {/* Auth Modal for Sign in with Valyu */}
       <AuthModal
         open={showAuthModal}
         onClose={() => setShowAuthModal(false)}
       />
 
-      {/* Signup Prompt Dialog for non-authenticated users */}
+      {/* Sign in Required Dialog - shown when user tries to submit without Valyu auth */}
       <Dialog open={showSignupPrompt} onOpenChange={setShowSignupPrompt}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Sign up to save your chat
+              Sign in with Valyu to continue
             </DialogTitle>
             <DialogDescription className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-              Create a free account to save your chat history and access it anytime.
+              Valyu is the AI search engine powering Finance. Sign in to access comprehensive financial data from SEC filings, earnings reports, market data, and 50+ premium sources.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 mt-6">
+          <div className="space-y-4 mt-6">
+            <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+              <p className="text-sm text-green-800 dark:text-green-200 font-medium">
+                Get $10 free credits on signup - no credit card required!
+              </p>
+            </div>
             <button
               onClick={() => {
                 setShowSignupPrompt(false);
                 setShowAuthModal(true);
               }}
-              className="w-full px-4 py-2.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-medium rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200 transition-all"
+              className="w-full px-4 py-3 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-medium rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
             >
-              Sign up (free)
-            </button>
-            <button
-              onClick={(e) => {
-                setShowSignupPrompt(false);
-                // Submit with skip flag to bypass the signup prompt
-                handleSubmit(e as any, true);
-              }}
-              className="w-full px-4 py-2.5 bg-transparent border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
-            >
-              Continue without account
+              <Image src="/valyu.svg" alt="Valyu" width={20} height={20} className="h-5 w-auto" />
+              Sign in with Valyu
             </button>
           </div>
         </DialogContent>

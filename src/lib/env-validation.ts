@@ -1,4 +1,5 @@
-// Environment variable validation for critical payment and billing systems
+// Environment variable validation for critical systems
+// Now using Valyu OAuth for auth and billing (no more Polar)
 
 interface EnvValidationResult {
   valid: boolean;
@@ -9,13 +10,49 @@ interface EnvValidationResult {
 export function validatePaymentEnvironment(): EnvValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
-  
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  const isProduction = !isDevelopment;
 
-  // Core Supabase requirements (always required)
+  const isDevelopmentMode = process.env.NEXT_PUBLIC_APP_MODE === 'development';
+  const isProductionMode = !isDevelopmentMode;
+
+  // Development mode - minimal requirements
+  if (isDevelopmentMode) {
+    // Just need basic API keys for development
+    if (!process.env.VALYU_API_KEY && !process.env.NEXT_PUBLIC_VALYU_CLIENT_ID) {
+      warnings.push('Neither VALYU_API_KEY nor Valyu OAuth credentials are set - searches will fail');
+    }
+    if (!process.env.DAYTONA_API_KEY) {
+      warnings.push('DAYTONA_API_KEY missing - code execution will fail');
+    }
+    if (!process.env.OPENAI_API_KEY && !process.env.OLLAMA_BASE_URL && !process.env.LMSTUDIO_BASE_URL) {
+      warnings.push('No LLM provider configured - set OPENAI_API_KEY, OLLAMA_BASE_URL, or LMSTUDIO_BASE_URL');
+    }
+
+    return {
+      valid: true, // Development mode is always valid
+      errors,
+      warnings
+    };
+  }
+
+  // Production mode - require full Valyu OAuth + App Supabase
+
+  // Valyu OAuth requirements (4 required variables)
+  if (!process.env.NEXT_PUBLIC_VALYU_SUPABASE_URL) {
+    errors.push('NEXT_PUBLIC_VALYU_SUPABASE_URL is required for Valyu OAuth');
+  }
+  if (!process.env.NEXT_PUBLIC_VALYU_CLIENT_ID) {
+    errors.push('NEXT_PUBLIC_VALYU_CLIENT_ID is required for Valyu OAuth');
+  }
+  if (!process.env.VALYU_CLIENT_SECRET) {
+    errors.push('VALYU_CLIENT_SECRET is required for Valyu OAuth');
+  }
+  if (!process.env.VALYU_APP_URL && !process.env.NEXT_PUBLIC_VALYU_APP_URL) {
+    errors.push('VALYU_APP_URL is required for Valyu OAuth proxy');
+  }
+
+  // App's own Supabase (for user data storage)
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    errors.push('NEXT_PUBLIC_SUPABASE_URL is required');
+    errors.push('NEXT_PUBLIC_SUPABASE_URL is required for app data storage');
   }
   if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     errors.push('NEXT_PUBLIC_SUPABASE_ANON_KEY is required');
@@ -24,47 +61,25 @@ export function validatePaymentEnvironment(): EnvValidationResult {
     errors.push('SUPABASE_SERVICE_ROLE_KEY is required');
   }
 
-  // Production-only requirements
-  if (isProduction) {
-    // Polar requirements
-    if (!process.env.POLAR_ACCESS_TOKEN) {
-      errors.push('POLAR_ACCESS_TOKEN is required in production');
-    }
-    if (!process.env.POLAR_WEBHOOK_SECRET) {
-      errors.push('POLAR_WEBHOOK_SECRET is required in production');
-    }
-    if (!process.env.POLAR_UNLIMITED_PRODUCT_ID) {
-      errors.push('POLAR_UNLIMITED_PRODUCT_ID is required in production');
-    }
-    if (!process.env.POLAR_PAY_PER_USE_PRODUCT_ID) {
-      errors.push('POLAR_PAY_PER_USE_PRODUCT_ID is required in production');
-    }
-    
-    // API keys for usage tracking
-    if (!process.env.VALYU_API_KEY) {
-      warnings.push('VALYU_API_KEY missing - financial/web search will fail');
-    }
-    if (!process.env.DAYTONA_API_KEY) {
-      warnings.push('DAYTONA_API_KEY missing - code execution will fail');
-    }
-    if (!process.env.OPENAI_API_KEY) {
-      warnings.push('OPENAI_API_KEY missing - will use Vercel AI Gateway');
-    }
+  // Other API requirements
+  if (!process.env.DAYTONA_API_KEY) {
+    warnings.push('DAYTONA_API_KEY missing - code execution will fail');
+  }
+  if (!process.env.OPENAI_API_KEY) {
+    warnings.push('OPENAI_API_KEY missing - will use Vercel AI Gateway');
   }
 
-  // Development warnings
-  if (isDevelopment) {
-    if (!process.env.POLAR_ACCESS_TOKEN) {
-      warnings.push('POLAR_ACCESS_TOKEN missing - payment testing will be limited');
-    }
-    if (!process.env.POLAR_PAY_PER_USE_PRODUCT_ID) {
-      warnings.push('POLAR_PAY_PER_USE_PRODUCT_ID missing - cannot test pay-per-use flow');
-    }
+  // Optional fallback API key
+  if (!process.env.VALYU_API_KEY) {
+    warnings.push('VALYU_API_KEY missing - no fallback for anonymous users');
   }
 
   // Validate URL formats
   if (process.env.NEXT_PUBLIC_SUPABASE_URL && !process.env.NEXT_PUBLIC_SUPABASE_URL.startsWith('https://')) {
     errors.push('NEXT_PUBLIC_SUPABASE_URL must be a valid HTTPS URL');
+  }
+  if (process.env.NEXT_PUBLIC_VALYU_SUPABASE_URL && !process.env.NEXT_PUBLIC_VALYU_SUPABASE_URL.startsWith('https://')) {
+    errors.push('NEXT_PUBLIC_VALYU_SUPABASE_URL must be a valid HTTPS URL');
   }
 
   return {
@@ -76,22 +91,23 @@ export function validatePaymentEnvironment(): EnvValidationResult {
 
 export function logEnvironmentStatus(): void {
   const validation = validatePaymentEnvironment();
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  
-  if (validation.valid) {
-  } else {
+
+  if (!validation.valid) {
+    console.error('[ENV] Configuration errors:');
     validation.errors.forEach(error => console.error(`  - ${error}`));
   }
-  
+
   if (validation.warnings.length > 0) {
+    console.warn('[ENV] Configuration warnings:');
     validation.warnings.forEach(warning => console.warn(`  - ${warning}`));
   }
 }
 
-// Auto-validate on import in production
-if (process.env.NODE_ENV !== 'development') {
+// Auto-validate on import in production mode
+if (process.env.NEXT_PUBLIC_APP_MODE !== 'development') {
   const validation = validatePaymentEnvironment();
   if (!validation.valid) {
+    console.error('[ENV] Environment validation failed:');
     validation.errors.forEach(error => console.error(`  - ${error}`));
     // Don't throw in production to avoid complete app failure, but log critically
   }

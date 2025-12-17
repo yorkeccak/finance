@@ -83,10 +83,10 @@ export function SignupPrompt({ open, onClose, onSignUp, messageCount }: SignupPr
                     </div>
                     <div>
                       <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
-                        Higher Rate Limits
+                        $10 Free Credits
                       </h3>
                       <p className="text-xs text-gray-600 dark:text-gray-400">
-                        Free tier: 5 queries/day. Unlimited queries with paid plans.
+                        Get $10 free credits on signup. No credit card required.
                       </p>
                     </div>
                   </div>

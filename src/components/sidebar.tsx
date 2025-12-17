@@ -11,11 +11,9 @@ import {
   MessageSquare,
   MessagesSquare,
   MessageCirclePlus,
-  History,
   Settings,
   LogOut,
   Trash2,
-  CreditCard,
   BarChart3,
   Plus,
   Building2,
@@ -24,8 +22,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { SettingsModal } from '@/components/user/settings-modal';
-import { SubscriptionModal } from '@/components/user/subscription-modal';
-import { useSubscription } from '@/hooks/use-subscription';
 import { EnterpriseContactModal } from '@/components/enterprise/enterprise-contact-modal';
 
 interface SidebarProps {
@@ -61,7 +57,6 @@ export function Sidebar({
   const [alwaysOpen, setAlwaysOpen] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showSubscription, setShowSubscription] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showEnterpriseModal, setShowEnterpriseModal] = useState(false);
 
@@ -129,11 +124,7 @@ export function Sidebar({
   }, [alwaysOpen]);
 
   // Listen for upgrade modal trigger from rate limit banner
-  useEffect(() => {
-    const handleShowUpgradeModal = () => setShowSubscription(true);
-    window.addEventListener('show-upgrade-modal', handleShowUpgradeModal);
-    return () => window.removeEventListener('show-upgrade-modal', handleShowUpgradeModal);
-  }, []);
+  // (Removed - Valyu credits handle billing now)
 
   const handleLogoClick = () => {
     // If there's an active chat (either with session ID or just messages), warn before leaving
@@ -179,28 +170,10 @@ export function Sidebar({
     }
   };
 
-  const handleViewUsage = async () => {
-    try {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-
-      const response = await fetch('/api/customer-portal', {
-        headers: {
-          'Authorization': `Bearer ${session?.access_token}`
-        }
-      });
-
-      if (response.ok) {
-        const { redirectUrl } = await response.json();
-        window.open(redirectUrl, '_blank');
-      }
-    } catch (error) {
-    }
+  const handleViewCredits = () => {
+    // Open Valyu Platform for credit management
+    window.open('https://platform.valyu.ai', '_blank');
   };
-
-  // Get subscription status from database
-  const subscription = useSubscription();
-  const { isPaid } = subscription;
 
   return (
     <>
@@ -351,35 +324,19 @@ export function Sidebar({
               {/* Divider */}
               {user && !isDevelopment && <div className="w-10 h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-600 to-transparent my-1" />}
 
-              {/* Billing/Subscription - Hidden in development mode */}
+              {/* View Credits - Link to Valyu Platform (Hidden in development mode) */}
               {user && !isDevelopment && (
-                <>
-                  {!isPaid ? (
-                    <div className="relative group/tooltip">
-                      <button
-                        onClick={() => setShowSubscription(true)}
-                        className="w-12 h-12 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-[20px] transition-all duration-200 group hover:scale-110 active:scale-95"
-                      >
-                        <CreditCard className="h-6 w-6 text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors" />
-                      </button>
-                      <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
-                        Upgrade
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="relative group/tooltip">
-                      <button
-                        onClick={handleViewUsage}
-                        className="w-12 h-12 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-[20px] transition-all duration-200 group hover:scale-110 active:scale-95"
-                      >
-                        <BarChart3 className="h-6 w-6 text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors" />
-                      </button>
-                      <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
-                        Usage & Billing
-                      </div>
-                    </div>
-                  )}
-                </>
+                <div className="relative group/tooltip">
+                  <button
+                    onClick={handleViewCredits}
+                    className="w-12 h-12 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-[20px] transition-all duration-200 group hover:scale-110 active:scale-95"
+                  >
+                    <BarChart3 className="h-6 w-6 text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors" />
+                  </button>
+                  <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                    Valyu Credits
+                  </div>
+                </div>
               )}
 
               {/* Enterprise */}
@@ -639,11 +596,6 @@ export function Sidebar({
       <SettingsModal
         open={showSettings}
         onClose={() => setShowSettings(false)}
-      />
-
-      <SubscriptionModal
-        open={showSubscription}
-        onClose={() => setShowSubscription(false)}
       />
 
       <EnterpriseContactModal

@@ -62,53 +62,6 @@ export async function getUserProfile(userId: string) {
 }
 
 // ============================================================================
-// RATE LIMIT FUNCTIONS
-// ============================================================================
-
-export async function getUserRateLimit(userId: string) {
-  if (isDevelopmentMode()) {
-    const db = getLocalDb();
-    const rateLimit = await db.query.userRateLimits.findFirst({
-      where: eq(schema.userRateLimits.userId, userId),
-    });
-    return { data: rateLimit || null, error: null };
-  }
-
-  const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("user_rate_limits")
-    .select("*")
-    .eq("user_id", userId)
-    .single();
-  return { data, error };
-}
-
-export async function updateUserRateLimit(
-  userId: string,
-  updates: { usage_count?: number; reset_date?: string; last_request_at?: Date }
-) {
-  if (isDevelopmentMode()) {
-    const db = getLocalDb();
-    await db
-      .update(schema.userRateLimits)
-      .set({
-        usageCount: updates.usage_count,
-        resetDate: updates.reset_date,
-        lastRequestAt: updates.last_request_at,
-      })
-      .where(eq(schema.userRateLimits.userId, userId));
-    return { error: null };
-  }
-
-  const supabase = await createSupabaseClient();
-  const { error } = await supabase
-    .from("user_rate_limits")
-    .update(updates)
-    .eq("user_id", userId);
-  return { error };
-}
-
-// ============================================================================
 // CHAT SESSION FUNCTIONS
 // ============================================================================
 
@@ -365,18 +318,16 @@ export async function getChart(chartId: string) {
 
 export async function createChart(chart: {
   id: string;
-  user_id?: string;
-  anonymous_id?: string;
-  session_id: string;
+  user_id: string;
+  session_id: string | null;
   chart_data: any;
 }) {
   if (isDevelopmentMode()) {
     const db = getLocalDb();
     await db.insert(schema.charts).values({
       id: chart.id,
-      userId: chart.user_id || null,
-      anonymousId: chart.anonymous_id || null,
-      sessionId: chart.session_id,
+      userId: chart.user_id,
+      sessionId: chart.session_id || '',
       chartData: JSON.stringify(chart.chart_data),
     });
     return { error: null };
@@ -411,9 +362,8 @@ export async function getCSV(csvId: string) {
 
 export async function createCSV(csv: {
   id: string;
-  user_id?: string;
-  anonymous_id?: string;
-  session_id: string;
+  user_id: string;
+  session_id: string | null;
   title: string;
   description?: string;
   headers: string[];
@@ -423,9 +373,8 @@ export async function createCSV(csv: {
     const db = getLocalDb();
     await db.insert(schema.csvs).values({
       id: csv.id,
-      userId: csv.user_id || null,
-      anonymousId: csv.anonymous_id || null,
-      sessionId: csv.session_id,
+      userId: csv.user_id,
+      sessionId: csv.session_id || '',
       title: csv.title,
       description: csv.description || null,
       headers: JSON.stringify(csv.headers),

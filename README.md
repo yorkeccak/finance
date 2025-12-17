@@ -8,65 +8,77 @@
 
 ## Why Finance?
 
-Traditional financial research is fragmented across dozens of expensive platforms. Finance changes everything by providing:
+**Your AI's search is only as good as the data it's searching over.**
 
-- **📊 Institutional-Grade Data** - SEC filings, real-time market data, financial statements, insider trading, and more
-- **🔍 One Unified Search** - Powered by Valyu's comprehensive financial data API
-- **🐍 Advanced Analytics** - Execute Python code in secure Daytona sandboxes for ML models, backtesting, and custom analysis
-- **📈 Interactive Visualizations** - Beautiful charts and dashboards that bring data to life
-- **🌐 Real-Time Intelligence** - Web search integration for breaking news and market updates
-- **🏠 Local AI Models** - Run with Ollama or LM Studio for unlimited, private queries using your own hardware
-- **🎯 Natural Language** - Just ask questions like you would to a colleague
+Traditional financial research is fragmented across dozens of expensive platforms. Finance changes everything by being powered by **[Valyu](https://platform.valyu.ai)** - the world's most powerful search API for AI agents. This isn't just another chatbot; it's a Bloomberg terminal powered by AI with access to:
+
+- **Live Global Market Data** - Real-time prices, volumes, and technical indicators across 50+ global exchanges
+- **SEC Filings Index** - Specialized search across 10-Ks, 10-Qs, 8-Ks, proxy statements, and insider trading reports
+- **Patent Database** - Search and analyze patents across jurisdictions
+- **Academic Research** - arXiv papers, Wiley finance journals, and academic publications
+- **The World's Most Powerful Web Search** - Real-time news, social sentiment, and market analysis
+
+[See how Valyu compares to other search APIs](https://www.valyu.ai/blogs/benchmarking-search-apis-for-ai-agents) - Independent benchmarks show why Valyu delivers superior results for AI agents.
+
+Finance makes all this data accessible through natural language:
+
+- **Institutional-Grade Data** - SEC filings, real-time market data, financial statements, insider trading, and more
+- **One Unified Search** - Powered by Valyu's comprehensive data API
+- **Advanced Analytics** - Execute Python code in secure Daytona sandboxes for ML models, backtesting, and custom analysis
+- **Interactive Visualizations** - Beautiful charts and dashboards that bring data to life
+- **Real-Time Intelligence** - Web search integration for breaking news and market updates
+- **Local AI Models** - Run with Ollama or LM Studio for unlimited, private queries
+- **Natural Language** - Just ask questions like you would to a colleague
 
 ## Key Features
 
-### 🔥 Powerful Financial Tools
+### Powerful Financial Tools
 
 - **SEC Filings Analysis** - Deep dive into 10-Ks, 10-Qs, 8-Ks, and more
-- **Market Data** - Real-time and historical stock prices, volumes, and technical indicators  
+- **Market Data** - Real-time and historical stock prices, volumes, and technical indicators
 - **Financial Statements** - Income statements, balance sheets, cash flows with automatic calculations
 - **Insider Trading** - Track institutional and insider transactions
 - **Academic Research** - Access to arXiv papers and financial research
 - **News & Sentiment** - Real-time news analysis with market impact assessment
 
-### 🛠️ Advanced Tool Calling
+### Advanced Tool Calling
 
 - **Python Code Execution** - Run complex financial models, ML algorithms, and custom analyses
 - **Interactive Charts** - Create publication-ready visualizations
 - **Multi-Source Research** - Automatically aggregates data from multiple sources
 - **Export & Share** - Download results, share analyses, and collaborate
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Two Modes: Production vs Development
 
 Finance supports two distinct operating modes:
 
-**🌐 Production Mode** (Default)
-- Uses Supabase for authentication and database
-- OpenAI/Vercel AI Gateway for LLM
-- Rate limiting (5 queries/day for free tier)
-- Billing and usage tracking via Polar
-- Full authentication required
+**Development Mode** (Recommended for Forking)
+- No Supabase or auth setup required - just clone and run
+- Uses local SQLite database for all data
+- Auto-login as dev user - no sign-up needed
+- Unlimited queries - no rate limits
+- Supports Ollama, LM Studio, and OpenAI for LLM
+- Works offline with local models
+- Perfect for testing, development, and forking
 
-**💻 Development Mode** (Recommended for Local Development)
-- **No Supabase required** - Uses local SQLite database
-- **No authentication needed** - Auto-login as dev user
-- **Unlimited queries** - No rate limits
-- **No billing/tracking** - Polar integration disabled
-- **Works offline** - Complete local development
-- **Ollama/LM Studio integration** - Use local LLMs for privacy and unlimited usage
+**Production Mode** (Used by finance.valyu.ai)
+- Sign in with Valyu for authentication
+- $10 free credits on signup, no credit card required
+- Uses Supabase for user data and chat history
+- Contact Valyu for production setup
+
 
 ### Prerequisites
 
 **For Production Mode:**
 - Node.js 18+
 - npm or yarn
+- Valyu account and credentials (contact Valyu for production setup)
 - OpenAI API key
-- Valyu API key (get one at [platform.valyu.ai](https://platform.valyu.ai))
 - Daytona API key (for code execution)
 - Supabase account and project
-- Polar account (for billing)
 
 **For Development Mode (Recommended for getting started):**
 - Node.js 18+
@@ -115,26 +127,29 @@ Finance supports two distinct operating modes:
 
    **For Production Mode:**
    ```env
-   # OpenAI Configuration (Required)
-   OPENAI_API_KEY=your-openai-api-key
+   # Enable Production Mode
+   NEXT_PUBLIC_APP_MODE=production
+   NEXT_PUBLIC_APP_URL=https://yourdomain.com
 
-   # Valyu API Configuration (Required)
+   # Valyu Credentials (contact Valyu for production setup)
+   NEXT_PUBLIC_VALYU_SUPABASE_URL=https://xxx.supabase.co
+   NEXT_PUBLIC_VALYU_CLIENT_ID=your-client-id
+   VALYU_CLIENT_SECRET=your-client-secret
+   VALYU_APP_URL=https://platform.valyu.ai
+
+   # Valyu API Key (for development mode)
    VALYU_API_KEY=your-valyu-api-key
 
-   # Daytona Configuration (Required)
+   # OpenAI Configuration
+   OPENAI_API_KEY=your-openai-api-key
+
+   # Daytona Configuration
    DAYTONA_API_KEY=your-daytona-api-key
 
-   # Supabase Configuration (Required)
+   # Your App's Supabase (for user data)
    NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
    SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-
-   # Polar Billing (Required)
-   POLAR_WEBHOOK_SECRET=your-polar-webhook-secret
-   POLAR_UNLIMITED_PRODUCT_ID=your-product-id
-
-   # App Configuration
-   NEXT_PUBLIC_APP_URL=http://localhost:3000
    ```
 
 4. **Run the development server**
@@ -436,19 +451,26 @@ For more details, see [DEVELOPMENT_MODE.md](DEVELOPMENT_MODE.md)
 
 ## Production Deployment Guide
 
-This guide walks you through setting up Finance for production with full authentication, billing, and database functionality.
+This guide walks you through setting up Finance for production.
+
+> **Note:** For easy local development and forking, use Development Mode instead.
 
 ### 1. Get API Keys
 
-#### Valyu API (Required)
+#### Valyu Credentials (Required for Production)
 
-Valyu provides all the financial data - SEC filings, stock prices, financial statements, insider trading data, and 50+ other data sources. Without this API key, the app cannot access any financial data.
+Contact Valyu for production setup - they will provide the necessary credentials for "Sign in with Valyu" authentication.
 
 1. Go to [platform.valyu.ai](https://platform.valyu.ai)
 2. Sign up for an account
-3. Navigate to API Keys section
-4. Create a new API key
-5. Copy your API key (starts with `valyu_`)
+3. Contact Valyu for production credentials
+
+#### Valyu API Key (For Development Mode)
+
+1. Go to [platform.valyu.ai](https://platform.valyu.ai)
+2. Navigate to API Keys section
+3. Create a new API key
+4. Copy your API key (starts with `valyu_`)
 
 #### OpenAI API (Required)
 
@@ -497,37 +519,16 @@ Used for secure Python code execution, enabling data analysis, visualizations, a
 
 1. Go to **Authentication** → **Providers** in Supabase
 2. Enable **Email** provider (enabled by default)
-3. **Optional:** Enable OAuth providers (Google, GitHub, etc.)
-   - For Google: Add OAuth credentials from Google Cloud Console
-   - For GitHub: Add OAuth app credentials from GitHub Settings
+3. **Optional:** Enable additional providers (Google, GitHub, etc.)
+   - For Google: Add credentials from Google Cloud Console
+   - For GitHub: Add app credentials from GitHub Settings
 
 4. Go to **Authentication** → **URL Configuration**
 5. Add your site URL and redirect URLs:
    - Site URL: `https://yourdomain.com` (or `http://localhost:3000` for testing)
    - Redirect URLs: `https://yourdomain.com/auth/callback`
 
-### 3. Set Up Polar Billing (Optional)
-
-Polar provides subscription billing and payments.
-
-1. Go to [polar.sh](https://polar.sh)
-2. Create an account
-3. Create your products:
-   - **Pay Per Use** plan (e.g., $9.99/month)
-   - **Unlimited** plan (e.g., $49.99/month)
-4. Copy the Product IDs
-5. Go to Settings → Webhooks
-6. Create a webhook:
-   - URL: `https://yourdomain.com/api/webhooks/polar`
-   - Events: Select all `customer.*` and `subscription.*` events
-7. Copy the webhook secret
-
-**If you don't want billing:**
-- Skip this section
-- Remove billing UI from the codebase
-- All users will have unlimited access
-
-### 4. Configure Environment Variables
+### 3. Configure Environment Variables
 
 Create `.env.local` in your project root:
 
@@ -536,29 +537,25 @@ Create `.env.local` in your project root:
 NEXT_PUBLIC_APP_MODE=production
 NEXT_PUBLIC_APP_URL=https://yourdomain.com
 
-# Valyu API (Required - powers all financial data)
-# Get yours at: https://platform.valyu.ai
-VALYU_API_KEY=valyu_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# Valyu Credentials (provided by Valyu for production)
+NEXT_PUBLIC_VALYU_SUPABASE_URL=https://xxx.supabase.co
+NEXT_PUBLIC_VALYU_CLIENT_ID=your-client-id
+VALYU_CLIENT_SECRET=your-client-secret
+VALYU_APP_URL=https://platform.valyu.ai
 
 # OpenAI Configuration
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # Daytona Configuration (Code Execution)
 DAYTONA_API_KEY=your-daytona-api-key
-DAYTONA_API_URL=https://api.daytona.io
-DAYTONA_TARGET=latest
 
-# Supabase Configuration
+# Your App's Supabase (for user data and chat history)
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxxxxxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-
-# Polar Billing (Optional - remove if not using billing)
-POLAR_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxxxxxxxxxx
-POLAR_UNLIMITED_PRODUCT_ID=prod_xxxxxxxxxxxxxxxxxxxxx
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 
-### 5. Deploy to Production
+### 4. Deploy to Production
 
 #### Deploy to Vercel (Recommended)
 
@@ -580,77 +577,72 @@ POLAR_UNLIMITED_PRODUCT_ID=prod_xxxxxxxxxxxxxxxxxxxxx
 - **Railway**: Good for full-stack apps
 - **Self-hosted**: Use Docker with PM2 or similar
 
-### 6. Post-Deployment Setup
+### 5. Post-Deployment Setup
 
 1. **Test Authentication:**
    - Visit your site
-   - Try signing up with email
-   - Check that user appears in Supabase Users table
+   - Click "Sign in with Valyu"
+   - Complete sign in on Valyu Platform
+   - Check that user appears in your Supabase Users table
 
-2. **Test Polar Webhooks:**
-   - Subscribe to a plan
-   - Check Supabase users table for `subscription_tier` update
-   - Check Polar dashboard for webhook delivery
-
-3. **Test Financial Data:**
+2. **Test Financial Data:**
    - Ask a question like "What is Apple's latest stock price?"
-   - Verify Valyu API is returning data
+   - Verify Valyu is returning data
    - Check that charts and CSVs are saving to database
 
-### 7. Troubleshooting
+3. **Test Credits:**
+   - Make some API queries
+   - Check Valyu Platform for credit usage
+   - Verify credits are being deducted correctly
+
+### 6. Troubleshooting
 
 **Authentication Issues:**
-- Verify Supabase URL and keys are correct
-- Check redirect URLs in Supabase dashboard
-- Clear browser cookies/localStorage and try again
+- Verify Valyu credentials are correct (Client ID, Client Secret)
+- Check redirect URI matches exactly (including /auth/valyu/callback)
+- Clear browser localStorage and try again
 
 **Database Errors:**
 - Verify all tables were created successfully
 - Check RLS policies are enabled
 - Review Supabase logs for detailed errors
 
-**Billing Not Working:**
-- Verify Polar webhook secret is correct
-- Check Polar dashboard for webhook delivery status
-- Review app logs for webhook processing errors
-
 **No Financial Data:**
-- Verify Valyu API key is set correctly in environment variables
-- Check Valyu dashboard for API usage/errors
-- Test API key with a curl request to Valyu
+- Verify user is signed in
+- Check Valyu Platform for credit balance
+- Test with a fresh login
 
-**Rate Limiting:**
-- Check `user_rate_limits` table in Supabase
-- Verify user's subscription tier is set correctly
-- Review rate limit logic in `/api/rate-limit`
+**Credits Not Working:**
+- Check Valyu Platform for credit balance
+- Review Valyu Platform dashboard for API usage logs
 
-### 8. Security Best Practices
+### 7. Security Best Practices
 
 **Do:**
 - Keep `SUPABASE_SERVICE_ROLE_KEY` secret (never expose client-side)
+- Keep `VALYU_CLIENT_SECRET` secret (never expose client-side)
 - Use environment variables for all secrets
 - Enable RLS on all Supabase tables
 - Regularly rotate API keys
 - Use HTTPS in production
-- Enable Supabase Auth rate limiting
 
 **Don't:**
 - Commit `.env.local` to git (add to `.gitignore`)
-- Expose service role keys in client-side code
+- Expose service role keys or secrets in client-side code
 - Disable RLS policies
 - Use the same API keys for dev and production
 
-### 9. Monitoring & Maintenance
+### 8. Monitoring & Maintenance
 
 **Supabase:**
 - Monitor database usage in Supabase dashboard
 - Set up database backups (automatic in paid plan)
 - Review auth logs for suspicious activity
 
-**Polar:**
-- Monitor subscription metrics
-- Handle failed payments
-- Review webhook logs
+**Valyu Platform:**
+- Monitor credit usage and top up as needed
+- Review API usage logs for anomalies
+- Check app settings periodically
 
 **Application:**
 - Set up error tracking (Sentry, LogRocket, etc.)

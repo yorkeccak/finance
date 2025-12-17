@@ -2,11 +2,62 @@ import { z } from "zod";
 import { tool } from "ai";
 import { Valyu } from "valyu-js";
 import { track } from "@vercel/analytics/server";
-import { PolarEventTracker } from '@/lib/polar-events';
 import { Daytona } from '@daytonaio/sdk';
 import { createClient } from '@/utils/supabase/server';
 import * as db from '@/lib/db';
 import { randomUUID } from 'crypto';
+
+// Valyu OAuth Proxy URL (for user credit billing)
+const VALYU_OAUTH_PROXY_URL = process.env.VALYU_OAUTH_PROXY_URL ||
+  `${process.env.VALYU_APP_URL || process.env.NEXT_PUBLIC_VALYU_APP_URL || 'https://platform.valyu.ai'}/api/oauth/proxy`;
+
+/**
+ * Call Valyu DeepSearch API via OAuth proxy (user credits) or direct (server API key)
+ *
+ * DeepSearch is the primary search endpoint that handles credit billing.
+ * All searches go through /v1/deepsearch for comprehensive financial data retrieval.
+ */
+async function callValyuApi(
+  path: string,
+  body: any,
+  valyuAccessToken?: string
+): Promise<any> {
+  if (valyuAccessToken) {
+    // Use OAuth proxy - charges to user's org credits
+    console.log('[callValyuApi] Using OAuth proxy for user credit billing, path:', path);
+    const response = await fetch(VALYU_OAUTH_PROXY_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${valyuAccessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ path, method: 'POST', body }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'proxy_failed' }));
+      throw new Error(error.error_description || error.error || 'Valyu proxy request failed');
+    }
+
+    return response.json();
+  } else {
+    // Fallback to server API key (dev mode only)
+    console.log('[callValyuApi] Using server API key (fallback/dev mode)');
+    const apiKey = process.env.VALYU_API_KEY;
+    if (!apiKey) {
+      throw new Error('No Valyu API key available');
+    }
+    const valyu = new Valyu(apiKey, 'https://api.valyu.ai/v1');
+
+    // The Valyu SDK's search() method calls /deepsearch endpoint internally
+    // Parse the path to determine the method
+    if (path === '/v1/deepsearch') {
+      return valyu.search(body.query, body);
+    }
+
+    throw new Error(`Unknown Valyu API path: ${path}`);
+  }
+}
 
 
 export const financeTools = {
@@ -184,27 +235,23 @@ export const financeTools = {
         },
       };
 
-      // Save chart to database
+      // Save chart to database (requires authenticated user)
       let chartId: string | null = null;
       try {
-        chartId = randomUUID();
-
-        // Build insert data - include anonymous_id if no user_id
-        const insertData: any = {
-          id: chartId,
-          session_id: sessionId || null,
-          chart_data: chartData,
-        };
-
-        if (userId) {
-          insertData.user_id = userId;
+        if (!userId) {
+          console.warn('[createChart] No user ID - chart will not be saved (authentication required)');
         } else {
-          // For anonymous users, use a temporary ID
-          // In production, this should come from a browser-generated UUID
-          insertData.anonymous_id = 'anonymous';
-        }
+          chartId = randomUUID();
 
-        await db.createChart(insertData);
+          const insertData = {
+            id: chartId,
+            user_id: userId,
+            session_id: sessionId || null,
+            chart_data: chartData,
+          };
+
+          await db.createChart(insertData);
+        }
       } catch (error) {
         console.error('[createChart] Error saving chart:', error);
         chartId = null;
@@ -344,30 +391,26 @@ export const financeTools = {
           )
         ].join('\n');
 
-        // Save CSV to database
+        // Save CSV to database (requires authenticated user)
         let csvId: string | null = null;
         try {
-          csvId = randomUUID();
-
-          // Build insert data - include anonymous_id if no user_id
-          const insertData: any = {
-            id: csvId,
-            session_id: sessionId || null,
-            title,
-            description: description || undefined,
-            headers,
-            rows: rows,
-          };
-
-          if (userId) {
-            insertData.user_id = userId;
+          if (!userId) {
+            console.warn('[createCSV] No user ID - CSV will not be saved (authentication required)');
           } else {
-            // For anonymous users, use a temporary ID
-            // In production, this should come from a browser-generated UUID
-            insertData.anonymous_id = 'anonymous';
-          }
+            csvId = randomUUID();
 
-          await db.createCSV(insertData);
+            const insertData = {
+              id: csvId,
+              user_id: userId,
+              session_id: sessionId || null,
+              title,
+              description: description || undefined,
+              headers,
+              rows: rows,
+            };
+
+            await db.createCSV(insertData);
+          }
         } catch (error) {
           console.error('[createCSV] Error saving CSV:', error);
           csvId = null;
@@ -504,26 +547,7 @@ export const financeTools = {
             hasArtifacts: !!execution.artifacts
           });
 
-          // Track usage for pay-per-use customers with Polar events
-          if (userId && sessionId && userTier === 'pay_per_use' && execution.exitCode === 0 && !isDevelopment) {
-            try {
-              const polarTracker = new PolarEventTracker();
-              
-              await polarTracker.trackDaytonaUsage(
-                userId,
-                sessionId,
-                executionTime,
-                {
-                  codeLength: code.length,
-                  hasArtifacts: !!execution.artifacts,
-                  success: execution.exitCode === 0,
-                  description: description || 'Code execution'
-                }
-              );
-            } catch (error) {
-              // Don't fail the tool execution if usage tracking fails
-            }
-          }
+          // Note: Daytona execution billing is handled separately (not per-tool tracking)
 
           // Handle execution errors
           if (execution.exitCode !== 0) {
@@ -603,25 +627,16 @@ ${execution.result || "(No output produced)"}
         ),
     }),
     execute: async ({ query, dataType, maxResults }, options) => {
-      const userId = (options as any)?.experimental_context?.userId;
-      const sessionId = (options as any)?.experimental_context?.sessionId;
-      const userTier = (options as any)?.experimental_context?.userTier;
-      const isDevelopment = process.env.NEXT_PUBLIC_APP_MODE === 'development';
-      
-      try {
-        // Check if Valyu API key is available
-        const apiKey = process.env.VALYU_API_KEY;
-        if (!apiKey) {
-          return "❌ Valyu API key not configured. Please add VALYU_API_KEY to your environment variables to enable financial search.";
-        }
-        const valyu = new Valyu(apiKey, "https://api.valyu.ai/v1");
+      const valyuAccessToken = (options as any)?.experimental_context?.valyuAccessToken;
 
+      try {
         // Configure search based on data type
-        let searchOptions: any = {
+        const searchOptions: any = {
+          query,
           maxNumResults: maxResults || 10,
         };
 
-        const response = await valyu.search(query, searchOptions);
+        const response = await callValyuApi('/v1/deepsearch', searchOptions, valyuAccessToken);
 
         // Track Valyu financial search call
         await track('Valyu API Call', {
@@ -630,35 +645,10 @@ ${execution.result || "(No output produced)"}
           dataType: dataType || 'auto',
           maxResults: maxResults || 10,
           resultCount: response?.results?.length || 0,
-          hasApiKey: !!apiKey,
+          usedOAuthProxy: !!valyuAccessToken,
           cost: (response as any)?.total_deduction_dollars || null,
           txId: (response as any)?.tx_id || null
         });
-
-        if (userId && sessionId && userTier === 'pay_per_use' && !isDevelopment) {
-          try {
-            const polarTracker = new PolarEventTracker();
-            // Use the actual Valyu API cost from response
-            const valyuCostDollars = (response as any)?.total_deduction_dollars || 0;
-            
-            
-            await polarTracker.trackValyuAPIUsage(
-              userId,
-              sessionId,
-              'financialSearch',
-              valyuCostDollars,
-              {
-                query,
-                resultCount: response?.results?.length || 0,
-                dataType: dataType || 'auto',
-                success: true,
-                tx_id: (response as any)?.tx_id
-              }
-            );
-          } catch (error) {
-            // Don't fail the search if usage tracking fails
-          }
-        }
 
         if (!response || !response.results || response.results.length === 0) {
           return `🔍 No financial data found for "${query}". Try rephrasing your search or checking if the company/symbol exists.`;
@@ -723,21 +713,12 @@ ${execution.result || "(No output produced)"}
         .describe("Maximum number of results to return"),
     }),
     execute: async ({ query, maxResults }, options) => {
-      const userId = (options as any)?.experimental_context?.userId;
-      const sessionId = (options as any)?.experimental_context?.sessionId;
-      const userTier = (options as any)?.experimental_context?.userTier;
-      const isDevelopment = process.env.NEXT_PUBLIC_APP_MODE === 'development';
+      const valyuAccessToken = (options as any)?.experimental_context?.valyuAccessToken;
 
       try {
-        // Check if Valyu API key is available
-        const apiKey = process.env.VALYU_API_KEY;
-        if (!apiKey) {
-          return "❌ Valyu API key not configured. Please add VALYU_API_KEY to your environment variables to enable Wiley search.";
-        }
-        const valyu = new Valyu(apiKey, "https://api.valyu.ai/v1");
-
         // Configure search options for Wiley sources
         const searchOptions: any = {
+          query,
           maxNumResults: maxResults || 10,
           includedSources: [
             "wiley/wiley-finance-papers",
@@ -745,7 +726,7 @@ ${execution.result || "(No output produced)"}
           ]
         };
 
-        const response = await valyu.search(query, searchOptions);
+        const response = await callValyuApi('/v1/deepsearch', searchOptions, valyuAccessToken);
 
         // Track Valyu Wiley search call
         await track('Valyu API Call', {
@@ -753,32 +734,10 @@ ${execution.result || "(No output produced)"}
           query: query,
           maxResults: maxResults || 10,
           resultCount: response?.results?.length || 0,
-          hasApiKey: !!apiKey,
+          usedOAuthProxy: !!valyuAccessToken,
           cost: (response as any)?.total_deduction_dollars || null,
           txId: (response as any)?.tx_id || null
         });
-
-        // Track usage for pay-per-use customers with Polar events
-        if (userId && sessionId && userTier === 'pay_per_use' && !isDevelopment) {
-          try {
-            const polarTracker = new PolarEventTracker();
-            const valyuCostDollars = (response as any)?.total_deduction_dollars || 0;
-            await polarTracker.trackValyuAPIUsage(
-              userId,
-              sessionId,
-              'wileySearch',
-              valyuCostDollars,
-              {
-                query,
-                resultCount: response?.results?.length || 0,
-                success: true,
-                tx_id: (response as any)?.tx_id
-              }
-            );
-          } catch (error) {
-            // Don't fail the search if usage tracking fails
-          }
-        }
 
         if (!response || !response.results || response.results.length === 0) {
           return `🔍 No Wiley academic results found for "${query}". Try rephrasing your search.`;
@@ -847,26 +806,18 @@ ${execution.result || "(No output produced)"}
         .describe("Maximum number of results to return"),
     }),
     execute: async ({ query, maxResults }, options) => {
-      const userId = (options as any)?.experimental_context?.userId;
-      const sessionId = (options as any)?.experimental_context?.sessionId;
-      const userTier = (options as any)?.experimental_context?.userTier;
-      const isDevelopment = process.env.NEXT_PUBLIC_APP_MODE === 'development';
-      
-      try {
-        // Initialize Valyu client (uses default/free tier if no API key)
-        const valyu = new Valyu(
-          process.env.VALYU_API_KEY,
-          "https://api.valyu.ai/v1"
-        );
+      const valyuAccessToken = (options as any)?.experimental_context?.valyuAccessToken;
 
+      try {
         // Configure search options
         const searchOptions = {
+          query,
           searchType: "all" as const, // Search both proprietary and web sources
           maxNumResults: maxResults || 5,
           isToolCall: true, // true for AI agents/tools
         };
 
-        const response = await valyu.search(query, searchOptions);
+        const response = await callValyuApi('/v1/deepsearch', searchOptions, valyuAccessToken);
 
         // Track Valyu web search call
         await track('Valyu API Call', {
@@ -874,36 +825,11 @@ ${execution.result || "(No output produced)"}
           query: query,
           maxResults: maxResults || 5,
           resultCount: response?.results?.length || 0,
-          hasApiKey: !!process.env.VALYU_API_KEY,
+          usedOAuthProxy: !!valyuAccessToken,
           cost: (response as any)?.metadata?.totalCost || (response as any)?.total_deduction_dollars || null,
           searchTime: (response as any)?.metadata?.searchTime || null,
           txId: (response as any)?.tx_id || null
         });
-
-        // Track usage for pay-per-use customers with Polar events
-        if (userId && sessionId && userTier === 'pay_per_use' && !isDevelopment) {
-          try {
-            const polarTracker = new PolarEventTracker();
-            // Use the actual Valyu API cost from response
-            const valyuCostDollars = (response as any)?.total_deduction_dollars || 0;
-            
-            await polarTracker.trackValyuAPIUsage(
-              userId,
-              sessionId,
-              'webSearch',
-              valyuCostDollars,
-              {
-                query,
-                resultCount: response?.results?.length || 0,
-                success: true,
-                tx_id: (response as any)?.tx_id,
-                search_time: (response as any)?.metadata?.searchTime
-              }
-            );
-          } catch (error) {
-            // Don't fail the search if usage tracking fails
-          }
-        }
 
         if (!response || !response.results || response.results.length === 0) {
           return `🔍 No web results found for "${query}". Try rephrasing your search with different keywords.`;

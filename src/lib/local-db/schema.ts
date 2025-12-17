@@ -2,28 +2,13 @@ import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
 // Users table - mirrors Supabase users table
+// Note: All users must authenticate with Valyu OAuth. Credits are handled by Valyu Platform.
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
   email: text("email").notNull().unique(),
-  subscriptionTier: text("subscription_tier").notNull().default("unlimited"), // In dev mode, everyone is unlimited
-  subscriptionStatus: text("subscription_status").notNull().default("active"),
-  polarCustomerId: text("polar_customer_id"),
-  subscriptionId: text("subscription_id"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
-});
-
-// User rate limits table - mirrors Supabase user_rate_limits table
-export const userRateLimits = sqliteTable("user_rate_limits", {
-  userId: text("user_id")
-    .primaryKey()
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  usageCount: integer("usage_count").notNull().default(0),
-  resetDate: text("reset_date").notNull(), // Store as ISO date string
-  lastRequestAt: integer("last_request_at", { mode: "timestamp" }),
-  tier: text("tier").notNull().default("unlimited"),
 });
 
 // Chat sessions table - mirrors Supabase chat_sessions table
@@ -56,11 +41,10 @@ export const chatMessages = sqliteTable("chat_messages", {
   processingTimeMs: integer("processing_time_ms"),
 });
 
-// Charts table - mirrors Supabase charts table
+// Charts table - mirrors Supabase charts table (requires authenticated user)
 export const charts = sqliteTable("charts", {
   id: text("id").primaryKey(),
-  userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
-  anonymousId: text("anonymous_id"),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   sessionId: text("session_id").notNull(),
   chartData: text("chart_data").notNull(), // JSON string of chart config
   createdAt: integer("created_at", { mode: "timestamp" })
@@ -71,11 +55,10 @@ export const charts = sqliteTable("charts", {
     .default(sql`(unixepoch())`),
 });
 
-// CSVs table - mirrors Supabase csvs table
+// CSVs table - mirrors Supabase csvs table (requires authenticated user)
 export const csvs = sqliteTable("csvs", {
   id: text("id").primaryKey(),
-  userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
-  anonymousId: text("anonymous_id"),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   sessionId: text("session_id").notNull(),
   title: text("title").notNull(),
   description: text("description"),

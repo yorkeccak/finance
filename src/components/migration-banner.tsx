@@ -78,15 +78,15 @@ export function MigrationBanner() {
 
   if (showDiscord) {
     return (
-      <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top duration-300">
-        <div className="bg-[#5865F2] text-white rounded-full px-4 py-2 shadow-lg flex items-center gap-3">
+      <div className="fixed top-3 left-3 z-50 animate-in slide-in-from-left duration-300">
+        <div className="bg-[#5865F2] text-white rounded-full px-3 py-1.5 shadow-lg flex items-center gap-2">
           <a
             href="https://discord.gg/BhUWrFbHRa"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 text-sm font-medium hover:underline"
+            className="flex items-center gap-1.5 text-xs font-medium hover:underline"
           >
-            <DiscordIcon className="h-4 w-4" />
+            <DiscordIcon className="h-3.5 w-3.5" />
             Join the Valyu Discord
           </a>
           <button
@@ -94,7 +94,7 @@ export function MigrationBanner() {
             className="text-white/70 hover:text-white transition-colors"
             aria-label="Dismiss"
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-3 w-3" />
           </button>
         </div>
       </div>

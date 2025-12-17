@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { track } from '@vercel/analytics';
 import { createClient } from '@/utils/supabase/client-wrapper';
-import { buildAuthorizationUrl } from '@/lib/valyu-oauth';
+import { buildAuthorizationUrl, refreshAccessToken } from '@/lib/valyu-oauth';
 import type { User, Session } from '@supabase/supabase-js';
 
 /**
@@ -63,8 +63,11 @@ interface AuthActions {
   // Sign out
   signOut: () => Promise<void>;
 
-  // Get Valyu access token for API calls
+  // Get Valyu access token for API calls (sync - may return expired token)
   getValyuAccessToken: () => string | null;
+
+  // Get valid Valyu access token, refreshing if needed (async)
+  getValidValyuAccessToken: () => Promise<string | null>;
 
   // Check if authenticated
   isAuthenticated: () => boolean;
@@ -343,6 +346,49 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
     if (!tokens.accessToken || !tokens.expiresAt) return null;
     if (tokens.expiresAt <= Date.now() + 60 * 1000) return null;
     return tokens.accessToken;
+  },
+
+  getValidValyuAccessToken: async () => {
+    const { valyuAccessToken, valyuRefreshToken, valyuTokenExpiresAt } = get();
+
+    // Check if we have a valid token (with 2 min buffer for long requests)
+    if (valyuAccessToken && valyuTokenExpiresAt && valyuTokenExpiresAt > Date.now() + 2 * 60 * 1000) {
+      return valyuAccessToken;
+    }
+
+    // Try to refresh if we have a refresh token
+    if (valyuRefreshToken) {
+      try {
+        console.log('[Auth Store] Token expired or expiring soon, refreshing...');
+        const tokenResponse = await refreshAccessToken(valyuRefreshToken);
+
+        // Update store and localStorage with new tokens
+        const expiresAt = Date.now() + tokenResponse.expires_in * 1000;
+        saveValyuTokens(tokenResponse.access_token, tokenResponse.refresh_token, expiresAt);
+
+        set({
+          valyuAccessToken: tokenResponse.access_token,
+          valyuRefreshToken: tokenResponse.refresh_token || valyuRefreshToken,
+          valyuTokenExpiresAt: expiresAt,
+        });
+
+        console.log('[Auth Store] Token refreshed successfully');
+        return tokenResponse.access_token;
+      } catch (error) {
+        console.error('[Auth Store] Token refresh failed:', error);
+        // Clear tokens on refresh failure - user needs to re-auth
+        clearValyuTokens();
+        set({
+          valyuAccessToken: null,
+          valyuRefreshToken: null,
+          valyuTokenExpiresAt: null,
+        });
+        return null;
+      }
+    }
+
+    // No valid token and no refresh token
+    return null;
   },
 
   isAuthenticated: () => {

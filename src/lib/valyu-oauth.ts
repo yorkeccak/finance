@@ -209,6 +209,32 @@ export async function exchangeCodeForTokens(
 }
 
 /**
+ * Refresh access token using refresh token
+ * Calls server-side endpoint to keep client_secret secure
+ */
+export async function refreshAccessToken(
+  refreshToken: string
+): Promise<TokenResponse> {
+  const response = await fetch('/api/auth/valyu/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'refresh_failed' }));
+    throw new OAuthError(error.error || 'refresh_failed', error.error_description);
+  }
+
+  return response.json();
+}
+
+/**
  * Fetch user info from Valyu
  */
 export async function fetchValyuUserInfo(accessToken: string): Promise<ValyuUserInfo> {

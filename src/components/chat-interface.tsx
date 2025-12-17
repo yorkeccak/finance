@@ -1782,8 +1782,8 @@ export function ChatInterface({
 
   // Placeholder for loadSessionMessages - will be defined after useChat hook
   
-  // Get Valyu access token for API proxy calls
-  const getValyuAccessToken = useAuthStore((state) => state.getValyuAccessToken);
+  // Get Valyu access token for API proxy calls (with auto-refresh)
+  const getValidValyuAccessToken = useAuthStore((state) => state.getValidValyuAccessToken);
 
   const transport = useMemo(() =>
     new DefaultChatTransport({
@@ -1814,10 +1814,8 @@ export function ChatInterface({
           }
         }
 
-        // Get Valyu access token for API proxy calls
-        const valyuAccessToken = getValyuAccessToken();
-
-        // Rate limit increment is handled by the backend API
+        // Get Valyu access token for API proxy calls (auto-refreshes if expired)
+        const valyuAccessToken = await getValidValyuAccessToken();
 
         return {
           body: {
@@ -1828,7 +1826,7 @@ export function ChatInterface({
           headers,
         };
       }
-    }), [selectedModel, selectedProvider, user, getValyuAccessToken]
+    }), [selectedModel, selectedProvider, user, getValidValyuAccessToken]
   );
 
   const {

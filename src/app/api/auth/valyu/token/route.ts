@@ -28,23 +28,7 @@ const ALLOWED_REDIRECT_URIS = [
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { code, redirect_uri, code_verifier } = body;
-
-    if (!code || !redirect_uri || !code_verifier) {
-      return NextResponse.json(
-        { error: 'missing_parameters', error_description: 'code, redirect_uri, and code_verifier are required' },
-        { status: 400 }
-      );
-    }
-
-    // Validate redirect_uri against allowlist
-    if (!ALLOWED_REDIRECT_URIS.includes(redirect_uri)) {
-      console.warn('[Valyu Token] Invalid redirect_uri attempted:', redirect_uri);
-      return NextResponse.json(
-        { error: 'invalid_redirect_uri', error_description: 'Redirect URI not allowed' },
-        { status: 400 }
-      );
-    }
+    const { code, redirect_uri, code_verifier, grant_type, refresh_token } = body;
 
     if (!VALYU_SUPABASE_URL || !VALYU_CLIENT_ID || !VALYU_CLIENT_SECRET) {
       console.error('[Valyu Token] Missing OAuth configuration');
@@ -54,22 +38,59 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Exchange code for tokens at Supabase OAuth token endpoint
     const tokenEndpoint = `${VALYU_SUPABASE_URL}/auth/v1/oauth/token`;
+    let tokenParams: Record<string, string>;
+
+    // Handle refresh token flow
+    if (grant_type === 'refresh_token' && refresh_token) {
+      console.log('[Valyu Token] Processing refresh token request');
+      tokenParams = {
+        grant_type: 'refresh_token',
+        refresh_token,
+        client_id: VALYU_CLIENT_ID,
+        client_secret: VALYU_CLIENT_SECRET,
+      };
+    }
+    // Handle authorization code flow
+    else if (code && code_verifier) {
+      if (!redirect_uri) {
+        return NextResponse.json(
+          { error: 'missing_parameters', error_description: 'redirect_uri is required' },
+          { status: 400 }
+        );
+      }
+
+      // Validate redirect_uri against allowlist
+      if (!ALLOWED_REDIRECT_URIS.includes(redirect_uri)) {
+        console.warn('[Valyu Token] Invalid redirect_uri attempted:', redirect_uri);
+        return NextResponse.json(
+          { error: 'invalid_redirect_uri', error_description: 'Redirect URI not allowed' },
+          { status: 400 }
+        );
+      }
+
+      console.log('[Valyu Token] Processing authorization code request');
+      tokenParams = {
+        grant_type: 'authorization_code',
+        client_id: VALYU_CLIENT_ID,
+        client_secret: VALYU_CLIENT_SECRET,
+        code,
+        redirect_uri,
+        code_verifier,
+      };
+    } else {
+      return NextResponse.json(
+        { error: 'missing_parameters', error_description: 'Either (code + code_verifier + redirect_uri) or (grant_type=refresh_token + refresh_token) required' },
+        { status: 400 }
+      );
+    }
 
     const tokenResponse = await fetch(tokenEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        client_id: VALYU_CLIENT_ID,
-        client_secret: VALYU_CLIENT_SECRET,
-        code: code,
-        redirect_uri: redirect_uri,
-        code_verifier: code_verifier,
-      }),
+      body: new URLSearchParams(tokenParams),
     });
 
     const tokenData = await tokenResponse.json();

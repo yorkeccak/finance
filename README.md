@@ -1,6 +1,6 @@
 # Finance.
 
-> **We put Bloomberg terminal behind a chat interface and open-sourced it** - Access institutional-grade financial data, run complex code analyses, and create stunning visualizations through natural language. The backend? 1 search API.
+> **We put bloomberg-grade data behind a chat interface and open-sourced it** - Access institutional-grade financial data, run complex code analyses, and create stunning visualizations through natural language. The backend? 1 search API.
 
 🚀 **[Try the live demo at finance.valyu.ai](https://finance.valyu.ai)**
 

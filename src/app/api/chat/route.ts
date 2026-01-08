@@ -5,7 +5,7 @@ import { openai, createOpenAI } from "@ai-sdk/openai";
 import { createOllama, ollama } from "ollama-ai-provider-v2";
 import { createClient } from '@supabase/supabase-js';
 import * as db from '@/lib/db';
-import { isDevelopmentMode } from '@/lib/local-db/local-auth';
+import { isSelfHostedMode } from '@/lib/local-db/local-auth';
 import { saveChatMessages } from '@/lib/db';
 
 // 13mins max streaming (vercel limit)
@@ -19,16 +19,16 @@ export async function POST(req: Request) {
     console.log("[Chat API] Number of messages:", messages.length);
 
     // Check app mode and configure accordingly
-    const isDevelopment = isDevelopmentMode();
-    console.log("[Chat API] App mode:", isDevelopment ? 'development' : 'production');
+    const isSelfHosted = isSelfHostedMode();
+    console.log("[Chat API] App mode:", isSelfHosted ? 'self-hosted' : 'valyu');
 
     // Get authenticated user (uses local auth in dev mode)
     const { data: { user } } = await db.getUser();
     console.log("[Chat API] Authenticated user:", user?.id || 'anonymous');
 
-    // REQUIRE VALYU AUTHENTICATION in production mode
+    // REQUIRE VALYU AUTHENTICATION in valyu mode
     // Users must sign in with Valyu to use the app - credits are handled by Valyu
-    if (!isDevelopment && !valyuAccessToken) {
+    if (!isSelfHosted && !valyuAccessToken) {
       console.log("[Chat API] No Valyu token - authentication required");
       return new Response(
         JSON.stringify({
@@ -47,9 +47,9 @@ export async function POST(req: Request) {
       console.log("[Chat API] Valyu access token present (for API proxy)");
     }
 
-    // Legacy Supabase clients (only used in production mode for user data)
+    // Legacy Supabase clients (only used in valyu mode for user data)
     let supabase: any = null;
-    if (!isDevelopment) {
+    if (!isSelfHosted) {
       supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -78,8 +78,8 @@ export async function POST(req: Request) {
       'cogito'
     ];
 
-    if (isDevelopment && localEnabled) {
-      // Development mode: Try to use local provider (Ollama or LM Studio) first, fallback to OpenAI
+    if (isSelfHosted && localEnabled) {
+      // Self-hosted mode: Try to use local provider (Ollama or LM Studio) first, fallback to OpenAI
       try {
         let models: any[] = [];
         let providerName = '';
@@ -158,12 +158,12 @@ export async function POST(req: Request) {
 
           selectedModel = localProviderClient.chat(selectedModelName);
 
-          modelInfo = `${providerName} (${selectedModelName})${supportsThinking ? ' [Reasoning]' : ''} - Development Mode`;
+          modelInfo = `${providerName} (${selectedModelName})${supportsThinking ? ' [Reasoning]' : ''} - Self-Hosted Mode`;
         } else {
           throw new Error(`No models available in ${localProvider}`);
         }
       } catch (error) {
-        // Fallback to OpenAI in development mode
+        // Fallback to OpenAI in self-hosted mode
         console.error(`[Chat API] Local provider error (${localProvider}):`, error);
         console.log('[Chat API] Headers received:', {
           'x-ollama-enabled': req.headers.get('x-ollama-enabled'),
@@ -172,15 +172,15 @@ export async function POST(req: Request) {
         });
         selectedModel = hasOpenAIKey ? openai("gpt-5") : "openai/gpt-5";
         modelInfo = hasOpenAIKey
-          ? "OpenAI (gpt-5) - Development Mode Fallback"
-          : 'Vercel AI Gateway ("gpt-5") - Development Mode Fallback';
+          ? "OpenAI (gpt-5) - Self-Hosted Mode Fallback"
+          : 'Vercel AI Gateway ("gpt-5") - Self-Hosted Mode Fallback';
       }
     } else {
-      // Production mode: Use standard OpenAI - billing handled by Valyu OAuth proxy
+      // Valyu mode: Use standard OpenAI - billing handled by Valyu OAuth proxy
       selectedModel = hasOpenAIKey ? openai("gpt-5") : "openai/gpt-5";
       modelInfo = hasOpenAIKey
-        ? "OpenAI (gpt-5) - Production Mode (Valyu Credits)"
-        : 'Vercel AI Gateway ("gpt-5") - Production Mode (Valyu Credits)';
+        ? "OpenAI (gpt-5) - Valyu Mode (Valyu Credits)"
+        : 'Vercel AI Gateway ("gpt-5") - Valyu Mode (Valyu Credits)';
     }
 
     console.log("[Chat API] Model selected:", modelInfo);
@@ -198,7 +198,7 @@ export async function POST(req: Request) {
     console.log(`[Chat API] Model info:`, modelInfo);
 
     // Build provider options conditionally based on whether we're using local providers
-    const isUsingLocalProvider = isDevelopment && localEnabled && (modelInfo.includes('Ollama') || modelInfo.includes('LM Studio'));
+    const isUsingLocalProvider = isSelfHosted && localEnabled && (modelInfo.includes('Ollama') || modelInfo.includes('LM Studio'));
     const providerOptions: any = {};
 
     if (isUsingLocalProvider) {
@@ -625,9 +625,9 @@ export async function POST(req: Request) {
       }
     });
 
-    if (isDevelopment) {
-      // Add development mode headers
-      streamResponse.headers.set("X-Development-Mode", "true");
+    if (isSelfHosted) {
+      // Add self-hosted mode headers
+      streamResponse.headers.set("X-Self-Hosted-Mode", "true");
     }
 
     return streamResponse;

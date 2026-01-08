@@ -15,14 +15,14 @@ interface LMStudioModelsResponse {
 }
 
 export async function GET() {
-  const isDevelopment = process.env.NEXT_PUBLIC_APP_MODE === 'development';
+  const isSelfHosted = process.env.NEXT_PUBLIC_APP_MODE === 'self-hosted';
 
-  if (!isDevelopment) {
+  if (!isSelfHosted) {
     return NextResponse.json({
       connected: false,
       available: false,
-      mode: 'production' as const,
-      message: 'LM Studio is only available in development mode'
+      mode: 'valyu' as const,
+      message: 'LM Studio is only available in self-hosted mode'
     });
   }
 
@@ -59,7 +59,7 @@ export async function GET() {
     return NextResponse.json({
       connected: true,
       available: true,
-      mode: 'development' as const,
+      mode: 'self-hosted' as const,
       baseUrl,
       models,
       message: models.length > 0
@@ -72,7 +72,7 @@ export async function GET() {
         return NextResponse.json({
           connected: false,
           available: true,
-          mode: 'development' as const,
+          mode: 'self-hosted' as const,
           message: 'LM Studio connection timeout (5s). Make sure LM Studio server is running.',
           error: 'Connection timeout',
         });
@@ -82,7 +82,7 @@ export async function GET() {
         return NextResponse.json({
           connected: false,
           available: true,
-          mode: 'development' as const,
+          mode: 'self-hosted' as const,
           message: 'LM Studio server is not running. Start the server in LM Studio.',
           error: 'Connection refused',
         });
@@ -91,7 +91,7 @@ export async function GET() {
       return NextResponse.json({
         connected: false,
         available: true,
-        mode: 'development' as const,
+        mode: 'self-hosted' as const,
         message: `Failed to connect to LM Studio: ${error.message}`,
         error: error.message,
       });
@@ -100,7 +100,7 @@ export async function GET() {
     return NextResponse.json({
       connected: false,
       available: true,
-      mode: 'development' as const,
+      mode: 'self-hosted' as const,
       message: 'Unknown error connecting to LM Studio',
       error: 'Unknown error',
     });

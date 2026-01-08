@@ -503,7 +503,7 @@ export const financeTools = {
       const userId = (options as any)?.experimental_context?.userId;
       const sessionId = (options as any)?.experimental_context?.sessionId;
       const userTier = (options as any)?.experimental_context?.userTier;
-      const isDevelopment = process.env.NEXT_PUBLIC_APP_MODE === 'development';
+      const isSelfHosted = process.env.NEXT_PUBLIC_APP_MODE === 'self-hosted';
       
       const startTime = Date.now();
 

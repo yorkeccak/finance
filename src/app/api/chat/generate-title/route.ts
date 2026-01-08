@@ -24,13 +24,13 @@ export async function POST(req: Request) {
       });
     }
 
-    const isDevelopment = process.env.NEXT_PUBLIC_APP_MODE === 'development';
+    const isSelfHosted = process.env.NEXT_PUBLIC_APP_MODE === 'self-hosted';
     const localEnabled = req.headers.get('x-ollama-enabled') !== 'false';
     const localProvider = (req.headers.get('x-local-provider') as 'ollama' | 'lmstudio' | null) || 'ollama';
     let selectedModel;
 
-    // Try to use local provider in development mode if enabled
-    if (isDevelopment && localEnabled) {
+    // Try to use local provider in self-hosted mode if enabled
+    if (isSelfHosted && localEnabled) {
       try {
         const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
         const lmstudioBaseUrl = process.env.LMSTUDIO_BASE_URL || 'http://localhost:1234';

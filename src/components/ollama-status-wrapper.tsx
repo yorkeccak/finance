@@ -8,18 +8,18 @@ interface OllamaStatusWrapperProps {
 }
 
 export function OllamaStatusWrapper({ hasMessages }: OllamaStatusWrapperProps) {
-  const [isDevelopmentMode, setIsDevelopmentMode] = useState<boolean | null>(null);
+  const [isSelfHostedMode, setIsSelfHostedMode] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // Check if we're in development mode by making a single API call
+    // Check if we're in self-hosted mode by making a single API call
     const checkMode = async () => {
       try {
         const response = await fetch('/api/ollama-status');
         const data = await response.json();
-        setIsDevelopmentMode(data.mode === 'development');
+        setIsSelfHostedMode(data.mode === 'self-hosted');
       } catch (error) {
-        // If API call fails, assume production mode
-        setIsDevelopmentMode(false);
+        // If API call fails, assume valyu mode
+        setIsSelfHostedMode(false);
       }
     };
 
@@ -27,12 +27,12 @@ export function OllamaStatusWrapper({ hasMessages }: OllamaStatusWrapperProps) {
   }, []);
 
   // Don't render anything until we know the mode
-  if (isDevelopmentMode === null) {
+  if (isSelfHostedMode === null) {
     return null;
   }
 
-  // Only render the indicator in development mode
-  if (!isDevelopmentMode) {
+  // Only render the indicator in self-hosted mode
+  if (!isSelfHostedMode) {
     return null;
   }
 

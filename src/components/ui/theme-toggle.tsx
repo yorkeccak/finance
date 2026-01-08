@@ -8,17 +8,17 @@ export function ThemeSelector() {
   const { setTheme, theme } = useTheme();
   const { user } = useAuthStore();
 
-  // In production, require sign-in for theme switching
-  // In development, always allow
-  const isDevelopment = process.env.NEXT_PUBLIC_APP_MODE === 'development';
-  const hasAccess = isDevelopment || !!user;
+  // In valyu mode, require sign-in for theme switching
+  // In self-hosted mode, always allow
+  const isSelfHosted = process.env.NEXT_PUBLIC_APP_MODE === 'self-hosted';
+  const hasAccess = isSelfHosted || !!user;
 
   return (
     <ThemeSwitcher
       value={theme as 'light' | 'dark' | 'system'}
       onChange={(newTheme) => setTheme(newTheme)}
       defaultValue="light"
-      requiresSubscription={!isDevelopment}
+      requiresSubscription={!isSelfHosted}
       hasSubscription={hasAccess}
     />
   );
@@ -34,8 +34,8 @@ export function CompactThemeSelector({
   const { setTheme, theme } = useTheme();
   const { user } = useAuthStore();
 
-  const isDevelopment = process.env.NEXT_PUBLIC_APP_MODE === 'development';
-  const hasAccess = isDevelopment || !!user;
+  const isSelfHosted = process.env.NEXT_PUBLIC_APP_MODE === 'self-hosted';
+  const hasAccess = isSelfHosted || !!user;
 
   return (
     <ThemeSwitcher
@@ -43,12 +43,12 @@ export function CompactThemeSelector({
       onChange={(newTheme) => setTheme(newTheme)}
       defaultValue="light"
       className="h-8 scale-75"
-      requiresSubscription={!isDevelopment}
+      requiresSubscription={!isSelfHosted}
       hasSubscription={hasAccess}
       onUpgradeClick={onUpgradeClick}
       userId={user?.id}
       sessionId={sessionId}
-      tier={isDevelopment ? 'unlimited' : (user ? 'valyu' : 'anonymous')}
+      tier={isSelfHosted ? 'unlimited' : (user ? 'valyu' : 'anonymous')}
     />
   );
 }
@@ -57,15 +57,15 @@ export function ThemeMenuItem() {
   const { setTheme, theme } = useTheme();
   const { user } = useAuthStore();
 
-  const isDevelopment = process.env.NEXT_PUBLIC_APP_MODE === 'development';
-  const hasAccess = isDevelopment || !!user;
+  const isSelfHosted = process.env.NEXT_PUBLIC_APP_MODE === 'self-hosted';
+  const hasAccess = isSelfHosted || !!user;
 
   return (
     <ThemeSwitcher
       value={theme as 'light' | 'dark' | 'system'}
       onChange={(newTheme) => setTheme(newTheme)}
       defaultValue="light"
-      requiresSubscription={!isDevelopment}
+      requiresSubscription={!isSelfHosted}
       hasSubscription={hasAccess}
     />
   );

@@ -57,7 +57,7 @@ export function MissingKeysDialog() {
   // Don't show if no API keys are missing
   if (!missingValyu && !missingDaytona && !missingOpenAI) return null;
 
-  const isDevelopmentMode = process.env.NEXT_PUBLIC_APP_MODE === 'development';
+  const isSelfHostedMode = process.env.NEXT_PUBLIC_APP_MODE === 'self-hosted';
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -65,7 +65,7 @@ export function MissingKeysDialog() {
         <DialogHeader>
           <DialogTitle>Setup Required</DialogTitle>
           <DialogDescription>
-            {isDevelopmentMode
+            {isSelfHostedMode
               ? "Configure API keys for full functionality."
               : "This app requires API keys for full functionality. Some features are disabled until keys are added."
             }

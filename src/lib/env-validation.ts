@@ -11,11 +11,11 @@ export function validatePaymentEnvironment(): EnvValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  const isDevelopmentMode = process.env.NEXT_PUBLIC_APP_MODE === 'development';
-  const isProductionMode = !isDevelopmentMode;
+  const isSelfHostedMode = process.env.NEXT_PUBLIC_APP_MODE === 'self-hosted';
+  const isValyuMode = !isSelfHostedMode;
 
-  // Development mode - minimal requirements
-  if (isDevelopmentMode) {
+  // Self-hosted mode - minimal requirements
+  if (isSelfHostedMode) {
     // Just need basic API keys for development
     if (!process.env.VALYU_API_KEY && !process.env.NEXT_PUBLIC_VALYU_CLIENT_ID) {
       warnings.push('Neither VALYU_API_KEY nor Valyu OAuth credentials are set - searches will fail');
@@ -28,13 +28,13 @@ export function validatePaymentEnvironment(): EnvValidationResult {
     }
 
     return {
-      valid: true, // Development mode is always valid
+      valid: true, // Self-hosted mode is always valid
       errors,
       warnings
     };
   }
 
-  // Production mode - require full Valyu OAuth + App Supabase
+  // Valyu mode - require full Valyu OAuth + App Supabase
 
   // Valyu OAuth requirements (4 required variables)
   if (!process.env.NEXT_PUBLIC_VALYU_SUPABASE_URL) {
@@ -103,8 +103,8 @@ export function logEnvironmentStatus(): void {
   }
 }
 
-// Auto-validate on import in production mode
-if (process.env.NEXT_PUBLIC_APP_MODE !== 'development') {
+// Auto-validate on import in valyu mode
+if (process.env.NEXT_PUBLIC_APP_MODE !== 'self-hosted') {
   const validation = validatePaymentEnvironment();
   if (!validation.valid) {
     console.error('[ENV] Environment validation failed:');

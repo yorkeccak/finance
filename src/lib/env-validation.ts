@@ -16,7 +16,7 @@ export function validatePaymentEnvironment(): EnvValidationResult {
 
   // Self-hosted mode - minimal requirements
   if (isSelfHostedMode) {
-    // Just need basic API keys for development
+    // Just need basic API keys for self-hosted
     if (!process.env.VALYU_API_KEY && !process.env.NEXT_PUBLIC_VALYU_CLIENT_ID) {
       warnings.push('Neither VALYU_API_KEY nor Valyu OAuth credentials are set - searches will fail');
     }

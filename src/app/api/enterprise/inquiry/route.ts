@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { EnterpriseInquiryEmail } from '@/lib/email-templates/enterprise-inquiry';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 const ENTERPRISE_RECIPIENTS = [
   'harvey@valyu.ai',
   'hirsh@valyu.ai',
@@ -13,6 +11,7 @@ const ENTERPRISE_RECIPIENTS = [
 
 export async function POST(req: NextRequest) {
   try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
     const body = await req.json();
 
     const {

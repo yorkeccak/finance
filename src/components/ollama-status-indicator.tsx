@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 interface OllamaStatus {
   connected: boolean;
   available: boolean;
-  mode: 'development' | 'production';
+  mode: 'self-hosted' | 'valyu';
   baseUrl?: string;
   models?: Array<{
     name: string;
@@ -37,7 +37,7 @@ export function OllamaStatusIndicator({ hasMessages = false }: { hasMessages?: b
       setStatus({
         connected: false,
         available: false,
-        mode: 'production',
+        mode: 'valyu',
         message: 'Failed to check Ollama status',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -47,8 +47,8 @@ export function OllamaStatusIndicator({ hasMessages = false }: { hasMessages?: b
   };
 
   useEffect(() => {
-    // Only check Ollama status in development mode
-    if (process.env.NEXT_PUBLIC_APP_MODE === 'development') {
+    // Only check Ollama status in self-hosted mode
+    if (process.env.NEXT_PUBLIC_APP_MODE === 'self-hosted') {
       checkOllamaStatus();
 
       // Check status every 30 seconds
@@ -59,7 +59,7 @@ export function OllamaStatusIndicator({ hasMessages = false }: { hasMessages?: b
 
   // Separate useEffect for initial dialog
   useEffect(() => {
-    if (process.env.NEXT_PUBLIC_APP_MODE === 'development' && status) {
+    if (process.env.NEXT_PUBLIC_APP_MODE === 'self-hosted' && status) {
       const hasShownDialog = localStorage.getItem('ollama-dialog-shown');
       if (!hasShownDialog && !status.connected && status.available) {
         const timer = setTimeout(() => {
@@ -71,13 +71,13 @@ export function OllamaStatusIndicator({ hasMessages = false }: { hasMessages?: b
     }
   }, [status]);
 
-  // Don't render anything in production mode
-  if (process.env.NEXT_PUBLIC_APP_MODE === 'production') {
+  // Don't render anything in valyu mode
+  if (process.env.NEXT_PUBLIC_APP_MODE === 'valyu') {
     return null;
   }
 
-  if (!status || status.mode === 'production') {
-    return null; // Don't show in production mode
+  if (!status || status.mode === 'valyu') {
+    return null; // Don't show in valyu mode
   }
 
   const formatModelSize = (bytes: number) => {

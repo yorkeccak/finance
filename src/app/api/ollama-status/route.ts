@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   try {
-    // Check if we're in development mode with Ollama support
-    const isDevelopment = process.env.NEXT_PUBLIC_APP_MODE === 'development';
-    
-    if (!isDevelopment) {
+    // Check if we're in self-hosted mode with Ollama support
+    const isSelfHosted = process.env.NEXT_PUBLIC_APP_MODE === 'self-hosted';
+
+    if (!isSelfHosted) {
       return NextResponse.json({
         connected: false,
         available: false,
-        message: 'Ollama is only available in development mode',
-        mode: 'production'
+        message: 'Ollama is only available in self-hosted mode',
+        mode: 'valyu'
       });
     }
 
@@ -34,11 +34,11 @@ export async function GET(request: NextRequest) {
       if (response.ok) {
         const data = await response.json();
         const models = data.models || [];
-        
+
         return NextResponse.json({
           connected: true,
           available: true,
-          mode: 'development',
+          mode: 'self-hosted',
           baseUrl: ollamaBaseUrl,
           models: models.map((model: any) => ({
             name: model.name,
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           connected: false,
           available: true,
-          mode: 'development',
+          mode: 'self-hosted',
           baseUrl: ollamaBaseUrl,
           models: [],
           message: `Ollama server responded with status ${response.status}`,
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           connected: false,
           available: true,
-          mode: 'development',
+          mode: 'self-hosted',
           baseUrl: ollamaBaseUrl,
           models: [],
           message: 'Connection to Ollama timed out (5s)',
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           connected: false,
           available: true,
-          mode: 'development',
+          mode: 'self-hosted',
           baseUrl: ollamaBaseUrl,
           models: [],
           message: 'Could not connect to Ollama server. Is it running?',
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           connected: false,
           available: true,
-          mode: 'development',
+          mode: 'self-hosted',
           baseUrl: ollamaBaseUrl,
           models: [],
           message: 'Unexpected error connecting to Ollama',
@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       connected: false,
       available: false,
-      mode: process.env.APP_MODE || 'production',
+      mode: process.env.APP_MODE || 'valyu',
       message: 'Internal server error',
       error: error.message
     }, { status: 500 });

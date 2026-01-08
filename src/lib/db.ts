@@ -5,7 +5,7 @@
 
 import { createClient as createSupabaseClient } from "@/utils/supabase/server";
 import { getLocalDb, DEV_USER_ID } from "./local-db/client";
-import { getDevUser, isDevelopmentMode } from "./local-db/local-auth";
+import { getDevUser, isSelfHostedMode } from "./local-db/local-auth";
 import { eq, desc, and } from "drizzle-orm";
 import * as schema from "./local-db/schema";
 
@@ -14,7 +14,7 @@ import * as schema from "./local-db/schema";
 // ============================================================================
 
 export async function getUser() {
-  if (isDevelopmentMode()) {
+  if (isSelfHostedMode()) {
     return { data: { user: getDevUser() }, error: null };
   }
 
@@ -23,7 +23,7 @@ export async function getUser() {
 }
 
 export async function getSession() {
-  if (isDevelopmentMode()) {
+  if (isSelfHostedMode()) {
     return {
       data: {
         session: {
@@ -44,7 +44,7 @@ export async function getSession() {
 // ============================================================================
 
 export async function getUserProfile(userId: string) {
-  if (isDevelopmentMode()) {
+  if (isSelfHostedMode()) {
     const db = getLocalDb();
     const user = await db.query.users.findFirst({
       where: eq(schema.users.id, userId),
@@ -66,7 +66,7 @@ export async function getUserProfile(userId: string) {
 // ============================================================================
 
 export async function getChatSessions(userId: string) {
-  if (isDevelopmentMode()) {
+  if (isSelfHostedMode()) {
     const db = getLocalDb();
     const sessions = await db.query.chatSessions.findMany({
       where: eq(schema.chatSessions.userId, userId),
@@ -85,7 +85,7 @@ export async function getChatSessions(userId: string) {
 }
 
 export async function getChatSession(sessionId: string, userId: string) {
-  if (isDevelopmentMode()) {
+  if (isSelfHostedMode()) {
     const db = getLocalDb();
     const session = await db.query.chatSessions.findFirst({
       where: and(
@@ -111,7 +111,7 @@ export async function createChatSession(session: {
   user_id: string;
   title: string;
 }) {
-  if (isDevelopmentMode()) {
+  if (isSelfHostedMode()) {
     const db = getLocalDb();
     await db.insert(schema.chatSessions).values({
       id: session.id,
@@ -131,7 +131,7 @@ export async function updateChatSession(
   userId: string,
   updates: { title?: string; last_message_at?: Date }
 ) {
-  if (isDevelopmentMode()) {
+  if (isSelfHostedMode()) {
     const db = getLocalDb();
     const updateData: any = {
       updatedAt: new Date(),
@@ -162,7 +162,7 @@ export async function updateChatSession(
 }
 
 export async function deleteChatSession(sessionId: string, userId: string) {
-  if (isDevelopmentMode()) {
+  if (isSelfHostedMode()) {
     const db = getLocalDb();
     await db
       .delete(schema.chatSessions)
@@ -189,7 +189,7 @@ export async function deleteChatSession(sessionId: string, userId: string) {
 // ============================================================================
 
 export async function getChatMessages(sessionId: string) {
-  if (isDevelopmentMode()) {
+  if (isSelfHostedMode()) {
     const db = getLocalDb();
     const messages = await db.query.chatMessages.findMany({
       where: eq(schema.chatMessages.sessionId, sessionId),
@@ -218,7 +218,7 @@ export async function saveChatMessages(
 ) {
   console.log('[DB] saveChatMessages called - sessionId:', sessionId, 'messageCount:', messages.length);
 
-  if (isDevelopmentMode()) {
+  if (isSelfHostedMode()) {
     const db = getLocalDb();
 
     // Delete existing messages
@@ -242,7 +242,7 @@ export async function saveChatMessages(
     return { error: null };
   }
 
-  console.log('[DB] Saving to Supabase (production mode)');
+  console.log('[DB] Saving to Supabase (valyu mode)');
   const supabase = await createSupabaseClient();
 
   // Delete existing messages
@@ -278,7 +278,7 @@ export async function saveChatMessages(
 }
 
 export async function deleteChatMessages(sessionId: string) {
-  if (isDevelopmentMode()) {
+  if (isSelfHostedMode()) {
     const db = getLocalDb();
     await db
       .delete(schema.chatMessages)
@@ -299,7 +299,7 @@ export async function deleteChatMessages(sessionId: string) {
 // ============================================================================
 
 export async function getChart(chartId: string) {
-  if (isDevelopmentMode()) {
+  if (isSelfHostedMode()) {
     const db = getLocalDb();
     const chart = await db.query.charts.findFirst({
       where: eq(schema.charts.id, chartId),
@@ -322,7 +322,7 @@ export async function createChart(chart: {
   session_id: string | null;
   chart_data: any;
 }) {
-  if (isDevelopmentMode()) {
+  if (isSelfHostedMode()) {
     const db = getLocalDb();
     await db.insert(schema.charts).values({
       id: chart.id,
@@ -343,7 +343,7 @@ export async function createChart(chart: {
 // ============================================================================
 
 export async function getCSV(csvId: string) {
-  if (isDevelopmentMode()) {
+  if (isSelfHostedMode()) {
     const db = getLocalDb();
     const csv = await db.query.csvs.findFirst({
       where: eq(schema.csvs.id, csvId),
@@ -369,7 +369,7 @@ export async function createCSV(csv: {
   headers: string[];
   rows: any[][];
 }) {
-  if (isDevelopmentMode()) {
+  if (isSelfHostedMode()) {
     const db = getLocalDb();
     await db.insert(schema.csvs).values({
       id: csv.id,

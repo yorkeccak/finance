@@ -88,8 +88,8 @@ const OllamaStatus = () => {
     }
   }, [isEnabled]);
 
-  // Only show in development mode
-  if (process.env.NEXT_PUBLIC_APP_MODE !== "development") {
+  // Only show in self-hosted mode
+  if (process.env.NEXT_PUBLIC_APP_MODE !== "self-hosted") {
     return null;
   }
 

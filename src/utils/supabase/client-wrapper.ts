@@ -9,9 +9,9 @@ import { createClient as createSupabaseClient } from './client';
 const DEV_USER_ID = "dev-user-00000000-0000-0000-0000-000000000000";
 const DEV_USER_EMAIL = "dev@localhost";
 
-const isDevelopment = () => process.env.NEXT_PUBLIC_APP_MODE === 'development';
+const isSelfHosted = () => process.env.NEXT_PUBLIC_APP_MODE === 'self-hosted';
 
-// Mock auth object for development mode
+// Mock auth object for self-hosted mode
 const createDevAuth = () => ({
   getUser: async () => ({
     data: {
@@ -152,8 +152,8 @@ const createDevAuth = () => ({
 });
 
 export function createClient() {
-  if (isDevelopment()) {
-    // Return mock Supabase client for development
+  if (isSelfHosted()) {
+    // Return mock Supabase client for self-hosted mode
     return {
       auth: createDevAuth(),
       // Mock other methods that might be used

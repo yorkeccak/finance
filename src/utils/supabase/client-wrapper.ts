@@ -1,6 +1,6 @@
 /**
- * Client-side database wrapper that switches between Supabase (production)
- * and local mock (development) based on NEXT_PUBLIC_APP_MODE
+ * Client-side database wrapper that switches between Supabase (valyu mode)
+ * and local SQLite (self-hosted mode) based on NEXT_PUBLIC_APP_MODE
  */
 
 import { createClient as createSupabaseClient } from './client';

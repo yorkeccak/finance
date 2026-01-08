@@ -1,6 +1,6 @@
 /**
- * Unified database interface that switches between Supabase (production)
- * and SQLite (development) based on NEXT_PUBLIC_APP_MODE
+ * Unified database interface that switches between Supabase (valyu mode)
+ * and SQLite (self-hosted mode) based on NEXT_PUBLIC_APP_MODE
  */
 
 import { createClient as createSupabaseClient } from "@/utils/supabase/server";

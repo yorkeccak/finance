@@ -15,7 +15,7 @@ interface LocalModel {
 interface ProviderStatus {
   connected: boolean;
   available: boolean;
-  mode: 'development' | 'production';
+  mode: 'self-hosted' | 'valyu';
   baseUrl?: string;
   models?: LocalModel[];
   message: string;
@@ -71,7 +71,7 @@ export function LocalModelStatus() {
       return {
         connected: false,
         available: false,
-        mode: 'production' as const,
+        mode: 'valyu' as const,
         message: `Failed to check ${provider} status`,
         error: error instanceof Error ? error.message : 'Unknown error'
       };
@@ -131,7 +131,7 @@ export function LocalModelStatus() {
     }
   }, [isEnabled]);
 
-  if (process.env.NEXT_PUBLIC_APP_MODE !== "development") {
+  if (process.env.NEXT_PUBLIC_APP_MODE !== "self-hosted") {
     return null;
   }
 

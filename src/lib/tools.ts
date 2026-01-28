@@ -788,6 +788,96 @@ ${execution.result || "(No output produced)"}
     },
   }),
 
+  polymarketSearch: tool({
+    description:
+      "Search for Polymarket prediction market data including event probabilities, market odds, and sentiment on financial, economic, and geopolitical events. Use this tool when users ask about prediction markets, event probabilities, market sentiment on outcomes, or Polymarket-specific data.",
+    inputSchema: z.object({
+      query: z
+        .string()
+        .describe(
+          'Prediction market search query (e.g., "Fed interest rate cut probability", "Bitcoin price prediction", "US recession odds 2025", "election outcome market")'
+        ),
+      maxResults: z
+        .number()
+        .min(1)
+        .max(20)
+        .optional()
+        .default(10)
+        .describe("Maximum number of results to return"),
+    }),
+    execute: async ({ query, maxResults }, options) => {
+      const valyuAccessToken = (options as any)?.experimental_context?.valyuAccessToken;
+
+      try {
+        // Configure search options for Polymarket sources
+        const searchOptions: any = {
+          query,
+          maxNumResults: maxResults || 10,
+          includedSources: ["valyu/valyu-polymarket"]
+        };
+
+        const response = await callValyuApi('/v1/deepsearch', searchOptions, valyuAccessToken);
+
+        // Track Valyu Polymarket search call
+        await track('Valyu API Call', {
+          toolType: 'polymarketSearch',
+          query: query,
+          maxResults: maxResults || 10,
+          resultCount: response?.results?.length || 0,
+          usedOAuthProxy: !!valyuAccessToken,
+          cost: (response as any)?.total_deduction_dollars || null,
+          txId: (response as any)?.tx_id || null
+        });
+
+        if (!response || !response.results || response.results.length === 0) {
+          return `🔍 No Polymarket prediction data found for "${query}". Try rephrasing your search or checking if there is an active market for this event.`;
+        }
+
+        // Return structured data for the model to process
+        const formattedResponse = {
+          type: "polymarket_search",
+          query: query,
+          resultCount: response.results.length,
+          results: response.results.map((result: any) => ({
+            title: result.title || "Polymarket Prediction",
+            url: result.url,
+            content: result.content,
+            date: result.metadata?.date,
+            source: result.metadata?.source,
+            dataType: result.data_type,
+            length: result.length,
+            image_url: result.image_url || {},
+            relevance_score: result.relevance_score,
+          })),
+        };
+
+        return JSON.stringify(formattedResponse, null, 2);
+      } catch (error) {
+        if (error instanceof Error) {
+          if (
+            error.message.includes("401") ||
+            error.message.includes("unauthorized")
+          ) {
+            return "🔐 Invalid Valyu API key. Please check your VALYU_API_KEY environment variable.";
+          }
+          if (error.message.includes("429")) {
+            return "⏱️ Rate limit exceeded. Please try again in a moment.";
+          }
+          if (
+            error.message.includes("network") ||
+            error.message.includes("fetch")
+          ) {
+            return "🌐 Network error connecting to Valyu API. Please check your internet connection.";
+          }
+        }
+
+        return `❌ Error searching Polymarket prediction data: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`;
+      }
+    },
+  }),
+
   webSearch: tool({
     description:
       "Search the web for general information on any topic using Valyu DeepSearch API with access to both proprietary sources and web content",

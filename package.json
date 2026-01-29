@@ -30,6 +30,7 @@
     "@tanstack/react-query": "^5.85.5",
     "@types/katex": "^0.16.7",
     "@uiw/react-json-view": "^2.0.0-alpha.34",
+    "@valyu/ai-sdk": "^1.0.8",
     "@vercel/analytics": "^1.5.0",
     "ai": "^5.0.16",
     "better-sqlite3": "^12.4.1",
@@ -61,7 +62,6 @@
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
     "tw-animate-css": "^1.3.6",
-    "valyu-js": "^2.0.2",
     "zod": "^4.0.17",
     "zustand": "^5.0.8"
   },

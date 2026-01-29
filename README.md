@@ -4,7 +4,9 @@
 
 **[Try the live demo at finance.valyu.ai](https://finance.valyu.ai)**
 
-![Finance by Valyu](public/valyu.png)
+![App Interface](https://4ealzrotsszllxtz.public.blob.vercel-storage.com/intfaceone)
+
+![App getting results](https://4ealzrotsszllxtz.public.blob.vercel-storage.com/intfacetwo)
 
 ## Why Finance?
 

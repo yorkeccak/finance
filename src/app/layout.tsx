@@ -23,19 +23,45 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+    process.env.NEXT_PUBLIC_APP_URL || "https://finance.valyu.ai"
   ),
   title: {
-    default: "Finance by Valyu",
-    template: "%s | Finance by Valyu",
+    default: "Finance AI Agent - Deep Research & Analysis | Valyu",
+    template: "%s | Finance AI Agent | Valyu",
   },
   description:
-    "Powered by Valyu's enterprise-grade search infrastructure. AI financial analysis with real-time data, secure Python execution, and interactive visualizations for research and reporting.",
+    "AI-powered financial research agent with real-time market data, SEC filings, and institutional-grade analysis. Deep research for stocks, companies, and markets through natural language.",
+  keywords: [
+    "AI finance",
+    "finance AI agent",
+    "financial research AI",
+    "deepresearch finance",
+    "AI stock research",
+    "financial data API",
+    "SEC filings search",
+    "market analysis AI",
+    "investment research",
+    "Bloomberg alternative",
+  ],
   applicationName: "Finance by Valyu",
+  authors: [{ name: "Valyu", url: "https://valyu.ai" }],
+  creator: "Valyu",
+  publisher: "Valyu",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
   openGraph: {
-    title: "Finance by Valyu",
+    title: "Finance AI Agent - Deep Research & Analysis | Valyu",
     description:
-      "Powered by Valyu's enterprise-grade search infrastructure. AI financial analysis with real-time data, secure Python execution, and interactive visualizations.",
+      "AI-powered financial research with real-time market data, SEC filings, and institutional-grade analysis. Natural language queries for stocks, companies, and markets.",
     url: "/",
     siteName: "Finance by Valyu",
     images: [
@@ -43,7 +69,7 @@ export const metadata: Metadata = {
         url: "/valyu.png",
         width: 1200,
         height: 630,
-        alt: "Finance by Valyu",
+        alt: "Finance AI Agent - Deep Financial Research",
       },
     ],
     locale: "en_US",
@@ -51,14 +77,58 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Finance by Valyu",
+    title: "Finance AI Agent - Deep Research | Valyu",
     description:
-      "AI-powered financial analysis by Valyu. Real-time data, secure Python execution in Daytona sandboxes, and interactive visualizations for research and reporting.",
+      "AI-powered financial research agent. Real-time market data, SEC filings, and institutional-grade analysis through natural language.",
     images: ["/valyu.png"],
+    creator: "@valaborator",
+  },
+  alternates: {
+    canonical: "/",
   },
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/valyu.png", type: "image/png", sizes: "192x192" },
+    ],
+    apple: [{ url: "/valyu.png", sizes: "180x180" }],
+    shortcut: "/favicon.ico",
   },
+  manifest: "/manifest.json",
+  category: "finance",
+  classification: "Finance, Investment, Research",
+  other: {
+    "google-site-verification": process.env.GOOGLE_SITE_VERIFICATION || "",
+  },
+};
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Finance by Valyu",
+  description:
+    "AI-powered financial research agent with real-time market data, SEC filings, and institutional-grade analysis through natural language.",
+  url: "https://finance.valyu.ai",
+  applicationCategory: "FinanceApplication",
+  operatingSystem: "Web",
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD",
+  },
+  author: {
+    "@type": "Organization",
+    name: "Valyu",
+    url: "https://valyu.ai",
+  },
+  featureList: [
+    "Real-time market data from 50+ global exchanges",
+    "SEC filings search and analysis",
+    "AI-powered financial research",
+    "Python code execution in secure sandboxes",
+    "Interactive charts and visualizations",
+    "Natural language queries",
+  ],
 };
 
 export default function RootLayout({
@@ -70,9 +140,15 @@ export default function RootLayout({
   if (typeof window === 'undefined') {
     logEnvironmentStatus();
   }
-  
+
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden`}
       >

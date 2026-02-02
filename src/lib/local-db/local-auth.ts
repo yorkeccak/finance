@@ -28,7 +28,7 @@ export function getDevUser() {
   };
 }
 
-// Check if we're in self-hosted mode (defaults to true if not explicitly set to "valyu")
+// Check if we're in self-hosted mode (must be explicitly set to "self-hosted")
 export function isSelfHostedMode(): boolean {
-  return process.env.NEXT_PUBLIC_APP_MODE !== "valyu";
+  return process.env.NEXT_PUBLIC_APP_MODE === "self-hosted";
 }

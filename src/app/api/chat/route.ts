@@ -317,10 +317,16 @@ export async function POST(req: Request) {
          4. Show step-by-step calculations for complex problems
          5. Use f-string formatting for professional output
          6. Always calculate intermediate values before printing final results
-          7. Available libraries: You may install and use packages in the Daytona sandbox (e.g., numpy, pandas, scikit-learn). Prefer the chart creation tool for visuals unless an advanced/custom visualization is required.
-          8. Visualization guidance: Prefer the chart creation tool for most charts. Use Daytona-rendered plots only for complex, bespoke visualizations that the chart tool cannot represent.
-         
-          REQUIRED: Every Python script must end with print() statements that show the calculated results with proper labels, units, and formatting. Never just write variable names or expressions without print() - they will not display anything to the user.
+         7. Available libraries: You may install and use packages in the Daytona sandbox (e.g., numpy, pandas, scikit-learn). Prefer the chart creation tool for visuals unless an advanced/custom visualization is required.
+         8. Visualization guidance: Prefer the chart creation tool for most charts. Use Daytona-rendered plots only for complex, bespoke visualizations that the chart tool cannot represent.
+         9. CODE LENGTH LIMIT: The codeExecution tool has a 10,000 character limit. If your code exceeds this:
+            - Split into multiple sequential codeExecution calls
+            - First call: data preparation, imports, and helper functions
+            - Second call: main computation and analysis
+            - Third call (if needed): visualization or final output
+            - Store intermediate results in variables between calls
+
+         REQUIRED: Every Python script must end with print() statements that show the calculated results with proper labels, units, and formatting. Never just write variable names or expressions without print() - they will not display anything to the user.
           If generating advanced charts with Daytona (e.g., matplotlib), ensure the code renders the figure (e.g., plt.show()) so artifacts can be captured.
          
          ERROR RECOVERY: If any tool call fails due to validation errors, you will receive an error message explaining what went wrong. When this happens:

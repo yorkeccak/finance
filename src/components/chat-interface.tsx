@@ -430,7 +430,7 @@ const MemoizedCodeExecutionResult = memo(function MemoizedCodeExecutionResult({
       {/* Output Section - elegant typography */}
       <div>
         <div className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Output</div>
-        <div className="prose prose-sm max-w-none dark:prose-invert text-sm p-4 bg-card rounded-lg max-h-[400px] overflow-y-auto border border-border">
+        <div className="prose prose-sm max-w-none dark:prose-invert overflow-hidden break-words text-sm p-4 bg-card rounded-lg max-h-[400px] overflow-y-auto border border-border">
           <MemoizedMarkdown text={escapeHtml(output)} />
         </div>
       </div>
@@ -538,6 +538,24 @@ const markdownComponents = {
       {children}
     </div>
   ),
+  // Wrap tables for horizontal scroll on mobile
+  table: ({ children, ...props }: any) => (
+    <div className="overflow-x-auto -mx-1 px-1">
+      <table {...props}>{children}</table>
+    </div>
+  ),
+  // Code blocks with overflow control
+  pre: ({ children, ...props }: any) => (
+    <pre className="overflow-x-auto max-w-full text-sm" {...props}>{children}</pre>
+  ),
+  // Inline code with word break
+  code: ({ children, className, ...props }: any) => {
+    // If it has a className (language-*), it's a code block inside pre - render as-is
+    if (className) {
+      return <code className={className} {...props}>{children}</code>;
+    }
+    return <code className="break-all text-sm bg-muted px-1 py-0.5 rounded" {...props}>{children}</code>;
+  },
   // Fix paragraph wrapping for block elements (charts) to avoid hydration errors
   p: ({ children, ...props }: any) => {
     // Check if this paragraph contains any React component (like charts)
@@ -1565,7 +1583,7 @@ const SearchResultCard = ({
                   </span>
                 )}
               </div>
-              <div className="prose prose-sm max-w-none dark:prose-invert">
+              <div className="prose prose-sm max-w-none dark:prose-invert overflow-hidden break-words">
                 <MemoizedMarkdown
                   text={
                     typeof result.fullContent === "string"
@@ -2837,15 +2855,15 @@ export function ChatInterface({
   }, [messages, liveProcessingTime]);
 
   return (
-    <div className="w-full max-w-3xl mx-auto relative min-h-0">
+    <div className="w-full max-w-full md:max-w-3xl mx-auto relative min-h-0 overflow-x-hidden">
       {/* Removed duplicate New Chat button - handled by parent page */}
 
       {/* Messages */}
       <div
         ref={messagesContainerRef}
         className={`space-y-4 sm:space-y-8 min-h-[300px] overflow-y-auto overflow-x-hidden ${
-          messages.length > 0 ? "pt-20 sm:pt-24" : "pt-2 sm:pt-4"
-        } ${isFormAtBottom ? "pb-44 sm:pb-36" : "pb-4 sm:pb-8"}`}
+          messages.length > 0 ? "pt-4 md:pt-24" : "pt-2 md:pt-4"
+        } ${isFormAtBottom ? "pb-44 md:pb-36" : "pb-4 md:pb-8"}`}
       >
         {messages.length === 0 && (
           <motion.div
@@ -2856,7 +2874,7 @@ export function ChatInterface({
           >
             <div className="text-center mb-6 sm:mb-8">
               {/* Capabilities */}
-              <div className="max-w-4xl mx-auto">
+              <div className="max-w-3xl mx-auto overflow-hidden">
                 <motion.div
                   className="text-center mb-4 sm:mb-6"
                   initial={{ opacity: 0, y: 20 }}
@@ -2868,7 +2886,7 @@ export function ChatInterface({
                   </h3>
                 </motion.div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 px-2 sm:px-0">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 px-4 sm:px-0">
                   <motion.button
                     onClick={() =>
                       handlePromptClick(
@@ -3171,7 +3189,7 @@ export function ChatInterface({
                 </div>
               ) : (
                 /* Assistant Message */
-                <div className="mb-6 sm:mb-8 group px-3 sm:px-0">
+                <div className="mb-6 sm:mb-8 group px-3 sm:px-0 overflow-hidden">
                   {editingMessageId === message.id ? null : (
                     <div className="space-y-4">
                       {(() => {
@@ -3432,7 +3450,7 @@ export function ChatInterface({
                                 return (
                                   <div
                                     key={index}
-                                    className="prose prose-sm max-w-none dark:prose-invert"
+                                    className="prose prose-sm max-w-none dark:prose-invert overflow-hidden break-words"
                                   >
                                     <MemoizedTextPartWithCitations
                                       text={part.text}
@@ -3868,7 +3886,7 @@ export function ChatInterface({
       <AnimatePresence>
         {(isFormAtBottom || isMobile) && (
           <motion.div
-            className="fixed left-1/2 -translate-x-1/2 bottom-0 w-full max-w-3xl px-3 sm:px-6 pt-4 pb-5 sm:pb-6 z-50"
+            className="fixed left-1/2 -translate-x-1/2 bottom-0 w-full max-w-3xl px-3 md:px-6 pt-4 pb-5 md:pb-6 z-50"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}

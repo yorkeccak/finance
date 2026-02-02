@@ -234,7 +234,7 @@ function HomeContent() {
   }
 
   return (
-    <div className='min-h-screen bg-[#F5F5F5] dark:bg-gray-950 flex'>
+    <div className='min-h-screen bg-[#F5F5F5] dark:bg-gray-950 flex overflow-x-hidden'>
       {/* Enterprise Banner */}
       <EnterpriseBanner />
 
@@ -272,12 +272,12 @@ function HomeContent() {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col pt-0">
+      <div className="flex-1 min-w-0 flex flex-col pt-14 md:pt-0">
         {/* Header - Animate out when messages appear */}
         <AnimatePresence mode="wait">
             {!hasMessages && (
-              <motion.div 
-                className="text-center pt-12 sm:pt-16 pb-6 sm:pb-4 px-4 sm:px-0"
+              <motion.div
+                className="text-center pt-8 md:pt-16 pb-6 md:pb-4 px-4 md:px-0"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20, transition: { duration: 0.3 } }}
@@ -304,7 +304,7 @@ function HomeContent() {
                 onClick={handleTitleClick}
               >
                 <motion.h1 
-                  className={`text-4xl sm:text-5xl font-light text-gray-900 dark:text-gray-100 tracking-tight relative z-10 ${
+                  className={`text-3xl sm:text-5xl font-light text-gray-900 dark:text-gray-100 tracking-tight relative z-10 ${
                     isMobile ? 'cursor-pointer' : 'cursor-default'
                   }`}
                   style={{ transformOrigin: '15% 100%' }}
@@ -358,7 +358,7 @@ function HomeContent() {
                 <div className="absolute inset-0 -bottom-10" />
               </motion.div>
               <motion.p 
-                className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm max-w-md mx-auto"
+                className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm max-w-xs sm:max-w-md mx-auto px-4 sm:px-0"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.6, ease: "easeOut" }}
@@ -371,7 +371,7 @@ function HomeContent() {
         
         {/* Chat Interface */}
         <motion.div 
-          className="flex-1 px-0 sm:px-4"
+          className="flex-1 px-0 md:px-4 overflow-x-hidden"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}

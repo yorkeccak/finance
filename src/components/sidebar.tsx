@@ -17,6 +17,8 @@ import {
   BarChart3,
   Plus,
   Building2,
+  Menu,
+  X,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -59,6 +61,8 @@ export function Sidebar({
   const [showSettings, setShowSettings] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showEnterpriseModal, setShowEnterpriseModal] = useState(false);
+  const [showMobileDrawer, setShowMobileDrawer] = useState(false);
+  const [showMobileHistory, setShowMobileHistory] = useState(false);
 
   // Fetch chat sessions
   const { data: sessions = [], isLoading: loadingSessions } = useQuery({
@@ -101,11 +105,15 @@ export function Sidebar({
   const handleSessionSelect = useCallback((sessionId: string) => {
     onSessionSelect?.(sessionId);
     setShowHistory(false);
+    setShowMobileHistory(false);
+    setShowMobileDrawer(false);
   }, [onSessionSelect]);
 
   const handleNewChat = useCallback(() => {
     onNewChat?.();
     setShowHistory(false);
+    setShowMobileDrawer(false);
+    setShowMobileHistory(false);
   }, [onNewChat]);
 
   const toggleSidebar = () => {
@@ -122,9 +130,6 @@ export function Sidebar({
       setIsOpen(true);
     }
   }, [alwaysOpen]);
-
-  // Listen for upgrade modal trigger from rate limit banner
-  // (Removed - Valyu credits handle billing now)
 
   const handleLogoClick = () => {
     // If there's an active chat (either with session ID or just messages), warn before leaving
@@ -175,15 +180,322 @@ export function Sidebar({
     window.open('https://platform.valyu.ai', '_blank');
   };
 
+  // Shared history list component
+  const HistoryList = ({ onClose }: { onClose: () => void }) => (
+    <>
+      {/* Header */}
+      <div className="p-4 border-b border-gray-200 dark:border-gray-800">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100">Chat History</h3>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleNewChat}
+              className="h-8 w-8 p-0"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="h-8 w-8 p-0 md:hidden"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Sessions List */}
+      <ScrollArea className="flex-1 px-2">
+        {loadingSessions ? (
+          <div className="space-y-2 p-2">
+            {[...Array(5)].map((_, i) => (
+              <div
+                key={i}
+                className="h-16 bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse"
+              />
+            ))}
+          </div>
+        ) : sessions.length === 0 ? (
+          <div className="flex items-center justify-center h-full p-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+              No chat history yet
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-1 py-2">
+            {sessions.map((session: ChatSession) => (
+              <div
+                key={session.id}
+                onClick={() => handleSessionSelect(session.id)}
+                className={`flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 group cursor-pointer transition-colors ${
+                  currentSessionId === session.id ? 'bg-gray-100 dark:bg-gray-800' : ''
+                }`}
+              >
+                <MessageSquare className="h-4 w-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                    {session.title}
+                  </div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate">
+                    {new Date(session.last_message_at || session.created_at).toLocaleDateString()}
+                  </div>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteMutation.mutate(session.id);
+                  }}
+                  className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+                  title="Delete chat"
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </ScrollArea>
+    </>
+  );
+
   return (
     <>
-      {/* Chevron Toggle Button - Left Edge, Centered */}
+      {/* ==================== MOBILE TOP BAR ==================== */}
+      <div className="fixed top-0 left-0 right-0 z-50 md:hidden">
+        <div className="flex items-center justify-between px-4 py-3 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-800/50">
+          {/* Left: Hamburger */}
+          <button
+            onClick={() => setShowMobileDrawer(true)}
+            className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            <Menu className="h-5 w-5 text-gray-700 dark:text-gray-300" />
+          </button>
+
+          {/* Center: Logo */}
+          <button onClick={handleLogoClick} className="flex items-center gap-2">
+            <Image
+              src="/nabla.png"
+              alt="Finance"
+              width={24}
+              height={24}
+              className="rounded-md"
+            />
+            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Finance</span>
+          </button>
+
+          {/* Right: User avatar or login */}
+          {user ? (
+            <button
+              onClick={() => setShowMobileDrawer(true)}
+              className="w-10 h-10 flex items-center justify-center"
+            >
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={user.user_metadata?.avatar_url} />
+                <AvatarFallback className="text-xs bg-gradient-to-br from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 text-white dark:text-gray-900 font-semibold">
+                  {user.email?.[0]?.toUpperCase() || 'U'}
+                </AvatarFallback>
+              </Avatar>
+            </button>
+          ) : (
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('show-auth-modal'))}
+              className="px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-lg"
+            >
+              Log in
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ==================== MOBILE DRAWER ==================== */}
+      <AnimatePresence>
+        {showMobileDrawer && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/30 z-[60] md:hidden backdrop-blur-sm"
+              onClick={() => {
+                setShowMobileDrawer(false);
+                setShowMobileHistory(false);
+              }}
+            />
+
+            {/* Drawer */}
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              className="fixed left-0 top-0 bottom-0 w-[280px] bg-white dark:bg-gray-900 z-[70] md:hidden flex flex-col shadow-2xl"
+            >
+              {showMobileHistory ? (
+                <HistoryList onClose={() => setShowMobileHistory(false)} />
+              ) : (
+                <>
+                  {/* Drawer Header */}
+                  <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
+                    <div className="flex items-center gap-3">
+                      <Image
+                        src="/nabla.png"
+                        alt="Finance"
+                        width={28}
+                        height={28}
+                        className="rounded-lg"
+                      />
+                      <span className="font-semibold text-gray-900 dark:text-gray-100">Finance</span>
+                    </div>
+                    <button
+                      onClick={() => setShowMobileDrawer(false)}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+                    >
+                      <X className="h-5 w-5 text-gray-500" />
+                    </button>
+                  </div>
+
+                  {/* Drawer Menu Items */}
+                  <div className="flex-1 overflow-y-auto py-2">
+                    {/* New Chat */}
+                    {user && (
+                      <button
+                        onClick={handleNewChat}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                      >
+                        <MessageCirclePlus className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">New Chat</span>
+                      </button>
+                    )}
+
+                    {/* History */}
+                    <button
+                      onClick={() => {
+                        if (!user) {
+                          setShowMobileDrawer(false);
+                          window.dispatchEvent(new CustomEvent('show-auth-modal'));
+                        } else {
+                          setShowMobileHistory(true);
+                        }
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
+                        !user ? 'opacity-50' : ''
+                      }`}
+                    >
+                      <MessagesSquare className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {!user ? 'Sign up for history' : 'Chat History'}
+                      </span>
+                    </button>
+
+                    {/* Divider */}
+                    <div className="h-px bg-gray-200 dark:bg-gray-800 my-2 mx-4" />
+
+                    {/* View Credits */}
+                    {user && !isSelfHosted && (
+                      <button
+                        onClick={() => {
+                          setShowMobileDrawer(false);
+                          handleViewCredits();
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                      >
+                        <BarChart3 className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Valyu Credits</span>
+                      </button>
+                    )}
+
+                    {/* Enterprise */}
+                    {user && process.env.NEXT_PUBLIC_APP_MODE !== 'self-hosted' && process.env.NEXT_PUBLIC_ENTERPRISE === 'true' && (
+                      <button
+                        onClick={() => {
+                          setShowMobileDrawer(false);
+                          setShowEnterpriseModal(true);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                      >
+                        <Building2 className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Enterprise Solutions</span>
+                      </button>
+                    )}
+
+                    {/* Settings */}
+                    {user && (
+                      <button
+                        onClick={() => {
+                          setShowMobileDrawer(false);
+                          setShowSettings(true);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                      >
+                        <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Settings</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Drawer Footer */}
+                  <div className="border-t border-gray-200 dark:border-gray-800 p-4">
+                    {user ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-9 w-9">
+                            <AvatarImage src={user.user_metadata?.avatar_url} />
+                            <AvatarFallback className="text-xs bg-gradient-to-br from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 text-white dark:text-gray-900 font-semibold">
+                              {user.email?.[0]?.toUpperCase() || 'U'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                              {user.email}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setShowMobileDrawer(false);
+                            const confirmed = window.confirm('Are you sure you want to sign out?');
+                            if (confirmed) {
+                              signOut();
+                            }
+                          }}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          <span className="font-medium">Sign out</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setShowMobileDrawer(false);
+                          window.dispatchEvent(new CustomEvent('show-auth-modal'));
+                        }}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-emerald-600 text-white rounded-xl font-medium text-sm"
+                      >
+                        <LogOut className="h-4 w-4 rotate-180" />
+                        Log in
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ==================== DESKTOP: Chevron Toggle Button ==================== */}
       {!isOpen && (
         <motion.button
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           onClick={toggleSidebar}
-          className="fixed left-0 top-1/2 -translate-y-1/2 z-50 w-10 h-16 flex items-center justify-center bg-white dark:bg-gray-900 border-r-2 border-t-2 border-b-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 rounded-r-2xl transition-all duration-200 shadow-lg hover:shadow-xl hover:w-12 group"
+          className="fixed left-0 top-1/2 -translate-y-1/2 z-50 w-10 h-16 hidden md:flex items-center justify-center bg-white dark:bg-gray-900 border-r-2 border-t-2 border-b-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 rounded-r-2xl transition-all duration-200 shadow-lg hover:shadow-xl hover:w-12 group"
           title="Open Menu"
         >
           <svg
@@ -202,7 +514,7 @@ export function Sidebar({
         </motion.button>
       )}
 
-      {/* macOS Dock-Style Navigation - Left Side */}
+      {/* ==================== DESKTOP: macOS Dock-Style Navigation ==================== */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -214,7 +526,7 @@ export function Sidebar({
               damping: 30,
               stiffness: 300
             }}
-            className="fixed left-6 top-1/2 -translate-y-1/2 z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-2xl border border-gray-200 dark:border-gray-700 rounded-[32px] shadow-2xl py-4 px-3"
+            className="fixed left-6 top-1/2 -translate-y-1/2 z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-2xl border border-gray-200 dark:border-gray-700 rounded-[32px] shadow-2xl py-4 px-3 hidden md:block"
           >
             <div className="flex flex-col items-center gap-2">
               {/* Always Open Toggle */}
@@ -496,7 +808,7 @@ export function Sidebar({
         )}
       </AnimatePresence>
 
-      {/* History Panel */}
+      {/* ==================== DESKTOP: History Panel ==================== */}
       <AnimatePresence>
         {showHistory && user && (
           <>
@@ -505,7 +817,7 @@ export function Sidebar({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/20 z-40 backdrop-blur-sm"
+              className="fixed inset-0 bg-black/20 z-40 backdrop-blur-sm hidden md:block"
               onClick={() => setShowHistory(false)}
             />
 
@@ -519,74 +831,9 @@ export function Sidebar({
                 damping: 30,
                 stiffness: 300
               }}
-              className="fixed left-20 top-4 bottom-4 w-64 bg-white dark:bg-gray-900 rounded-3xl z-50 shadow-xl ml-2 flex flex-col border border-gray-200 dark:border-gray-800"
+              className="fixed left-20 top-4 bottom-4 w-64 bg-white dark:bg-gray-900 rounded-3xl z-50 shadow-xl ml-2 hidden md:flex flex-col border border-gray-200 dark:border-gray-800"
             >
-              {/* Header */}
-              <div className="p-4 border-b border-gray-200 dark:border-gray-800">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">Chat History</h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleNewChat}
-                    className="h-8 w-8 p-0"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* Sessions List */}
-              <ScrollArea className="flex-1 px-2">
-                {loadingSessions ? (
-                  <div className="space-y-2 p-2">
-                    {[...Array(5)].map((_, i) => (
-                      <div
-                        key={i}
-                        className="h-16 bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse"
-                      />
-                    ))}
-                  </div>
-                ) : sessions.length === 0 ? (
-                  <div className="flex items-center justify-center h-full p-4">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-                      No chat history yet
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-1 py-2">
-                    {sessions.map((session: ChatSession) => (
-                      <div
-                        key={session.id}
-                        onClick={() => handleSessionSelect(session.id)}
-                        className={`flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 group cursor-pointer transition-colors ${
-                          currentSessionId === session.id ? 'bg-gray-100 dark:bg-gray-800' : ''
-                        }`}
-                      >
-                        <MessageSquare className="h-4 w-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                            {session.title}
-                          </div>
-                          <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate">
-                            {new Date(session.last_message_at || session.created_at).toLocaleDateString()}
-                          </div>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteMutation.mutate(session.id);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
-                          title="Delete chat"
-                        >
-                          <Trash2 className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
+              <HistoryList onClose={() => setShowHistory(false)} />
             </motion.div>
           </>
         )}

@@ -214,6 +214,34 @@
   border-color: var(--muted-foreground) !important;
 }
 
+/* Prevent horizontal overflow in prose blocks on mobile */
+.prose {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.prose pre {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.prose code {
+  overflow-wrap: break-word;
+  word-break: break-all;
+}
+
+.prose table {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+.prose img {
+  max-width: 100%;
+  height: auto;
+}
+
 /* Improve readability in prose blocks */
 .prose .katex {
   color: inherit;

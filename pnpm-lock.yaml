@@ -72,8 +72,8 @@ importers:
         specifier: ^2.0.0-alpha.34
         version: 2.0.0-alpha.36(@babel/runtime@7.28.3)(react-dom@19.1.2(react@19.1.2))(react@19.1.2)
       '@valyu/ai-sdk':
-        specifier: ^1.0.8
-        version: 1.0.8(@ai-sdk/openai@3.0.22(zod@4.3.6))(ai@6.0.61(zod@4.3.6))
+        specifier: ^1.0.9
+        version: 1.0.9(@ai-sdk/openai@3.0.22(zod@4.3.6))(ai@6.0.61(zod@4.3.6))
       '@vercel/analytics':
         specifier: ^1.5.0
         version: 1.5.0(next@15.5.9(@opentelemetry/api@1.9.0)(react-dom@19.1.2(react@19.1.2))(react@19.1.2))(react@19.1.2)
@@ -2063,8 +2063,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@valyu/ai-sdk@1.0.8':
-    resolution: {integrity: sha512-fxXEDvbA2fmy5ttPa+l1kMekvl2O9C5p86iFvSvxAqBJMndykUEnOkrj/71tyn8wbGbANpsplpkCcxa51pAmww==}
+  '@valyu/ai-sdk@1.0.9':
+    resolution: {integrity: sha512-2bQbDEKeD6q/VM+RSyrTWIwJQjxJGX1A+7uQmw3ev8sNKrX35Jt4+L1OKZK3xvWPV4yRwKM6sUs6gD4O8YtNWQ==}
     peerDependencies:
       '@ai-sdk/openai': ^2.0.65
       ai: ^5.0.83
@@ -6815,7 +6815,7 @@ snapshots:
   '@unrs/resolver-binding-win32-x64-msvc@1.11.1':
     optional: true
 
-  '@valyu/ai-sdk@1.0.8(@ai-sdk/openai@3.0.22(zod@4.3.6))(ai@6.0.61(zod@4.3.6))':
+  '@valyu/ai-sdk@1.0.9(@ai-sdk/openai@3.0.22(zod@4.3.6))(ai@6.0.61(zod@4.3.6))':
     dependencies:
       '@ai-sdk/openai': 3.0.22(zod@4.3.6)
       ai: 6.0.61(zod@4.3.6)

@@ -71,33 +71,33 @@ export function TimeSavedBreakdownDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!max-w-4xl !max-h-[85vh]">
+      <DialogContent className="!max-w-4xl !max-h-[85vh]" showCloseButton={false}>
         {/* Header */}
-        <div className="flex items-start justify-between pb-3 border-b border-gray-200 dark:border-gray-800">
+        <div className="flex items-start justify-between pb-3 border-b border-border">
           <div>
-            <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">Productivity Analysis</DialogTitle>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Time and cost breakdown</p>
+            <DialogTitle className="text-lg font-semibold text-foreground">Productivity Analysis</DialogTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">Time and cost breakdown</p>
           </div>
           <button
             onClick={() => onOpenChange(false)}
-            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+            className="p-1.5 hover:bg-muted rounded-lg transition-colors"
           >
-            <X className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <X className="w-4 h-4 text-muted-foreground" />
           </button>
         </div>
 
         {/* Summary Stats */}
         <div className="grid grid-cols-2 gap-3 py-3">
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-100 dark:border-blue-900/50 rounded-lg p-3">
-            <div className="text-xs font-medium text-blue-900 dark:text-blue-300 mb-1">Time Saved</div>
-            <div className="text-2xl font-bold text-blue-950 dark:text-blue-100">{formatTime(timeSavedMinutes)}</div>
-            <div className="text-[10px] text-blue-700 dark:text-blue-400 mt-0.5">≈ {workDays.toFixed(1)} work days</div>
+          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
+            <div className="text-xs font-medium text-primary mb-1">Time Saved</div>
+            <div className="text-2xl font-bold text-foreground">{formatTime(timeSavedMinutes)}</div>
+            <div className="text-[10px] text-primary mt-0.5">≈ {workDays.toFixed(1)} work days</div>
           </div>
 
-          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border border-emerald-100 dark:border-emerald-900/50 rounded-lg p-3">
-            <div className="text-xs font-medium text-emerald-900 dark:text-emerald-300 mb-1">Cost Saved</div>
-            <div className="text-2xl font-bold text-emerald-950 dark:text-emerald-100">{formatCost(moneySaved)}</div>
-            <div className="text-[10px] text-emerald-700 dark:text-emerald-400 mt-0.5">@ $200/hour analyst rate</div>
+          <div className="bg-accent/30 border border-accent rounded-lg p-3">
+            <div className="text-xs font-medium text-accent-foreground mb-1">Cost Saved</div>
+            <div className="text-2xl font-bold text-foreground">{formatCost(moneySaved)}</div>
+            <div className="text-[10px] text-accent-foreground mt-0.5">@ $200/hour analyst rate</div>
           </div>
         </div>
 
@@ -131,13 +131,13 @@ export function TimeSavedBreakdownDialog({
             <div className="flex flex-col justify-center min-w-[140px]">
               {activeIndex !== undefined && allTasks[activeIndex].minutes > 0 && (
                 <>
-                  <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">
+                  <div className="text-sm font-semibold text-foreground mb-1">
                     {allTasks[activeIndex].name}
                   </div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-0.5">
+                  <div className="text-2xl font-bold text-foreground mb-0.5">
                     {formatTime(allTasks[activeIndex].minutes)}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                  <div className="text-xs text-muted-foreground">
                     {((allTasks[activeIndex].minutes / timeSavedMinutes) * 100).toFixed(1)}% of total
                   </div>
                 </>
@@ -161,34 +161,34 @@ export function TimeSavedBreakdownDialog({
                   onMouseLeave={() => setActiveIndex(undefined)}
                   className={`flex items-center gap-2 p-1.5 rounded-lg transition-all ${
                     isUsed
-                      ? `cursor-pointer ${isActive ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'}`
+                      ? `cursor-pointer ${isActive ? 'bg-muted' : 'hover:bg-muted/50'}`
                       : 'opacity-40 cursor-default'
                   }`}
                 >
                   <div
                     className="w-3 h-3 rounded-sm flex-shrink-0"
-                    style={{ backgroundColor: isUsed ? taskColor : '#d1d5db' }}
+                    style={{ backgroundColor: isUsed ? taskColor : 'var(--muted)' }}
                   />
                   <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 ${
-                    isUsed ? 'bg-gray-100 dark:bg-gray-800' : 'bg-gray-100/50 dark:bg-gray-800/50'
+                    isUsed ? 'bg-muted' : 'bg-muted/50'
                   }`}>
                     <Icon className={`w-3 h-3 ${
-                      isUsed ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400 dark:text-gray-600'
+                      isUsed ? 'text-foreground' : 'text-muted-foreground'
                     }`} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className={`text-xs font-medium truncate ${
-                      isUsed ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-600'
+                      isUsed ? 'text-foreground' : 'text-muted-foreground'
                     }`}>{task.name}</div>
                   </div>
                   <div className="flex items-baseline gap-1.5 flex-shrink-0">
                     <span className={`text-xs font-semibold tabular-nums ${
-                      isUsed ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-600'
+                      isUsed ? 'text-foreground' : 'text-muted-foreground'
                     }`}>
                       {isUsed ? formatTime(task.minutes) : '—'}
                     </span>
                     <span className={`text-[10px] w-9 text-right tabular-nums ${
-                      isUsed ? 'text-gray-500 dark:text-gray-400' : 'text-gray-400 dark:text-gray-600'
+                      isUsed ? 'text-muted-foreground' : 'text-muted-foreground'
                     }`}>
                       {isUsed ? `${percentage}%` : ''}
                     </span>
@@ -200,8 +200,8 @@ export function TimeSavedBreakdownDialog({
         </div>
 
         {/* Footer */}
-        <div className="pt-2 border-t border-gray-200 dark:border-gray-800">
-          <p className="text-[10px] text-gray-600 dark:text-gray-400 text-center leading-relaxed">
+        <div className="pt-2 border-t border-border">
+          <p className="text-[10px] text-muted-foreground text-center leading-relaxed">
             Time estimates based on industry benchmarks for senior financial analysts performing equivalent manual research, analysis, and deliverable creation.
           </p>
         </div>

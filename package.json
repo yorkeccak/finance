@@ -30,7 +30,7 @@
     "@tanstack/react-query": "^5.85.5",
     "@types/katex": "^0.16.7",
     "@uiw/react-json-view": "^2.0.0-alpha.34",
-    "@valyu/ai-sdk": "^1.0.8",
+    "@valyu/ai-sdk": "^1.0.9",
     "@vercel/analytics": "^1.5.0",
     "ai": "^6.0.61",
     "better-sqlite3": "^12.4.1",

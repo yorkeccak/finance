@@ -63,6 +63,7 @@ import {
   Table,
   BarChart3,
   Check,
+  CornerDownRight,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -77,7 +78,7 @@ import { CsvRenderer } from "@/components/csv-renderer";
 import { Favicon } from "@/components/favicon";
 const JsonView = dynamic(() => import("@uiw/react-json-view"), {
   ssr: false,
-  loading: () => <div className="text-xs text-gray-500">Loading JSON…</div>,
+  loading: () => <div className="text-xs text-muted-foreground">Loading JSON…</div>,
 });
 import {
   preprocessMarkdownText,
@@ -129,72 +130,61 @@ const TimelineStep = memo(({
   const isError = status === 'error';
 
   return (
-    <div className="group relative py-0.5 animate-in fade-in duration-200">
-      {/* Minimal, refined design */}
+    <div className="group relative animate-in fade-in duration-200 py-1">
+      {/* Claude-style minimal design */}
       <div
-        className={`relative flex items-start gap-4 py-4 px-3 sm:px-4 -mx-1 sm:-mx-2 rounded-md transition-all duration-150 ${
-          isStreaming ? 'bg-blue-50/50 dark:bg-blue-950/10' : ''
-        } ${
-          hasContent ? 'hover:bg-gray-50 dark:hover:bg-white/[0.02] cursor-pointer' : ''
-        }`}
+        className={`flex items-start gap-3 ${hasContent ? 'cursor-pointer' : ''}`}
         onClick={hasContent ? toggleExpand : undefined}
       >
-        {/* Minimal status indicator */}
-        <div className="flex-shrink-0">
+        {/* Status indicator */}
+        <div className="flex-shrink-0 w-5 h-5 mt-0.5">
           {isComplete ? (
-            <div className="w-4 h-4 rounded-full bg-emerald-500/15 dark:bg-emerald-500/25 flex items-center justify-center">
-              <Check className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-500 stroke-[2.5]" />
+            <div className="w-5 h-5 rounded-full border border-primary/40 flex items-center justify-center">
+              <Check className="w-3 h-3 text-primary stroke-[2.5]" />
             </div>
           ) : isStreaming ? (
-            <div className="relative w-4 h-4">
-              <div className="absolute inset-0 rounded-full border border-blue-300/40 dark:border-blue-700/40" />
-              <div className="absolute inset-0 rounded-full border border-transparent border-t-blue-500 dark:border-t-blue-400 animate-spin" />
+            <div className="w-5 h-5 rounded-full border border-muted-foreground/30 flex items-center justify-center">
+              <div className="w-3 h-3 rounded-full border border-transparent border-t-muted-foreground animate-spin" />
             </div>
           ) : isError ? (
-            <div className="w-4 h-4 rounded-full bg-red-500/15 dark:bg-red-500/25 flex items-center justify-center">
-              <AlertCircle className="w-2.5 h-2.5 text-red-600 dark:text-red-500" />
+            <div className="w-5 h-5 rounded-full border border-destructive/40 flex items-center justify-center">
+              <AlertCircle className="w-3 h-3 text-destructive" />
             </div>
           ) : (
-            <div className="w-4 h-4 rounded-full border border-gray-300 dark:border-gray-700" />
+            <div className="w-5 h-5 rounded-full border border-muted-foreground/30" />
           )}
         </div>
 
-        {/* Clean icon */}
+        {/* Icon */}
         {icon && (
-          <div className={`flex-shrink-0 w-4 h-4 ${
-            isStreaming ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-500'
+          <div className={`flex-shrink-0 w-4 h-4 mt-0.5 ${
+            isStreaming ? 'text-muted-foreground animate-pulse' : 'text-muted-foreground'
           }`}>
             {icon}
           </div>
         )}
 
-        {/* Clean typography */}
+        {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-baseline gap-2">
-            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-              {title}
-            </span>
-          </div>
+          <span className="text-sm text-muted-foreground">{title}</span>
           {subtitle && !isExpanded && (
-            <div className="text-xs text-gray-500 dark:text-gray-500 line-clamp-1 mt-0.5">
-              {subtitle}
-            </div>
+            <span className="text-sm text-muted-foreground/60 ml-2">{subtitle}</span>
           )}
         </div>
 
-        {/* Minimal chevron */}
+        {/* Chevron */}
         {hasContent && !isStreaming && (
-          <ChevronDown className={`h-3.5 w-3.5 text-gray-400 dark:text-gray-600 flex-shrink-0 transition-transform duration-150 ${
+          <ChevronDown className={`h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform duration-150 ${
             isExpanded ? 'rotate-180' : ''
           }`} />
         )}
       </div>
 
-      {/* Clean expanded content */}
+      {/* Expanded content */}
       {isExpanded && hasContent && (
-        <div className="mt-1.5 ml-6 mr-2 animate-in fade-in duration-150">
+        <div className="mt-3 ml-8 animate-in fade-in duration-150">
           {children || (
-            <div className="text-sm leading-relaxed text-gray-700 dark:text-gray-300 bg-gray-50/50 dark:bg-white/[0.02] rounded-lg px-3 py-2.5 border-l-2 border-gray-200 dark:border-gray-800">
+            <div className="text-sm leading-relaxed text-muted-foreground bg-muted/30 rounded-lg px-3 py-2.5 border-l-2 border-border">
               <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
                 {part.text || ''}
               </ReactMarkdown>
@@ -230,10 +220,10 @@ const LiveReasoningPreview = memo(({ title, lines }: { title: string; lines: str
       transition={{ duration: 0.12, ease: 'easeOut' }}
       className="my-1 ml-3 sm:ml-8 mr-3 sm:mr-0"
     >
-      <div className="bg-blue-50/50 dark:bg-blue-950/20 border-l-2 border-blue-300 dark:border-blue-700 rounded-r px-2 sm:px-2.5 py-1.5 space-y-1 overflow-hidden max-w-full">
+      <div className="bg-accent/30 border-l-2 border-primary/40 rounded-r px-2 sm:px-2.5 py-1.5 space-y-1 overflow-hidden max-w-full">
         {/* Show the latest **title** */}
         {title && (
-          <div className="text-xs font-semibold text-blue-700 dark:text-blue-300 truncate">
+          <div className="text-xs font-semibold text-foreground truncate">
             {title}
           </div>
         )}
@@ -247,7 +237,7 @@ const LiveReasoningPreview = memo(({ title, lines }: { title: string; lines: str
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -5 }}
               transition={{ duration: 0.08 }}
-              className="text-xs text-gray-500 dark:text-gray-400 leading-snug truncate max-w-full"
+              className="text-xs text-muted-foreground leading-snug truncate max-w-full"
             >
               {line}
             </motion.div>
@@ -349,17 +339,17 @@ const ChartImageRendererComponent = ({ chartId, alt }: { chartId: string; alt?: 
 
   if (loading) {
     return (
-      <span className="block w-full border border-gray-200 dark:border-gray-700 rounded-lg p-12 my-4 text-center">
-        <span className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></span>
-        <span className="block mt-3 text-sm text-gray-500 dark:text-gray-400">Loading chart...</span>
+      <span className="block w-full border border-border rounded-lg p-12 my-4 text-center">
+        <span className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></span>
+        <span className="block mt-3 text-sm text-muted-foreground">Loading chart...</span>
       </span>
     );
   }
 
   if (error || !chartData) {
     return (
-      <span className="block w-full border border-red-200 dark:border-red-700 rounded-lg p-6 my-4 text-center">
-        <span className="text-sm text-red-600 dark:text-red-400">Failed to load chart</span>
+      <span className="block w-full border border-destructive/30 rounded-lg p-6 my-4 text-center">
+        <span className="text-sm text-destructive">Failed to load chart</span>
       </span>
     );
   }
@@ -390,7 +380,7 @@ const MemoizedChartResult = memo(function MemoizedChartResult({
   toggleToolExpansion: (id: string) => void;
 }) {
   return (
-    <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+    <div className="border border-border rounded-lg overflow-hidden">
       <FinancialChart {...chartData} />
     </div>
   );
@@ -431,16 +421,16 @@ const MemoizedCodeExecutionResult = memo(function MemoizedCodeExecutionResult({
     <div className="space-y-4">
       {/* Code Section - clean monospace display */}
       <div>
-        <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wide">Input</div>
-        <pre className="p-4 bg-gray-900 dark:bg-black/40 text-gray-100 text-xs overflow-x-auto rounded-lg max-h-[400px] overflow-y-auto border border-gray-800 dark:border-gray-800/50 shadow-inner">
+        <div className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Input</div>
+        <pre className="p-4 bg-muted text-foreground text-xs overflow-x-auto rounded-lg max-h-[400px] overflow-y-auto border border-border shadow-inner">
           <code>{code || "No code available"}</code>
         </pre>
       </div>
 
       {/* Output Section - elegant typography */}
       <div>
-        <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wide">Output</div>
-        <div className="prose prose-sm max-w-none dark:prose-invert text-sm p-4 bg-white dark:bg-gray-800/50 rounded-lg max-h-[400px] overflow-y-auto border border-gray-200 dark:border-gray-700/50">
+        <div className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Output</div>
+        <div className="prose prose-sm max-w-none dark:prose-invert text-sm p-4 bg-card rounded-lg max-h-[400px] overflow-y-auto border border-border">
           <MemoizedMarkdown text={escapeHtml(output)} />
         </div>
       </div>
@@ -474,7 +464,7 @@ const markdownComponents = {
       // Check if it starts with / (valid relative path for Next.js)
       if (!src.startsWith('/') && !src.startsWith('csv:') && !src.match(/^\/api\/(charts|csvs)\//)) {
         return (
-          <span className="text-xs text-gray-500 italic">
+          <span className="text-xs text-muted-foreground italic">
             [Image: {alt || src}]
           </span>
         );
@@ -509,7 +499,7 @@ const markdownComponents = {
       );
     } catch (error) {
       return (
-        <code className="math-fallback bg-gray-100 px-1 rounded">
+        <code className="math-fallback bg-muted px-1 rounded">
           {mathContent}
         </code>
       );
@@ -517,15 +507,15 @@ const markdownComponents = {
   },
   // Handle academic XML tags commonly found in Wiley content
   note: ({ children }: any) => (
-    <div className="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-400 pl-4 py-2 my-2 text-sm">
+    <div className="bg-accent/30 border-l-4 border-primary pl-4 py-2 my-2 text-sm">
       <div className="flex items-start gap-2">
-        <span className="text-blue-600 dark:text-blue-400 font-medium">Note:</span>
+        <span className="text-primary font-medium">Note:</span>
         <div>{children}</div>
       </div>
     </div>
   ),
   t: ({ children }: any) => (
-    <span className="font-mono text-sm bg-gray-100 dark:bg-gray-800 px-1 rounded">
+    <span className="font-mono text-sm bg-muted px-1 rounded">
       {children}
     </span>
   ),
@@ -534,17 +524,17 @@ const markdownComponents = {
   ),
   // Handle other common academic tags
   ref: ({ children }: any) => (
-    <span className="text-blue-600 dark:text-blue-400 text-sm">
+    <span className="text-primary text-sm">
       [{children}]
     </span>
   ),
   caption: ({ children }: any) => (
-    <div className="text-sm text-gray-600 dark:text-gray-400 italic text-center my-2">
+    <div className="text-sm text-muted-foreground italic text-center my-2">
       {children}
     </div>
   ),
   figure: ({ children }: any) => (
-    <div className="my-4 p-2 border border-gray-200 dark:border-gray-700 rounded">
+    <div className="my-4 p-2 border border-border rounded">
       {children}
     </div>
   ),
@@ -894,38 +884,99 @@ const MemoizedTextPartWithCitations = memo(
   }
 );
 
-// Helper function to extract search results for carousel display
-const extractSearchResults = (jsonOutput: string) => {
+// Helper to detect if content is JSON (object/array) or parseable JSON string
+const isJsonContent = (content: any): boolean => {
+  if (typeof content === "object" && content !== null) return true;
+  if (typeof content === "string") {
+    const trimmed = content.trim();
+    if ((trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+        (trimmed.startsWith("[") && trimmed.endsWith("]"))) {
+      try {
+        JSON.parse(trimmed);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+  }
+  return false;
+};
+
+// Helper to generate a smart summary for JSON content
+const generateJsonSummary = (content: any, maxLength = 120): string => {
   try {
-    const data = JSON.parse(jsonOutput);
-    if (data.results && Array.isArray(data.results)) {
-      const mappedResults = data.results.map((result: any, index: number) => ({
-        id: index,
-        title: result.title || `Result ${index + 1}`,
-        summary: result.content
-          ? typeof result.content === "string"
-            ? result.content.length > 150
+    const obj = typeof content === "string" ? JSON.parse(content) : content;
+    if (Array.isArray(obj)) {
+      const itemCount = obj.length;
+      if (itemCount === 0) return "Empty array";
+      const firstItem = obj[0];
+      if (typeof firstItem === "object" && firstItem !== null) {
+        const keys = Object.keys(firstItem).slice(0, 4);
+        return `${itemCount} items with fields: ${keys.join(", ")}${keys.length < Object.keys(firstItem).length ? "..." : ""}`;
+      }
+      return `Array of ${itemCount} ${typeof firstItem}s`;
+    }
+    if (typeof obj === "object" && obj !== null) {
+      const entries = Object.entries(obj).slice(0, 3);
+      const preview = entries.map(([k, v]) => {
+        const val = typeof v === "string" ? v.slice(0, 30) : typeof v === "number" ? v : typeof v;
+        return `${k}: ${val}`;
+      }).join(", ");
+      return preview.length > maxLength ? preview.slice(0, maxLength) + "..." : preview;
+    }
+    return String(obj).slice(0, maxLength);
+  } catch {
+    return "Structured data";
+  }
+};
+
+// Helper function to extract search results for carousel display
+const extractSearchResults = (output: any) => {
+  try {
+    // Handle both string (legacy) and object (AI SDK v6) formats
+    const data = typeof output === 'string' ? JSON.parse(output) : output;
+    if (data?.results && Array.isArray(data.results)) {
+      const mappedResults = data.results.map((result: any, index: number) => {
+        const contentIsJson = isJsonContent(result.content);
+        const isStructured = result.dataType === "structured" || contentIsJson;
+
+        // Generate smart summary
+        let summary: string;
+        if (result.content) {
+          if (typeof result.content === "string" && !contentIsJson) {
+            summary = result.content.length > 150
               ? result.content.substring(0, 150) + "..."
-              : result.content
-            : typeof result.content === "number"
-            ? `Current Price: $${result.content.toFixed(2)}`
-            : `${
-                result.dataType === "structured" ? "Structured data" : "Data"
-              } from ${result.source || "source"}`
-          : "No summary available",
-        source: result.source || "Unknown source",
-        date: result.date || "",
-        url: result.url || "",
-        fullContent:
-          typeof result.content === "number"
-            ? `$${result.content.toFixed(2)}`
-            : result.content || "No content available",
-        isStructured: result.dataType === "structured",
-        dataType: result.dataType || "unstructured",
-        length: result.length,
-        imageUrls: result.imageUrl || result.image_url || {},
-        relevanceScore: result.relevanceScore || result.relevance_score || 0,
-      }));
+              : result.content;
+          } else if (typeof result.content === "number") {
+            summary = `Current Price: $${result.content.toFixed(2)}`;
+          } else if (contentIsJson) {
+            summary = generateJsonSummary(result.content);
+          } else {
+            summary = `Data from ${result.source || "source"}`;
+          }
+        } else {
+          summary = "No summary available";
+        }
+
+        return {
+          id: index,
+          title: result.title || `Result ${index + 1}`,
+          summary,
+          source: result.source || "Unknown source",
+          date: result.date || "",
+          url: result.url || "",
+          fullContent:
+            typeof result.content === "number"
+              ? `$${result.content.toFixed(2)}`
+              : result.content || "No content available",
+          isStructured,
+          contentIsJson,
+          dataType: isStructured ? "structured" : (result.dataType || "unstructured"),
+          length: result.length,
+          imageUrls: result.imageUrl || result.image_url || {},
+          relevanceScore: result.relevanceScore || result.relevance_score || 0,
+        };
+      });
 
       // Sort results: structured first, then by relevance score within each category
       return mappedResults.sort((a: any, b: any) => {
@@ -986,22 +1037,202 @@ function getToolState(part: any): {
   hasOutput: boolean;
   hasError: boolean;
 } {
+  // Check if output has actual results - if so, not an error even if error field exists
+  const hasActualResults = part.output?.results?.length > 0;
+  const isErrorState = part.state === "output-error";
+  // Only treat as error if: explicit error state OR (error field is truthy AND no results)
+  const hasError = isErrorState || (part.output?.error && !hasActualResults);
+
   return {
     callId: part.toolCallId,
     isStreaming: part.state === "input-streaming" || part.state === "input-available",
     hasResults: part.state === "output-available",
     hasOutput: part.state === "output-available",
-    hasError: part.state === "output-error" || part.output?.error,
+    hasError,
   };
 }
 
-// Configuration for simple search tools (same UI pattern, different titles)
-const SIMPLE_SEARCH_TOOL_CONFIG: Record<string, { title: string; errorTitle: string; resultType: "financial" | "web" | "wiley" }> = {
-  "tool-secSearch": { title: "SEC Search", errorTitle: "SEC Search Error", resultType: "financial" },
-  "tool-economicsSearch": { title: "Economics Search", errorTitle: "Economics Search Error", resultType: "financial" },
-  "tool-patentSearch": { title: "Patent Search", errorTitle: "Patent Search Error", resultType: "financial" },
-  "tool-polymarketSearch": { title: "Prediction Markets", errorTitle: "Prediction Markets Error", resultType: "financial" },
+// Configuration for all search tools with icons and styling
+const SEARCH_TOOL_CONFIG: Record<string, {
+  title: string;
+  errorTitle: string;
+  resultType: "financial" | "web" | "wiley";
+  icon: React.ReactNode;
+}> = {
+  "tool-financeSearch": {
+    title: "Financial Search",
+    errorTitle: "Financial Search Error",
+    resultType: "financial",
+    icon: <BarChart3 className="w-3.5 h-3.5" />,
+  },
+  "tool-secSearch": {
+    title: "SEC Filings",
+    errorTitle: "SEC Search Error",
+    resultType: "financial",
+    icon: <FileText className="w-3.5 h-3.5" />,
+  },
+  "tool-economicsSearch": {
+    title: "Economics Data",
+    errorTitle: "Economics Search Error",
+    resultType: "financial",
+    icon: <BarChart3 className="w-3.5 h-3.5" />,
+  },
+  "tool-patentSearch": {
+    title: "Patent Search",
+    errorTitle: "Patent Search Error",
+    resultType: "financial",
+    icon: <BookOpen className="w-3.5 h-3.5" />,
+  },
+  "tool-polymarketSearch": {
+    title: "Prediction Markets",
+    errorTitle: "Prediction Markets Error",
+    resultType: "financial",
+    icon: <Globe className="w-3.5 h-3.5" />,
+  },
+  "tool-webSearch": {
+    title: "Web Search",
+    errorTitle: "Web Search Error",
+    resultType: "web",
+    icon: <Globe className="w-3.5 h-3.5" />,
+  },
+  "tool-financeJournalSearch": {
+    title: "Academic Journals",
+    errorTitle: "Journal Search Error",
+    resultType: "wiley",
+    icon: <BookOpen className="w-3.5 h-3.5" />,
+  },
 };
+
+// Unified Search Tool Display Component - Claude-style minimal design
+const SearchToolDisplay = memo(({
+  toolType,
+  part,
+  messageId,
+  index,
+  expandedTools,
+  toggleToolExpansion,
+}: {
+  toolType: string;
+  part: any;
+  messageId: string;
+  index: number;
+  expandedTools: Set<string>;
+  toggleToolExpansion: (id: string) => void;
+}) => {
+  const config = SEARCH_TOOL_CONFIG[toolType];
+  if (!config) return null;
+
+  const { callId, isStreaming, hasResults, hasError } = getToolState(part);
+  const results = hasResults ? extractSearchResults(part.output) : [];
+  const query = part.input?.query || "";
+  const stepId = `step-search-${messageId}-${index}`;
+  const isExpanded = expandedTools.has(stepId);
+
+  if (hasError) {
+    return (
+      <div key={callId}>
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0 w-5 h-5 rounded-full border border-destructive/40 flex items-center justify-center mt-0.5">
+            <AlertCircle className="w-3 h-3 text-destructive" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-sm text-destructive">{config.errorTitle}</span>
+            <p className="text-sm text-muted-foreground mt-0.5">{part.errorText || "An error occurred"}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div key={callId}>
+      {/* Header row with icon, query and results count */}
+      <div
+        className="flex items-start gap-3 cursor-pointer group"
+        onClick={() => toggleToolExpansion(stepId)}
+      >
+        {/* Icon */}
+        <div className="flex-shrink-0 w-5 h-5 mt-0.5">
+          {isStreaming ? (
+            <div className="w-5 h-5 rounded-full border border-muted-foreground/30 flex items-center justify-center">
+              <Search className="w-3 h-3 text-muted-foreground animate-pulse" />
+            </div>
+          ) : (
+            <div className="w-5 h-5 rounded-full border border-muted-foreground/30 flex items-center justify-center">
+              <Search className="w-3 h-3 text-muted-foreground" />
+            </div>
+          )}
+        </div>
+
+        {/* Query text */}
+        <div className="flex-1 min-w-0">
+          <span className="text-sm text-muted-foreground">{query}</span>
+        </div>
+
+        {/* Results count */}
+        <div className="flex-shrink-0 text-sm text-muted-foreground">
+          {isStreaming ? (
+            <span className="text-muted-foreground/60">searching...</span>
+          ) : (
+            <span>{results.length} results</span>
+          )}
+        </div>
+      </div>
+
+      {/* Inline results preview - always show top 5 when complete */}
+      {!isStreaming && results.length > 0 && (
+        <div className="mt-2 ml-2 flex items-start gap-1">
+          <CornerDownRight className="w-4 h-4 text-muted-foreground/50 mt-1 flex-shrink-0" />
+          <div className="flex-1 space-y-0">
+          <div
+            className="rounded-lg border border-border overflow-hidden cursor-pointer"
+            onClick={() => toggleToolExpansion(stepId)}
+          >
+            {results.slice(0, 5).map((result: any, idx: number) => (
+              <div
+                key={idx}
+                className={`flex items-center gap-3 px-3 py-3 hover:bg-muted/50 transition-colors ${
+                  idx !== 0 ? 'border-t border-border' : ''
+                }`}
+              >
+                {/* Favicon */}
+                <div className="flex-shrink-0 w-5 h-5 rounded bg-muted flex items-center justify-center overflow-hidden">
+                  <Favicon url={result.url} size={14} className="w-3.5 h-3.5" />
+                </div>
+
+                {/* Title */}
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm text-foreground line-clamp-1">{result.title}</span>
+                </div>
+
+                {/* Domain */}
+                <div className="flex-shrink-0 text-sm text-muted-foreground">
+                  {(() => {
+                    try {
+                      const url = new URL(result.url);
+                      return url.hostname.replace("www.", "");
+                    } catch {
+                      return result.source || "";
+                    }
+                  })()}
+                </div>
+              </div>
+            ))}
+          </div>
+          </div>
+        </div>
+      )}
+
+      {/* Expanded carousel for full details */}
+      {isExpanded && hasResults && results.length > 0 && (
+        <div className="mt-3 ml-8 animate-in fade-in slide-in-from-top-2 duration-200">
+          <SearchResultsCarousel results={results} type={config.resultType} />
+        </div>
+      )}
+    </div>
+  );
+});
+SearchToolDisplay.displayName = 'SearchToolDisplay';
 
 // Search Result Card Component
 const SearchResultCard = ({
@@ -1050,7 +1281,7 @@ const SearchResultCard = ({
               {/* Favicon on left */}
               <div className="flex-shrink-0 pt-0.5">
                 {type === "wiley" ? (
-                  <div className="w-5 h-5 rounded bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+                  <div className="w-5 h-5 rounded bg-muted flex items-center justify-center overflow-hidden">
                     <img
                       src="/wy.svg"
                       alt="Wiley"
@@ -1058,7 +1289,7 @@ const SearchResultCard = ({
                     />
                   </div>
                 ) : (
-                  <div className="w-5 h-5 rounded bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+                  <div className="w-5 h-5 rounded bg-muted flex items-center justify-center overflow-hidden">
                     <Favicon
                       url={result.url}
                       size={12}
@@ -1072,16 +1303,16 @@ const SearchResultCard = ({
               <div className="flex-1 min-w-0 flex flex-col gap-1.5">
                 {/* Title and external link */}
                 <div className="flex items-start justify-between gap-2">
-                  <h4 className="font-semibold text-sm leading-tight line-clamp-2 text-gray-900 dark:text-gray-100">
+                  <h4 className="font-semibold text-sm leading-tight line-clamp-2 text-foreground">
                     {result.title}
                   </h4>
-                  <ExternalLink className="h-3 w-3 text-gray-400 flex-shrink-0 mt-0.5" />
+                  <ExternalLink className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-0.5" />
                 </div>
 
                 {/* Markdown preview with separator */}
                 <div className="flex flex-col gap-1">
-                  <div className="h-px bg-gray-200 dark:bg-gray-800" />
-                  <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 leading-snug">
+                  <div className="h-px bg-border" />
+                  <div className="text-xs text-muted-foreground line-clamp-2 leading-snug">
                     {result.summary?.slice(0, 120) || ''}
                   </div>
                 </div>
@@ -1090,14 +1321,14 @@ const SearchResultCard = ({
                 <div className="flex items-center gap-1.5 mt-auto">
                   <span
                     className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                      result.isStructured
-                        ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                        : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                      (result.isStructured || result.contentIsJson)
+                        ? "bg-primary/10 text-primary"
+                        : "bg-accent text-accent-foreground"
                     }`}
                   >
-                    {result.dataType}
+                    {(result.isStructured || result.contentIsJson) ? "JSON" : "text"}
                   </span>
-                  <span className="text-[10px] text-gray-500 dark:text-gray-500 truncate">
+                  <span className="text-[10px] text-muted-foreground truncate">
                     {(() => {
                       try {
                         const url = new URL(result.url);
@@ -1118,7 +1349,7 @@ const SearchResultCard = ({
           onOpenChange={setIsDialogOpen}
           title={result.title}
           content={content}
-          isJson={result.isStructured}
+          isJson={result.isStructured || result.contentIsJson || isJsonContent(result.fullContent)}
         />
       </>
     );
@@ -1133,7 +1364,7 @@ const SearchResultCard = ({
               {/* Favicon on left */}
               <div className="flex-shrink-0 pt-0.5">
                 {type === "wiley" ? (
-                  <div className="w-5 h-5 rounded bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+                  <div className="w-5 h-5 rounded bg-muted flex items-center justify-center overflow-hidden">
                     <img
                       src="/wy.svg"
                       alt="Wiley"
@@ -1141,7 +1372,7 @@ const SearchResultCard = ({
                     />
                   </div>
                 ) : (
-                  <div className="w-5 h-5 rounded bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+                  <div className="w-5 h-5 rounded bg-muted flex items-center justify-center overflow-hidden">
                     <Favicon
                       url={result.url}
                       size={12}
@@ -1155,16 +1386,16 @@ const SearchResultCard = ({
               <div className="flex-1 min-w-0 flex flex-col gap-1.5">
                 {/* Title and external link */}
                 <div className="flex items-start justify-between gap-2">
-                  <h4 className="font-semibold text-sm leading-tight line-clamp-2 text-gray-900 dark:text-gray-100">
+                  <h4 className="font-semibold text-sm leading-tight line-clamp-2 text-foreground">
                     {result.title}
                   </h4>
-                  <ExternalLink className="h-3 w-3 text-gray-400 flex-shrink-0 mt-0.5" />
+                  <ExternalLink className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-0.5" />
                 </div>
 
                 {/* Markdown preview with separator */}
                 <div className="flex flex-col gap-1">
-                  <div className="h-px bg-gray-200 dark:bg-gray-800" />
-                  <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 leading-snug">
+                  <div className="h-px bg-border" />
+                  <div className="text-xs text-muted-foreground line-clamp-2 leading-snug">
                     {result.summary?.slice(0, 120) || ''}
                   </div>
                 </div>
@@ -1173,14 +1404,14 @@ const SearchResultCard = ({
                 <div className="flex items-center gap-1.5 mt-auto">
                   <span
                     className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                      result.isStructured
-                        ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                        : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                      (result.isStructured || result.contentIsJson)
+                        ? "bg-primary/10 text-primary"
+                        : "bg-accent text-accent-foreground"
                     }`}
                   >
-                    {result.dataType}
+                    {(result.isStructured || result.contentIsJson) ? "JSON" : "text"}
                   </span>
-                  <span className="text-[10px] text-gray-500 dark:text-gray-500 truncate">
+                  <span className="text-[10px] text-muted-foreground truncate">
                     {(() => {
                       try {
                         const urlObj = new URL(result.url);
@@ -1201,31 +1432,31 @@ const SearchResultCard = ({
         <DialogHeader>
           <DialogTitle className=" pr-8">{result.title}</DialogTitle>
           <Separator />
-          <div className="text-sm text-gray-600 dark:text-gray-400 space-y-2">
+          <div className="text-sm text-muted-foreground space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
               {/* <span>{result.source}</span> */}
               {result.date && <span>• {result.date}</span>}
               {result.relevanceScore && (
-                <span className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
+                <span className="text-xs bg-muted px-2 py-1 rounded">
                   {(result.relevanceScore * 100).toFixed(0)}% relevance
                 </span>
               )}
               {type === "wiley" && result.doi && (
-                <span className="text-xs bg-amber-100 dark:bg-amber-800/30 text-amber-700 dark:text-amber-300 px-2 py-1 rounded">
+                <span className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded">
                   DOI: {result.doi}
                 </span>
               )}
             </div>
-            
+
             {type === "wiley" && (result.authors || result.citation) && (
               <div className="space-y-1">
                 {result.authors && result.authors.length > 0 && (
-                  <div className="text-xs text-gray-600 dark:text-gray-400">
+                  <div className="text-xs text-muted-foreground">
                     <span className="font-medium">Authors:</span> {result.authors.join(", ")}
                   </div>
                 )}
                 {result.citation && (
-                  <div className="text-xs text-gray-600 dark:text-gray-400 font-mono bg-gray-50 dark:bg-gray-800 p-1 rounded">
+                  <div className="text-xs text-muted-foreground font-mono bg-muted p-1 rounded">
                     {result.citation}
                   </div>
                 )}
@@ -1237,7 +1468,7 @@ const SearchResultCard = ({
                 href={result.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400"
+                className="inline-flex items-center gap-1 text-primary hover:text-primary/80"
               >
                 <Favicon
                   url={result.url}
@@ -1252,15 +1483,15 @@ const SearchResultCard = ({
         </DialogHeader>
 
         <div className="overflow-y-auto max-h-[60vh] pr-2">
-          {result.isStructured ? (
-            // Structured data - show as formatted JSON
+          {(result.isStructured || result.contentIsJson || isJsonContent(result.fullContent)) ? (
+            // JSON/Structured data - show with formatted JSON viewer
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <FileText className="h-4 w-4" />
+                <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Code2 className="h-4 w-4" />
                   Structured Data
-                  <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
-                    {result.dataType}
+                  <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                    JSON
                   </span>
                 </div>
                 <Button
@@ -1273,13 +1504,13 @@ const SearchResultCard = ({
                         : result.fullContent;
                     copyToClipboard(jsonData);
                   }}
-                  className="h-8 px-3 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  className="h-8 px-3 text-muted-foreground hover:text-foreground"
                 >
                   <Clipboard className="h-3 w-3 mr-1" />
                   Copy JSON
                 </Button>
               </div>
-              <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+              <div className="bg-muted/50 border border-border rounded-lg overflow-hidden">
                 <JsonView
                   value={(() => {
                     try {
@@ -1320,16 +1551,16 @@ const SearchResultCard = ({
               </div>
             </div>
           ) : (
-            // Unstructured data - show as markdown
+            // Text/Unstructured data - show as markdown
             <div className="space-y-4">
-              <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <FileText className="h-4 w-4" />
                 Content
-                <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-1 rounded">
-                  {result.dataType}
+                <span className="text-xs bg-accent text-accent-foreground px-2 py-1 rounded">
+                  Text
                 </span>
                 {result.length && (
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-muted-foreground">
                     {result.length.toLocaleString()} chars
                   </span>
                 )}
@@ -1341,8 +1572,6 @@ const SearchResultCard = ({
                       ? result.fullContent
                       : typeof result.fullContent === "number"
                       ? `$${result.fullContent.toFixed(2)}`
-                      : typeof result.fullContent === "object"
-                      ? JSON.stringify(result.fullContent, null, 2)
                       : String(result.fullContent || "No content available")
                   }
                 />
@@ -1424,7 +1653,7 @@ const SearchResultsCarousel = ({
 
   if (results.length === 0) {
     return (
-      <div className="text-center py-4 text-gray-500 dark:text-gray-400">
+      <div className="text-center py-4 text-muted-foreground">
         No results found
       </div>
     );
@@ -1448,7 +1677,7 @@ const SearchResultsCarousel = ({
       {/* Images Carousel - Only show if there are images */}
       {allImages.length > 0 && (
         <div className="relative">
-          <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 px-2">
+          <div className="text-sm font-medium text-foreground mb-2 px-2">
             Related Images
           </div>
           <div
@@ -1466,7 +1695,7 @@ const SearchResultsCarousel = ({
                   handleImageClick(realIndex);
                 }}
               >
-                <div className="relative overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all">
+                <div className="relative overflow-hidden rounded-lg border border-border hover:border-muted-foreground/30 transition-all">
                   <Image
                     src={image.url}
                     width={200}
@@ -1494,7 +1723,7 @@ const SearchResultsCarousel = ({
               >
                 <button
                   onClick={() => setShowAllImages(!showAllImages)}
-                  className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/80 rounded-lg transition-colors"
                 >
                   {showAllImages ? (
                     <>Show less</>
@@ -1593,11 +1822,11 @@ const SearchResultsCarousel = ({
                     href={allImages[selectedIndex].sourceUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-200 underline hover:text-blue-400 text-sm"
+                    className="text-primary/70 underline hover:text-primary text-sm"
                   >
                     View Source
                   </a>
-                  <div className="text-xs text-gray-300 mt-2">
+                  <div className="text-xs text-white/60 mt-2">
                     {selectedIndex + 1} / {allImages.length}
                   </div>
                 </div>
@@ -2634,7 +2863,7 @@ export function ChatInterface({
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1, duration: 0.5 }}
                 >
-                  <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Try these capabilities
                   </h3>
                 </motion.div>
@@ -2646,16 +2875,16 @@ export function ChatInterface({
                         "Build a Monte Carlo simulation to predict Tesla's stock price in 6 months. Use Python to fetch historical data, calculate volatility and drift, run 10,000 simulations, and visualize the probability distribution with confidence intervals."
                       )
                     }
-                    className="bg-gray-50 dark:bg-gray-800/50 p-2.5 sm:p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-left group"
+                    className="bg-muted/50 p-2.5 sm:p-4 rounded-xl border border-border hover:border-muted-foreground/30 transition-colors hover:bg-muted text-left group"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3, duration: 0.5 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    <div className="text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-gray-900 dark:group-hover:text-gray-100">
+                    <div className="text-foreground/80 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-foreground">
                       🐍 ML Models
                     </div>
-                    <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
+                    <div className="text-[10px] sm:text-xs text-muted-foreground">
                       Advanced Python modeling & simulations
                     </div>
                   </motion.button>
@@ -2666,16 +2895,16 @@ export function ChatInterface({
                         "Analyze GameStop's latest 10-K filing. Extract key financial metrics, identify risk factors, and compare revenue streams vs last year. Show me insider trading activity and institutional ownership changes."
                       )
                     }
-                    className="bg-gray-50 dark:bg-gray-800/50 p-2.5 sm:p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-left group"
+                    className="bg-muted/50 p-2.5 sm:p-4 rounded-xl border border-border hover:border-muted-foreground/30 transition-colors hover:bg-muted text-left group"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.4, duration: 0.5 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    <div className="text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-gray-900 dark:group-hover:text-gray-100">
+                    <div className="text-foreground/80 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-foreground">
                       📊 SEC Filings
                     </div>
-                    <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
+                    <div className="text-[10px] sm:text-xs text-muted-foreground">
                       Deep dive into regulatory filings & insider data
                     </div>
                   </motion.button>
@@ -2686,16 +2915,16 @@ export function ChatInterface({
                         "Analyze the correlation between Bitcoin price movements and major tech stocks (TSLA, COIN, NVDA) over the past year. Create a CSV with daily prices, then generate correlation matrices and time series charts showing their relationships. Include analysis of crypto market sentiment and its impact on tech valuations."
                       )
                     }
-                    className="bg-gray-50 dark:bg-gray-800/50 p-2.5 sm:p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-left group"
+                    className="bg-muted/50 p-2.5 sm:p-4 rounded-xl border border-border hover:border-muted-foreground/30 transition-colors hover:bg-muted text-left group"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.5, duration: 0.5 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    <div className="text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-gray-900 dark:group-hover:text-gray-100">
+                    <div className="text-foreground/80 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-foreground">
                       🔗 Correlation Analysis
                     </div>
-                    <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
+                    <div className="text-[10px] sm:text-xs text-muted-foreground">
                       Market relationships & statistical insights
                     </div>
                   </motion.button>
@@ -2706,16 +2935,16 @@ export function ChatInterface({
                         "Analyze Netflix's subscriber growth and revenue metrics over the past 5 years. Pull financial data from SEC filings, create a comprehensive CSV with quarterly metrics (subscribers, ARPU, revenue, content spend), then generate charts showing: 1) Subscriber growth trends by region, 2) Revenue vs content spending, 3) Stock price correlation with subscriber announcements. Include competitive analysis vs Disney+."
                       )
                     }
-                    className="bg-gray-50 dark:bg-gray-800/50 p-2.5 sm:p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-left group"
+                    className="bg-muted/50 p-2.5 sm:p-4 rounded-xl border border-border hover:border-muted-foreground/30 transition-colors hover:bg-muted text-left group"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.6, duration: 0.5 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    <div className="text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-gray-900 dark:group-hover:text-gray-100">
+                    <div className="text-foreground/80 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-foreground">
                       📊 Growth Metrics
                     </div>
-                    <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
+                    <div className="text-[10px] sm:text-xs text-muted-foreground">
                       Business KPIs with trend visualizations
                     </div>
                   </motion.button>
@@ -2726,16 +2955,16 @@ export function ChatInterface({
                         "Compare the top 5 tech stocks (AAPL, MSFT, GOOGL, AMZN, NVDA) over the past 5 years. Create a CSV with their annual revenue, profit margins, and P/E ratios. Then generate visualizations showing: 1) Stock price performance comparison chart, 2) Revenue growth trends, 3) Profitability metrics comparison. Provide detailed analysis of which performed best and why."
                       )
                     }
-                    className="bg-gray-50 dark:bg-gray-800/50 p-2.5 sm:p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-left group"
+                    className="bg-muted/50 p-2.5 sm:p-4 rounded-xl border border-border hover:border-muted-foreground/30 transition-colors hover:bg-muted text-left group"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.7, duration: 0.5 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    <div className="text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-gray-900 dark:group-hover:text-gray-100">
+                    <div className="text-foreground/80 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-foreground">
                       📈 Comparative Analysis
                     </div>
-                    <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
+                    <div className="text-[10px] sm:text-xs text-muted-foreground">
                       Multi-stock comparison with charts & data
                     </div>
                   </motion.button>
@@ -2746,16 +2975,16 @@ export function ChatInterface({
                         "Do an in-depth report into the effect COVID-19 had on Pfizer. Analyze insider trades made during that time period, research those specific high-profile people involved, look at the company's stock price pre and post COVID, with income statements, balance sheets, and any relevant info from SEC filings around this time. Be thorough and execute code for deep analysis. Create a comprehensive CSV of ALL insider trades with columns: Date, Insider Name, Title/Position, Transaction Type (Buy/Sale/Option), Transaction Size (shares), Dollar Value, Stock Price at Time, and News Events Around Transaction Date."
                       )
                     }
-                    className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-2.5 sm:p-4 rounded-xl border border-blue-200 dark:border-blue-700 hover:border-blue-300 dark:hover:border-blue-600 transition-colors hover:from-blue-100 hover:to-purple-100 dark:hover:from-blue-900/30 dark:hover:to-purple-900/30 text-left group col-span-1 sm:col-span-2 lg:col-span-1"
+                    className="bg-gradient-to-r from-primary/10 to-accent/30 p-2.5 sm:p-4 rounded-xl border border-primary/30 hover:border-primary/50 transition-colors hover:from-primary/20 hover:to-accent/40 text-left group col-span-1 sm:col-span-2 lg:col-span-1"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.8, duration: 0.5 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    <div className="text-blue-700 dark:text-blue-300 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-blue-900 dark:group-hover:text-blue-100">
+                    <div className="text-primary mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-primary/80">
                       🚀 Deep Investigation
                     </div>
-                    <div className="text-[10px] sm:text-xs text-blue-600 dark:text-blue-400">
+                    <div className="text-[10px] sm:text-xs text-primary/70">
                       Multi-source research + Insider data + Financial analysis
                     </div>
                   </motion.button>
@@ -2791,7 +3020,7 @@ export function ChatInterface({
                     value={input}
                     onChange={handleInputChange}
                     placeholder="Ask a question..."
-                    className="w-full resize-none rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 pr-14 sm:pr-16 min-h-[38px] sm:min-h-[40px] max-h-28 sm:max-h-32 overflow-y-auto text-sm sm:text-base bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 focus:border-gray-400 dark:focus:border-gray-600 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-sm"
+                    className="w-full resize-none rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 pr-14 sm:pr-16 min-h-[38px] sm:min-h-[40px] max-h-28 sm:max-h-32 overflow-y-auto text-sm sm:text-base bg-card border border-border focus:border-muted-foreground/40 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-sm"
                     disabled={status === "error" || isLoading}
                     rows={1}
                     style={{ lineHeight: "1.5" }}
@@ -2809,7 +3038,7 @@ export function ChatInterface({
                       !canStop &&
                       (isLoading || !input.trim() || status === "error")
                     }
-                    className="absolute right-1.5 sm:right-2 top-1/2 -translate-y-1/2 rounded-xl h-7 w-7 sm:h-8 sm:w-8 p-0 bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 dark:text-gray-900"
+                    className="absolute right-1.5 sm:right-2 top-1/2 -translate-y-1/2 rounded-xl h-7 w-7 sm:h-8 sm:w-8 p-0 bg-foreground hover:bg-foreground/80 text-background"
                   >
                     {canStop ? (
                       <Square className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -2841,7 +3070,7 @@ export function ChatInterface({
                 animate={{ opacity: 1 }}
                 transition={{ delay: 1.1, duration: 0.5 }}
               >
-                <span className="text-xs text-gray-400 dark:text-gray-500">
+                <span className="text-xs text-muted-foreground/60">
                   Powered by
                 </span>
                 <a
@@ -2886,14 +3115,14 @@ export function ChatInterface({
               {message.role === "user" ? (
                 /* User Message */
                 <div className="flex justify-end mb-4 sm:mb-6 px-3 sm:px-0">
-                  <div className="max-w-[85%] sm:max-w-[80%] bg-gray-100 dark:bg-gray-800 rounded-2xl px-4 sm:px-4 py-3 sm:py-3 relative group shadow-sm">
+                  <div className="max-w-[85%] sm:max-w-[80%] bg-muted rounded-2xl px-4 sm:px-4 py-3 sm:py-3 relative group shadow-sm">
                     {/* User Message Actions */}
                     <div className="absolute -left-8 sm:-left-10 top-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5 sm:gap-1">
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleEditMessage(message.id)}
-                        className="h-6 w-6 p-0 bg-white dark:bg-gray-900 rounded-full shadow-sm border border-gray-200 dark:border-gray-700"
+                        className="h-6 w-6 p-0 bg-card rounded-full shadow-sm border border-border"
                       >
                         <Edit3 className="h-3 w-3" />
                       </Button>
@@ -2901,7 +3130,7 @@ export function ChatInterface({
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDeleteMessage(message.id)}
-                        className="h-6 w-6 p-0 bg-white dark:bg-gray-900 rounded-full shadow-sm border border-gray-200 dark:border-gray-700 text-red-500 hover:text-red-700"
+                        className="h-6 w-6 p-0 bg-card rounded-full shadow-sm border border-border text-destructive hover:text-destructive/80"
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -2912,7 +3141,7 @@ export function ChatInterface({
                         <Textarea
                           value={editingText}
                           onChange={(e) => setEditingText(e.target.value)}
-                          className="min-h-[80px] border-gray-200 dark:border-gray-600 rounded-xl"
+                          className="min-h-[80px] border-border rounded-xl"
                         />
                         <div className="flex gap-2">
                           <Button
@@ -2934,7 +3163,7 @@ export function ChatInterface({
                         </div>
                       </div>
                     ) : (
-                      <div className="text-gray-900 dark:text-gray-100">
+                      <div className="text-foreground">
                         {message.parts.find((p) => p.type === "text")?.text}
                       </div>
                     )}
@@ -2944,7 +3173,7 @@ export function ChatInterface({
                 /* Assistant Message */
                 <div className="mb-6 sm:mb-8 group px-3 sm:px-0">
                   {editingMessageId === message.id ? null : (
-                    <div className="space-y-5">
+                    <div className="space-y-4">
                       {(() => {
                         // Group consecutive reasoning steps together
                         // Note: This runs on every render, but it's a simple grouping operation
@@ -3005,7 +3234,7 @@ export function ChatInterface({
                             } else {
                               latestStepTitle = "Thinking...";
                             }
-                            latestStepIcon = <Brain className="h-5 w-5 text-purple-500" />;
+                            latestStepIcon = <Brain className="h-5 w-5 text-primary" />;
                           } else if (latestStep.part?.type?.startsWith("tool-")) {
                             // Get tool name and details
                             const toolType = latestStep.part.type.replace("tool-", "");
@@ -3013,43 +3242,43 @@ export function ChatInterface({
                             if (toolType === "financeSearch") {
                               latestStepTitle = "Finance Search";
                               latestStepSubtitle = latestStep.part.input?.query || "...";
-                              latestStepIcon = <Search className="h-5 w-5 text-blue-500" />;
+                              latestStepIcon = <Search className="h-5 w-5 text-primary" />;
                             } else if (toolType === "webSearch") {
                               latestStepTitle = "Web Search";
                               latestStepSubtitle = latestStep.part.input?.query || "...";
-                              latestStepIcon = <Globe className="h-5 w-5 text-green-500" />;
+                              latestStepIcon = <Globe className="h-5 w-5 text-primary" />;
                             } else if (toolType === "financeJournalSearch") {
                               latestStepTitle = "Academic Search";
                               latestStepSubtitle = latestStep.part.input?.query || "...";
-                              latestStepIcon = <BookOpen className="h-5 w-5 text-indigo-500" />;
+                              latestStepIcon = <BookOpen className="h-5 w-5 text-primary" />;
                             } else if (toolType === "secSearch") {
                               latestStepTitle = "SEC Search";
                               latestStepSubtitle = latestStep.part.input?.query || "...";
-                              latestStepIcon = <Search className="h-5 w-5 text-amber-500" />;
+                              latestStepIcon = <Search className="h-5 w-5 text-primary" />;
                             } else if (toolType === "economicsSearch") {
                               latestStepTitle = "Economics Search";
                               latestStepSubtitle = latestStep.part.input?.query || "...";
-                              latestStepIcon = <Search className="h-5 w-5 text-purple-500" />;
+                              latestStepIcon = <Search className="h-5 w-5 text-primary" />;
                             } else if (toolType === "patentSearch") {
                               latestStepTitle = "Patent Search";
                               latestStepSubtitle = latestStep.part.input?.query || "...";
-                              latestStepIcon = <Search className="h-5 w-5 text-rose-500" />;
+                              latestStepIcon = <Search className="h-5 w-5 text-primary" />;
                             } else if (toolType === "polymarketSearch") {
                               latestStepTitle = "Prediction Markets";
                               latestStepSubtitle = latestStep.part.input?.query || "...";
-                              latestStepIcon = <Search className="h-5 w-5 text-cyan-500" />;
+                              latestStepIcon = <Search className="h-5 w-5 text-primary" />;
                             } else if (toolType === "codeExecution") {
                               latestStepTitle = "Code Execution";
                               latestStepSubtitle = latestStep.part.input?.description || "Running Python code";
-                              latestStepIcon = <Code2 className="h-5 w-5 text-orange-500" />;
+                              latestStepIcon = <Code2 className="h-5 w-5 text-primary" />;
                             } else if (toolType === "createChart") {
                               latestStepTitle = "Creating Chart";
                               latestStepSubtitle = latestStep.part.output?.title || "Generating visualization";
-                              latestStepIcon = <BarChart3 className="h-5 w-5 text-cyan-500" />;
+                              latestStepIcon = <BarChart3 className="h-5 w-5 text-primary" />;
                             } else if (toolType === "createCSV") {
                               latestStepTitle = "Creating Table";
                               latestStepSubtitle = latestStep.part.output?.title || "Generating CSV data";
-                              latestStepIcon = <Table className="h-5 w-5 text-teal-500" />;
+                              latestStepIcon = <Table className="h-5 w-5 text-primary" />;
                             } else {
                               latestStepTitle = toolType;
                               latestStepSubtitle = "";
@@ -3075,16 +3304,16 @@ export function ChatInterface({
                             {hasActivity && (
                               <button
                                 onClick={() => setIsTraceExpanded(!isTraceExpanded)}
-                                className="w-full flex items-start gap-4 px-4 py-4 bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-900/30 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm transition-all mb-4 text-left group"
+                                className="w-full flex items-start gap-4 px-4 py-4 bg-gradient-to-br from-muted/50 to-muted/30 rounded-xl border border-border hover:border-muted-foreground/30 hover:shadow-sm transition-all mb-4 text-left group"
                               >
                                 {/* Icon */}
                                 <div className="flex-shrink-0 mt-0.5">
                                   {messageIsComplete ? (
-                                    <div className="w-10 h-10 rounded-lg bg-emerald-500/10 dark:bg-emerald-500/20 flex items-center justify-center">
-                                      <Check className="h-5 w-5 text-emerald-600 dark:text-emerald-500" />
+                                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                                      <Check className="h-5 w-5 text-primary" />
                                     </div>
                                   ) : (
-                                    <div className="w-10 h-10 rounded-lg bg-blue-500/10 dark:bg-blue-500/20 flex items-center justify-center">
+                                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                                       {latestStepIcon}
                                     </div>
                                   )}
@@ -3094,27 +3323,27 @@ export function ChatInterface({
                                 <div className="flex-1 min-w-0">
                                   {messageIsComplete ? (
                                     <>
-                                      <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">
+                                      <div className="text-sm font-semibold text-foreground mb-1">
                                         Completed
                                       </div>
-                                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                                      <div className="text-sm text-muted-foreground">
                                         Performed {totalActions} {totalActions === 1 ? 'action' : 'actions'}
                                       </div>
                                     </>
                                   ) : (
                                     <>
                                       <div className="flex items-center gap-2 mb-1">
-                                        <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                        <div className="text-sm font-semibold text-foreground">
                                           {latestStepTitle || "Working..."}
                                         </div>
                                         <div className="flex items-center gap-1">
-                                          <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" />
-                                          <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
-                                          <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }} />
+                                          <div className="w-1 h-1 bg-primary rounded-full animate-pulse" />
+                                          <div className="w-1 h-1 bg-primary rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
+                                          <div className="w-1 h-1 bg-primary rounded-full animate-pulse" style={{ animationDelay: '0.4s' }} />
                                         </div>
                                       </div>
                                       {latestStepSubtitle && (
-                                        <div className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                                        <div className="text-sm text-muted-foreground line-clamp-2">
                                           {latestStepSubtitle}
                                         </div>
                                       )}
@@ -3123,7 +3352,7 @@ export function ChatInterface({
                                 </div>
 
                                 {/* Expand button */}
-                                <div className="flex-shrink-0 flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-500 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors mt-1">
+                                <div className="flex-shrink-0 flex items-center gap-1.5 text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors mt-1">
                                   <span className="hidden sm:inline">
                                     {isTraceExpanded ? 'Hide' : 'Show'}
                                   </span>
@@ -3275,262 +3504,20 @@ export function ChatInterface({
                                 );
                               }
 
-                              // Financial Search Tool
-                              case "tool-financeSearch": {
-                                const callId = part.toolCallId;
-                                const isStreaming = part.state === "input-streaming" || part.state === "input-available";
-                                const hasResults = part.state === "output-available";
-                                const hasError = part.state === "output-error";
-
-                                if (hasError) {
-                                  return (
-                                    <div key={callId} className="my-1">
-                                      <TimelineStep
-                                        part={part}
-                                        messageId={message.id}
-                                        index={index}
-                                        status="error"
-                                        type="search"
-                                        title="Financial Search Error"
-                                        subtitle={part.errorText}
-                                        icon={<AlertCircle />}
-                                        expandedTools={expandedTools}
-                                        toggleToolExpansion={toggleToolExpansion}
-                                      />
-                                    </div>
-                                  );
-                                }
-
-                                const financialResults = hasResults ? extractSearchResults(part.output) : [];
-                                const query = part.input?.query || "";
-
-                                // Create favicon stack subtitle when complete
-                                let subtitleContent: React.ReactNode = query;
-                                if (!isStreaming && financialResults.length > 0) {
-                                  const displayResults = financialResults.slice(0, 5);
-                                  subtitleContent = (
-                                    <div className="flex flex-col gap-1">
-                                      <div className="text-xs text-gray-600 dark:text-gray-400">{query}</div>
-                                      <div className="flex items-center gap-2">
-                                        <div className="flex -space-x-2">
-                                          {displayResults.map((result: any, idx: number) => (
-                                            <div
-                                              key={idx}
-                                              className="w-5 h-5 rounded-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 flex items-center justify-center overflow-hidden"
-                                              style={{ zIndex: 5 - idx }}
-                                            >
-                                              <Favicon url={result.url} size={12} className="w-3 h-3" />
-                                            </div>
-                                          ))}
-                                        </div>
-                                        <span className="text-xs text-gray-600 dark:text-gray-400">
-                                          {financialResults.length} results
-                                        </span>
-                                      </div>
-                                    </div>
-                                  );
-                                }
-
-                                return (
-                                  <div key={callId}>
-                                    <div className="group relative py-0.5 animate-in fade-in duration-200">
-                                      <div
-                                        className={`relative flex items-start gap-4 py-4 px-4 -mx-2 rounded-md transition-all duration-150 ${
-                                          isStreaming ? 'bg-blue-50/50 dark:bg-blue-950/10' : ''
-                                        } ${
-                                          hasResults ? 'hover:bg-gray-50 dark:hover:bg-white/[0.02] cursor-pointer' : ''
-                                        }`}
-                                        onClick={hasResults ? () => toggleToolExpansion(`step-search-${message.id}-${index}`) : undefined}
-                                      >
-                                        {/* Status indicator */}
-                                        <div className="flex-shrink-0">
-                                          {!isStreaming ? (
-                                            <div className="w-4 h-4 rounded-full bg-emerald-500/15 dark:bg-emerald-500/25 flex items-center justify-center">
-                                              <Check className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-500 stroke-[2.5]" />
-                                            </div>
-                                          ) : (
-                                            <div className="relative w-4 h-4">
-                                              <div className="absolute inset-0 rounded-full border border-blue-300/40 dark:border-blue-700/40" />
-                                              <div className="absolute inset-0 rounded-full border border-transparent border-t-blue-500 dark:border-t-blue-400 animate-spin" />
-                                            </div>
-                                          )}
-                                        </div>
-
-                                        {/* Icon */}
-                                        <div className={`flex-shrink-0 w-4 h-4 ${
-                                          isStreaming ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-500'
-                                        }`}>
-                                          <Search />
-                                        </div>
-
-                                        {/* Content */}
-                                        <div className="flex-1 min-w-0">
-                                          <div className="flex items-baseline gap-2 mb-1">
-                                            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                              Financial Search
-                                            </span>
-                                          </div>
-                                          {!isStreaming && financialResults.length > 0 && subtitleContent}
-                                          {isStreaming && <div className="text-xs text-gray-500 dark:text-gray-500 line-clamp-1 mt-0.5">{query}</div>}
-                                        </div>
-
-                                        {/* Chevron */}
-                                        {hasResults && !isStreaming && (
-                                          <ChevronDown className={`h-3.5 w-3.5 text-gray-400 dark:text-gray-600 flex-shrink-0 transition-transform duration-150 ${
-                                            expandedTools.has(`step-search-${message.id}-${index}`) ? 'rotate-180' : ''
-                                          }`} />
-                                        )}
-                                      </div>
-
-                                      {/* Expanded content */}
-                                      {expandedTools.has(`step-search-${message.id}-${index}`) && hasResults && (
-                                        <div className="mt-1.5 ml-6 mr-2 animate-in fade-in duration-150">
-                                          <SearchResultsCarousel
-                                            results={financialResults}
-                                            type="financial"
-                                          />
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              }
-
-                              // Web Search Tool
-                              case "tool-webSearch": {
-                                const callId = part.toolCallId;
-                                const isStreaming = part.state === "input-streaming" || part.state === "input-available";
-                                const hasResults = part.state === "output-available";
-                                const hasError = part.state === "output-error";
-
-                                if (hasError) {
-                                  return (
-                                    <div key={callId} className="my-1">
-                                      <TimelineStep
-                                        part={part}
-                                        messageId={message.id}
-                                        index={index}
-                                        status="error"
-                                        type="search"
-                                        title="Web Search Error"
-                                        subtitle={part.errorText}
-                                        icon={<AlertCircle />}
-                                        expandedTools={expandedTools}
-                                        toggleToolExpansion={toggleToolExpansion}
-                                      />
-                                    </div>
-                                  );
-                                }
-
-                                const webResults = hasResults ? extractSearchResults(part.output) : [];
-                                const query = part.input?.query || "";
-
-                                // Create favicon stack subtitle when complete
-                                let subtitleContent: React.ReactNode = query;
-                                if (!isStreaming && webResults.length > 0) {
-                                  const displayResults = webResults.slice(0, 5);
-                                  subtitleContent = (
-                                    <div className="flex flex-col gap-1">
-                                      <div className="text-xs text-gray-600 dark:text-gray-400">{query}</div>
-                                      <div className="flex items-center gap-2">
-                                        <div className="flex -space-x-2">
-                                          {displayResults.map((result: any, idx: number) => (
-                                            <div
-                                              key={idx}
-                                              className="w-5 h-5 rounded-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 flex items-center justify-center overflow-hidden"
-                                              style={{ zIndex: 5 - idx }}
-                                            >
-                                              <Favicon url={result.url} size={12} className="w-3 h-3" />
-                                            </div>
-                                          ))}
-                                        </div>
-                                        <span className="text-xs text-gray-600 dark:text-gray-400">
-                                          {webResults.length} results
-                                        </span>
-                                      </div>
-                                    </div>
-                                  );
-                                }
-
-                                return (
-                                  <div key={callId}>
-                                    <TimelineStep
-                                      part={part}
-                                      messageId={message.id}
-                                      index={index}
-                                      status={isStreaming ? "streaming" : "complete"}
-                                      type="search"
-                                      title="Web Search"
-                                      subtitle={subtitleContent}
-                                      icon={<Globe />}
-                                      expandedTools={expandedTools}
-                                      toggleToolExpansion={toggleToolExpansion}
-                                    >
-                                      {hasResults && webResults.length > 0 && (
-                                        <SearchResultsCarousel
-                                          results={webResults}
-                                          type="web"
-                                        />
-                                      )}
-                                    </TimelineStep>
-                                  </div>
-                                );
-                              }
-
-                              // Wiley Search Tool
+                              // Financial Search, Web Search, and Journal Search - use unified component
+                              case "tool-financeSearch":
+                              case "tool-webSearch":
                               case "tool-financeJournalSearch": {
-                                const callId = part.toolCallId;
-                                const isStreaming = part.state === "input-streaming" || part.state === "input-available";
-                                const hasResults = part.state === "output-available";
-                                const hasError = part.state === "output-error";
-
-                                if (hasError) {
-                                  return (
-                                    <div key={callId} className="my-1">
-                                      <TimelineStep
-                                        part={part}
-                                        messageId={message.id}
-                                        index={index}
-                                        status="error"
-                                        type="search"
-                                        title="Wiley Search Error"
-                                        subtitle={part.errorText}
-                                        icon={<AlertCircle />}
-                                        expandedTools={expandedTools}
-                                        toggleToolExpansion={toggleToolExpansion}
-                                      />
-                                    </div>
-                                  );
-                                }
-
-                                const wileyResults = hasResults ? extractSearchResults(part.output) : [];
-                                const query = part.input?.query || "";
-                                const subtitle = isStreaming
-                                  ? query
-                                  : `${query} · ${wileyResults.length} results`;
-
                                 return (
-                                  <div key={callId}>
-                                    <TimelineStep
-                                      part={part}
-                                      messageId={message.id}
-                                      index={index}
-                                      status={isStreaming ? "streaming" : "complete"}
-                                      type="search"
-                                      title="Finance Journal Search"
-                                      subtitle={subtitle}
-                                      icon={<BookOpen />}
-                                      expandedTools={expandedTools}
-                                      toggleToolExpansion={toggleToolExpansion}
-                                    >
-                                      {hasResults && wileyResults.length > 0 && (
-                                        <SearchResultsCarousel
-                                          results={wileyResults}
-                                          type="wiley"
-                                        />
-                                      )}
-                                    </TimelineStep>
-                                  </div>
+                                  <SearchToolDisplay
+                                    key={part.toolCallId}
+                                    toolType={part.type}
+                                    part={part}
+                                    messageId={message.id}
+                                    index={index}
+                                    expandedTools={expandedTools}
+                                    toggleToolExpansion={toggleToolExpansion}
+                                  />
                                 );
                               }
 
@@ -3640,32 +3627,21 @@ export function ChatInterface({
                                 );
                               }
 
-                              // Simple Search Tools (SEC, Economics, Patent, Polymarket)
+                              // Unified Search Tools (SEC, Economics, Patent, Polymarket)
                               case "tool-secSearch":
                               case "tool-economicsSearch":
                               case "tool-patentSearch":
                               case "tool-polymarketSearch": {
-                                const config = SIMPLE_SEARCH_TOOL_CONFIG[part.type];
-                                const { callId, isStreaming, hasResults, hasError } = getToolState(part);
-
-                                if (hasError) {
-                                  return (
-                                    <div key={callId} className="my-1">
-                                      <TimelineStep part={part} messageId={message.id} index={index} status="error" type="search" title={config.errorTitle} subtitle={part.errorText} icon={<AlertCircle />} expandedTools={expandedTools} toggleToolExpansion={toggleToolExpansion} />
-                                    </div>
-                                  );
-                                }
-
-                                const results = hasResults ? extractSearchResults(part.output) : [];
-                                const query = part.input?.query || "";
-                                const subtitle = isStreaming ? query : `${query} · ${results.length} results`;
-
                                 return (
-                                  <div key={callId}>
-                                    <TimelineStep part={part} messageId={message.id} index={index} status={isStreaming ? "streaming" : "complete"} type="search" title={config.title} subtitle={subtitle} icon={<Search />} expandedTools={expandedTools} toggleToolExpansion={toggleToolExpansion}>
-                                      {hasResults && results.length > 0 && <SearchResultsCarousel results={results} type={config.resultType} />}
-                                    </TimelineStep>
-                                  </div>
+                                  <SearchToolDisplay
+                                    key={part.toolCallId}
+                                    toolType={part.type}
+                                    part={part}
+                                    messageId={message.id}
+                                    index={index}
+                                    expandedTools={expandedTools}
+                                    toggleToolExpansion={toggleToolExpansion}
+                                  />
                                 );
                               }
 
@@ -3674,27 +3650,27 @@ export function ChatInterface({
                                 return (
                                   <div
                                     key={index}
-                                    className="mt-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded p-2 sm:p-3"
+                                    className="mt-2 bg-accent/30 border border-border rounded p-2 sm:p-3"
                                   >
-                                    <div className="flex items-center gap-2 text-purple-700 dark:text-purple-400 mb-2">
+                                    <div className="flex items-center gap-2 text-primary mb-2">
                                       <Wrench className="h-4 w-4" />
                                       <span className="font-medium">
                                         Tool: {part.toolName}
                                       </span>
                                     </div>
-                                    <div className="text-sm text-purple-600 dark:text-purple-300">
+                                    <div className="text-sm text-foreground">
                                       {part.state === "input-streaming" && (
-                                        <pre className="bg-purple-100 dark:bg-purple-800/30 p-2 rounded text-xs">
+                                        <pre className="bg-muted p-2 rounded text-xs">
                                           {JSON.stringify(part.input, null, 2)}
                                         </pre>
                                       )}
                                       {part.state === "output-available" && (
-                                        <pre className="bg-purple-100 dark:bg-purple-800/30 p-2 rounded text-xs">
+                                        <pre className="bg-muted p-2 rounded text-xs">
                                           {JSON.stringify(part.output, null, 2)}
                                         </pre>
                                       )}
                                       {part.state === "output-error" && (
-                                        <div className="text-red-600 dark:text-red-300">
+                                        <div className="text-destructive">
                                           Error: {part.errorText}
                                         </div>
                                       )}
@@ -3715,10 +3691,10 @@ export function ChatInterface({
 
                   {/* Message Actions - Professional Action Bar */}
                   {message.role === "assistant" && !isLoading && (
-                    <div className="flex justify-end gap-2 mt-6 pt-4 mb-8 border-t border-gray-100 dark:border-gray-800">
+                    <div className="flex justify-end gap-2 mt-6 pt-4 mb-8 border-t border-border">
                       <button
                         onClick={() => copyToClipboard(getMessageText(message))}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg transition-all"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all"
                         title="Copy to clipboard"
                       >
                         <Copy className="h-3.5 w-3.5" />
@@ -3732,7 +3708,7 @@ export function ChatInterface({
                           <button
                             onClick={handleDownloadPDF}
                             disabled={isDownloadingPDF}
-                            className="inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold text-foreground bg-muted hover:bg-muted/80 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Download full report as PDF"
                           >
                             {isDownloadingPDF ? (
@@ -3750,12 +3726,12 @@ export function ChatInterface({
                         ) : (
                           <button
                             onClick={() => setShowAuthModal(true)}
-                            className="inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg transition-all hover:border-gray-300 dark:hover:border-gray-600 hover:text-gray-600 dark:hover:text-gray-400 group"
+                            className="inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50 border border-border rounded-lg transition-all hover:border-muted-foreground/30 hover:text-foreground group"
                             title="Sign in to download reports"
                           >
                             <Download className="h-3.5 w-3.5" />
                             <span>Download Report</span>
-                            <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 transition-colors">
+                            <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-primary/10 text-primary rounded group-hover:bg-primary/20 transition-colors">
                               Sign in
                             </span>
                           </button>
@@ -3797,11 +3773,11 @@ export function ChatInterface({
                 transition={{ duration: 0.3, ease: "easeOut" }}
               >
                 <div className="flex items-start gap-2">
-                  <div className="text-amber-600 dark:text-amber-400 text-lg mt-0.5">
+                  <div className="text-primary text-lg mt-0.5">
                     ☕
                   </div>
-                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl px-3 py-2 max-w-xs">
-                    <div className="text-amber-700 dark:text-amber-300 text-sm">
+                  <div className="bg-accent/30 border border-border rounded-xl px-3 py-2 max-w-xs">
+                    <div className="text-foreground text-sm">
                       Just grabbing a coffee and contemplating the meaning of
                       life... ☕️
                     </div>
@@ -3847,14 +3823,14 @@ export function ChatInterface({
       
       {/* Error Display */}
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 sm:p-4">
-          <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
+        <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 sm:p-4">
+          <div className="flex items-center gap-2 text-destructive">
             <AlertCircle className="h-4 w-4" />
             <span className="font-medium">
               {error.message?.includes('CREDITS_REQUIRED') ? 'Valyu Credits Required' : 'Something went wrong'}
             </span>
           </div>
-          <p className="text-red-600 dark:text-red-400 text-sm mt-1">
+          <p className="text-destructive/80 text-sm mt-1">
             {error.message?.includes('CREDITS_REQUIRED')
               ? 'You need Valyu credits in your organization to use this feature. Add credits at platform.valyu.ai.'
               : 'Please check your connection and try again.'
@@ -3871,7 +3847,7 @@ export function ChatInterface({
             }}
             variant="outline"
             size="sm"
-            className="mt-2 text-red-700 border-red-300 hover:bg-red-100 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-900/20"
+            className="mt-2 text-destructive border-destructive/30 hover:bg-destructive/10"
           >
             {error.message?.includes('CREDITS_REQUIRED') ? (
               <>
@@ -3906,12 +3882,12 @@ export function ChatInterface({
             )}
 
             <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
-              <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 px-4 py-2.5 relative flex items-center">
+              <div className="bg-card rounded-2xl shadow-sm border border-border px-4 py-2.5 relative flex items-center">
                 <Textarea
                   value={input}
                   onChange={handleInputChange}
                   placeholder="Ask a question..."
-                  className="w-full resize-none border-0 px-0 py-2 pr-12 min-h-[36px] max-h-24 focus:ring-0 focus-visible:ring-0 bg-transparent overflow-y-auto text-base placeholder:text-gray-400 dark:placeholder:text-gray-500 shadow-none"
+                  className="w-full resize-none border-0 px-0 py-2 pr-12 min-h-[36px] max-h-24 focus:ring-0 focus-visible:ring-0 bg-transparent overflow-y-auto text-base placeholder:text-muted-foreground shadow-none"
                   disabled={status === "error" || isLoading}
                   rows={1}
                   style={{ lineHeight: "1.5", paddingTop: "0.5rem", paddingBottom: "0.5rem" }}
@@ -3929,7 +3905,7 @@ export function ChatInterface({
                     !canStop &&
                     (isLoading || !input.trim() || status === "error")
                   }
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl h-8 w-8 p-0 bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 dark:text-gray-900 shadow-sm transition-colors"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl h-8 w-8 p-0 bg-foreground hover:bg-foreground/80 text-background shadow-sm transition-colors"
                 >
                     {canStop ? (
                       <Square className="h-4 w-4" />
@@ -3955,8 +3931,8 @@ export function ChatInterface({
               </form>
 
             {/* Mobile Bottom Bar - Social links and disclaimer below input */}
-            <motion.div 
-              className="block sm:hidden mt-4 pt-3 border-t border-gray-200 dark:border-gray-700"
+            <motion.div
+              className="block sm:hidden mt-4 pt-3 border-t border-border"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.5, duration: 0.3 }}
@@ -3965,7 +3941,7 @@ export function ChatInterface({
                 <div className="flex items-center justify-center space-x-4">
                   <SocialLinks />
                 </div>
-                <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center">
+                <p className="text-[10px] text-muted-foreground/60 text-center">
                   Not financial advice.
                 </p>
               </div>
@@ -3984,16 +3960,16 @@ export function ChatInterface({
       <Dialog open={showSignupPrompt} onOpenChange={setShowSignupPrompt}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <DialogTitle className="text-lg font-semibold text-foreground">
               Sign in with Valyu to continue
             </DialogTitle>
-            <DialogDescription className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+            <DialogDescription className="text-sm text-muted-foreground mt-2">
               Valyu is the AI search engine powering Finance. Sign in to access comprehensive financial data from SEC filings, earnings reports, market data, and 50+ premium sources.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-6">
-            <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-              <p className="text-sm text-green-800 dark:text-green-200 font-medium">
+            <div className="p-3 bg-primary/10 border border-primary/30 rounded-lg">
+              <p className="text-sm text-primary font-medium">
                 Get $10 free credits on signup - no credit card required!
               </p>
             </div>
@@ -4002,7 +3978,7 @@ export function ChatInterface({
                 setShowSignupPrompt(false);
                 setShowAuthModal(true);
               }}
-              className="w-full px-4 py-3 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-medium rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
+              className="w-full px-4 py-3 bg-foreground text-background font-medium rounded-lg hover:bg-foreground/80 transition-all flex items-center justify-center gap-2"
             >
               <Image src="/valyu.svg" alt="Valyu" width={20} height={20} className="h-5 w-auto" />
               Sign in with Valyu

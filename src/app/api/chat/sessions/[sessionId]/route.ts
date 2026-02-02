@@ -3,7 +3,7 @@ import * as db from '@/lib/db';
 export async function GET(req: Request, { params }: { params: Promise<{ sessionId: string }> }) {
   const { sessionId } = await params;
 
-  const { data: { user } } = await db.getUser();
+  const { data: { user } } = await db.getUserFromRequest(req);
 
   if (!user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -58,7 +58,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ sessionI
 export async function DELETE(req: Request, { params }: { params: Promise<{ sessionId: string }> }) {
   const { sessionId } = await params;
 
-  const { data: { user } } = await db.getUser();
+  const { data: { user } } = await db.getUserFromRequest(req);
 
   if (!user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -79,9 +79,10 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ sessi
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ sessionId: string }> }) {
   const { sessionId } = await params;
+  const reqClone = req.clone();
   const { title } = await req.json();
 
-  const { data: { user } } = await db.getUser();
+  const { data: { user } } = await db.getUserFromRequest(reqClone);
 
   if (!user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {

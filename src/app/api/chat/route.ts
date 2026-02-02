@@ -9,9 +9,12 @@ export const maxDuration = 800;
 
 export async function POST(req: Request) {
   try {
-    const { messages, sessionId, valyuAccessToken }: { messages: FinanceUIMessage[], sessionId?: string, valyuAccessToken?: string } = await req.json();
+    // Clone request for body parsing (can only read body once)
+    const body = await req.json();
+    const { messages, sessionId, valyuAccessToken }: { messages: FinanceUIMessage[], sessionId?: string, valyuAccessToken?: string } = body;
     const isSelfHosted = isSelfHostedMode();
-    const { data: { user } } = await db.getUser();
+    // Use getUserFromRequest to support both cookie and header auth
+    const { data: { user } } = await db.getUserFromRequest(req);
 
     console.log("[Chat API] Request | Session:", sessionId, "| Mode:", isSelfHosted ? 'self-hosted' : 'valyu', "| User:", user?.id || 'anonymous', "| Messages:", messages.length);
 
@@ -167,21 +170,32 @@ export async function POST(req: Request) {
 
       **CRITICAL NOTE**: You must only make max 5 parallel tool calls at a time.
 
-      **CRITICAL TOOL SELECTION RULES (MUST FOLLOW - NO EXCEPTIONS):**
-      - **financeSearch**: ALWAYS use for:
-        • Stock prices, stock data, equity prices (TSLA, NVDA, COIN, etc.)
-        • Cryptocurrency prices and data (Bitcoin, Ethereum, etc.)
-        • Market indices and sentiment indicators (Fear & Greed Index, VIX, etc.)
-        • Earnings data, financial metrics, revenue, profit
-        • Market correlations, price movements, trading data
-        • Any query involving tickers, prices, or market data
-      - **secSearch**: ALWAYS use for ANY SEC filing content (10-K, 10-Q, 8-K, proxy statements, exhibits, shareholder letters). NEVER use webSearch for SEC.gov content.
-      - **economicsSearch**: Use for BLS, FRED, World Bank, government spending data.
-      - **patentSearch**: Use for USPTO patents and intellectual property.
-      - **financeJournalSearch**: Use for academic papers, peer-reviewed research.
-      - **webSearch**: Use ONLY for general news, current events, and non-specialized content that does NOT involve financial data, market data, stock prices, crypto prices, or SEC filings.
+      **COMPUTE vs SEARCH - CRITICAL DISTINCTION:**
+      Search tools return RAW DATA. They do NOT compute results. For calculations, statistical analysis, or derived metrics:
+      1. FIRST: Use search tools to get the raw data (e.g., individual stock prices)
+      2. THEN: Use codeExecution to compute the result (e.g., correlation matrix, returns, ratios)
 
-      NEVER use webSearch for: stock prices, crypto prices, market indices, Fear & Greed Index, market sentiment indicators, financial correlations, or any query that mentions tickers or financial instruments.
+      Examples:
+      - "correlation between BTC and TSLA" → Get BTC prices + Get TSLA prices → Use Python to calculate correlation
+      - "Sharpe ratio for NVDA" → Get NVDA prices + Get risk-free rate → Use Python to calculate Sharpe ratio
+      - "volatility of SPY" → Get SPY prices → Use Python to calculate standard deviation
+
+      DO NOT search for computed metrics like "correlation matrix" or "Sharpe ratio for X" - these must be calculated.
+
+      **TOOL SELECTION RULES:**
+      - **financeSearch**: Use for STRUCTURED DATA retrieval:
+        • Stock/crypto price data and price history (AAPL, BTC-USD, etc.)
+        • Earnings numbers, revenue, financial statements
+        • Company financials from databases
+      - **webSearch**: Use for QUALITATIVE information:
+        • Financial news and market commentary
+        • Market sentiment analysis articles (Fear & Greed commentary)
+        • VIX analysis and market outlook articles
+        • Analyst opinions and forecasts
+        • If financeSearch returns 0 results, try webSearch
+      - **secSearch**: Use ONLY for: 10-K, 10-Q, 8-K filings, Form 4 insider transactions
+      - **economicsSearch**: Use for BLS, FRED, World Bank, government spending data
+      - **codeExecution**: Use for ANY calculation, statistical analysis, or data transformation
 
       **CRITICAL INSTRUCTIONS**: Your reports must be incredibly thorough and detailed, explore everything that is relevant to the user's query that will help to provide
       the perfect response that is of a level expected of a elite level professional financial analyst for the leading financial research firm in the world.
@@ -190,15 +204,16 @@ export async function POST(req: Request) {
 
       **financeSearch** - Financial data and market information:
       • Real-time stock prices, crypto rates, and forex data
-      • Quarterly and annual earnings reports
+      • Quarterly and annual earnings reports, balance sheets, income statements, cash flow
       • Financial news and market analysis
-      • Company financials and metrics
+      • Company financials and metrics (revenue, profit, EPS, P/E ratios)
 
-      **secSearch** - SEC regulatory filings:
-      • 10-K annual reports, 10-Q quarterly reports, 8-K current reports
-      • Proxy statements and executive compensation
-      • Risk factors and management discussion
-      • Insider trading disclosures
+      **secSearch** - SEC regulatory filings (LIMITED SCOPE):
+      • 10-K annual reports (full-text search of annual filings)
+      • 10-Q quarterly reports (full-text search of quarterly filings)
+      • 8-K current reports (material events, leadership changes)
+      • Form 4 insider transactions (executive buys/sells)
+      • NOTE: Do NOT use for 13D, 13G, 13F institutional ownership, earnings summaries, balance sheets, or financial metrics - use financeSearch instead
 
       **economicsSearch** - Economic data and indicators:
       • BLS labor statistics (unemployment, wages, employment)

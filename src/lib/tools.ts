@@ -17,21 +17,32 @@ const VALYU_OAUTH_PROXY_URL = process.env.VALYU_OAUTH_PROXY_URL ||
   `${process.env.VALYU_APP_URL || process.env.NEXT_PUBLIC_VALYU_APP_URL || 'https://platform.valyu.ai'}/api/oauth/proxy`;
 
 async function callValyuOAuthProxy(requestBody: Record<string, any>, valyuAccessToken: string): Promise<any> {
+  const startTime = Date.now();
+  console.log('[ValyuProxy] Request:', { query: requestBody.query, search_type: requestBody.search_type, sources: requestBody.included_sources });
+
   const response = await fetch(VALYU_OAUTH_PROXY_URL, {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${valyuAccessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ path: '/v1/deepsearch', method: 'POST', body: requestBody }),
   });
 
+  const elapsed = Date.now() - startTime;
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'proxy_failed' }));
+    console.error('[ValyuProxy] Error:', { status: response.status, error, elapsed: `${elapsed}ms` });
     throw new Error(error.error_description || error.error || 'Valyu proxy request failed');
   }
 
-  return response.json();
+  const data = await response.json();
+  console.log('[ValyuProxy] Success:', { results: data?.results?.length || 0, elapsed: `${elapsed}ms` });
+  return data;
 }
 
 function formatSearchError(error: unknown, toolName: string): string {
+  const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+  console.error(`[${toolName}] Error:`, { message: errorMsg, stack: error instanceof Error ? error.stack : undefined });
+
   if (!(error instanceof Error)) return `Error in ${toolName}: Unknown error`;
 
   const msg = error.message;
@@ -548,14 +559,23 @@ ${execution.result || "(No output produced)"}
     ? { webSearch: valyuWebSearch({ maxNumResults: 5 }) }
     : {
         webSearch: tool({
-          description: "Search the web for general information ONLY. Use for: news articles, current events, Wikipedia-style information, general knowledge. DO NOT USE for: stock prices, crypto prices, market data, financial metrics, Fear & Greed Index, market sentiment, or any financial/investment data - use financeSearch for those.",
+          description: "Search the web for current information, news, and articles. The API handles natural language - use simple, clear queries.",
           inputSchema: z.object({
-            query: z.string().min(1).max(500).describe("Natural language query (e.g., 'latest AI developments', 'climate change solutions', 'Tesla news')"),
+            query: z.string().min(1).max(500).describe("Natural language query (e.g., 'latest AI developments', 'Tesla Q4 2024 earnings')"),
+            includedSources: z.array(z.string()).optional().describe("Restrict search to specific domains or sources (e.g., ['nature.com', 'arxiv.org']). Cannot be used with excludedSources."),
+            excludedSources: z.array(z.string()).optional().describe("Exclude specific domains or sources from results (e.g., ['reddit.com', 'quora.com']). Cannot be used with includedSources."),
           }),
-          execute: async ({ query }, options) => {
+          execute: async ({ query, includedSources, excludedSources }, options) => {
             const valyuAccessToken = (options as any)?.experimental_context?.valyuAccessToken;
             try {
-              const response = await callValyuOAuthProxy({ query, search_type: 'all', max_num_results: 5 }, valyuAccessToken);
+              const requestBody: any = { query, search_type: 'all', max_num_results: 5 };
+              if (includedSources && includedSources.length > 0) {
+                requestBody.included_sources = includedSources;
+              }
+              if (excludedSources && excludedSources.length > 0) {
+                requestBody.excluded_sources = excludedSources;
+              }
+              const response = await callValyuOAuthProxy(requestBody, valyuAccessToken);
               await trackValyuCall('webSearch', query, response, true);
               return response?.results?.length ? response : `🔍 No web results found for "${query}".`;
             } catch (error) {
@@ -566,17 +586,88 @@ ${execution.result || "(No output produced)"}
       }),
 
   ...(isSelfHostedMode
-    ? { financeSearch: valyuFinanceSearch({ maxNumResults: 5 }) }
+    ? {
+        financeSearch: tool({
+          description: "Search financial data: stock prices, earnings, balance sheets, income statements, cash flows, SEC filings, dividends, insider transactions, crypto, forex, and economic indicators. The API handles natural language - ask your full question in one query per topic.",
+          inputSchema: z.object({
+            query: z.string().min(1).max(500).describe("Natural language query (e.g., 'Apple stock price Q1-Q3 2020', 'Tesla revenue last 4 quarters')"),
+          }),
+          execute: async ({ query }) => {
+            const startTime = Date.now();
+            console.log('[financeSearch] Query:', query);
+            try {
+              const apiKey = process.env.VALYU_API_KEY;
+              if (!apiKey) throw new Error('VALYU_API_KEY required');
+              const res = await fetch('https://api.valyu.ai/v1/deepsearch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+                body: JSON.stringify({
+                  query,
+                  search_type: 'proprietary',
+                  max_num_results: 5,
+                  included_sources: [
+                    'valyu/valyu-stocks',
+                    'valyu/valyu-sec-filings',
+                    'valyu/valyu-earnings-US',
+                    'valyu/valyu-balance-sheet-US',
+                    'valyu/valyu-income-statement-US',
+                    'valyu/valyu-cash-flow-US',
+                    'valyu/valyu-dividends-US',
+                    'valyu/valyu-insider-transactions-US',
+                    'valyu/valyu-market-movers-US',
+                    'valyu/valyu-crypto',
+                    'valyu/valyu-forex',
+                    'valyu/valyu-bls',
+                    'valyu/valyu-fred',
+                    'valyu/valyu-world-bank',
+                  ],
+                }),
+              });
+              if (!res.ok) {
+                const errBody = await res.text().catch(() => '');
+                console.error('[financeSearch] API Error:', { status: res.status, body: errBody });
+                throw new Error(`API error: ${res.status} - ${errBody}`);
+              }
+              const response = await res.json();
+              console.log('[financeSearch] Success:', { results: response?.results?.length || 0, elapsed: `${Date.now() - startTime}ms` });
+              await trackValyuCall('financeSearch', query, response, false);
+              return response?.results?.length ? response : `🔍 No financial data found for "${query}".`;
+            } catch (error) {
+              return formatSearchError(error, 'financeSearch');
+            }
+          },
+        }),
+      }
     : {
         financeSearch: tool({
-          description: "Search for ALL financial and market data. ALWAYS USE THIS for: stock prices (TSLA, NVDA, COIN), cryptocurrency prices (Bitcoin, Ethereum), market indices (S&P 500, VIX), Fear & Greed Index, market sentiment indicators, earnings reports, financial statements, revenue, profit, market correlations, price movements, and any query involving tickers or financial instruments.",
+          description: "Search financial data: stock prices, earnings, balance sheets, income statements, cash flows, SEC filings, dividends, insider transactions, crypto, forex, and economic indicators. The API handles natural language - ask your full question in one query per topic.",
           inputSchema: z.object({
-            query: z.string().min(1).max(500).describe("Financial query (e.g., 'Apple Q4 earnings 2024', 'Tesla stock price history', 'Microsoft revenue growth')"),
+            query: z.string().min(1).max(500).describe("Natural language query (e.g., 'Apple stock price Q1-Q3 2020', 'Tesla revenue last 4 quarters')"),
           }),
           execute: async ({ query }, options) => {
             const valyuAccessToken = (options as any)?.experimental_context?.valyuAccessToken;
             try {
-              const response = await callValyuOAuthProxy({ query, search_type: 'proprietary', max_num_results: 5, category: 'finance' }, valyuAccessToken);
+              const response = await callValyuOAuthProxy({
+                query,
+                search_type: 'proprietary',
+                max_num_results: 5,
+                included_sources: [
+                  'valyu/valyu-stocks',
+                  'valyu/valyu-sec-filings',
+                  'valyu/valyu-earnings-US',
+                  'valyu/valyu-balance-sheet-US',
+                  'valyu/valyu-income-statement-US',
+                  'valyu/valyu-cash-flow-US',
+                  'valyu/valyu-dividends-US',
+                  'valyu/valyu-insider-transactions-US',
+                  'valyu/valyu-market-movers-US',
+                  'valyu/valyu-crypto',
+                  'valyu/valyu-forex',
+                  'valyu/valyu-bls',
+                  'valyu/valyu-fred',
+                  'valyu/valyu-world-bank',
+                ],
+              }, valyuAccessToken);
               await trackValyuCall('financeSearch', query, response, true);
               return response?.results?.length ? response : `🔍 No financial data found for "${query}".`;
             } catch (error) {
@@ -587,12 +678,43 @@ ${execution.result || "(No output produced)"}
       }),
 
   ...(isSelfHostedMode
-    ? { secSearch: valyuSecSearch({ maxNumResults: 5 }) }
+    ? {
+        secSearch: tool({
+          description: "Search SEC filings (10-K, 10-Q, 8-K, proxy statements). Use simple natural language with company name and filing type - no accession numbers or technical syntax needed.",
+          inputSchema: z.object({
+            query: z.string().min(1).max(500).describe("Natural language query (e.g., 'Tesla 10-K risk factors', 'Apple executive compensation 2024')"),
+          }),
+          execute: async ({ query }) => {
+            const startTime = Date.now();
+            console.log('[secSearch] Query:', query);
+            try {
+              const apiKey = process.env.VALYU_API_KEY;
+              if (!apiKey) throw new Error('VALYU_API_KEY required');
+              const res = await fetch('https://api.valyu.ai/v1/deepsearch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+                body: JSON.stringify({ query, search_type: 'proprietary', max_num_results: 5, included_sources: ['valyu/valyu-sec-filings'] }),
+              });
+              if (!res.ok) {
+                const errBody = await res.text().catch(() => '');
+                console.error('[secSearch] API Error:', { status: res.status, body: errBody });
+                throw new Error(`API error: ${res.status} - ${errBody}`);
+              }
+              const response = await res.json();
+              console.log('[secSearch] Success:', { results: response?.results?.length || 0, elapsed: `${Date.now() - startTime}ms` });
+              await trackValyuCall('secSearch', query, response, false);
+              return response?.results?.length ? response : `🔍 No SEC filings found for "${query}".`;
+            } catch (error) {
+              return formatSearchError(error, 'secSearch');
+            }
+          },
+        }),
+      }
     : {
         secSearch: tool({
-          description: "Search SEC filings including 10-K annual reports, 10-Q quarterly reports, 8-K current reports, proxy statements, and regulatory filings.",
+          description: "Search SEC filings (10-K, 10-Q, 8-K, proxy statements). Use simple natural language with company name and filing type - no accession numbers or technical syntax needed.",
           inputSchema: z.object({
-            query: z.string().min(1).max(500).describe("SEC filing query (e.g., 'Apple 10-K 2024', 'Tesla risk factors', 'Microsoft executive compensation')"),
+            query: z.string().min(1).max(500).describe("Natural language query (e.g., 'Tesla 10-K risk factors', 'Apple executive compensation 2024')"),
           }),
           execute: async ({ query }, options) => {
             const valyuAccessToken = (options as any)?.experimental_context?.valyuAccessToken;
@@ -608,17 +730,28 @@ ${execution.result || "(No output produced)"}
       }),
 
   ...(isSelfHostedMode
-    ? { economicsSearch: valyuEconomicsSearch({ maxNumResults: 5 }) }
+    ? { economicsSearch: valyuEconomicsSearch({ maxNumResults: 3 }) }
     : {
         economicsSearch: tool({
-          description: "Search economic data from BLS, FRED, World Bank, and government spending data. Use for unemployment, inflation, GDP, interest rates.",
+          description: "Search economic data from BLS, FRED, World Bank. The API handles natural language - no need for series IDs or technical codes.",
           inputSchema: z.object({
-            query: z.string().min(1).max(500).describe("Economics query (e.g., 'US unemployment rate 2024', 'inflation trends', 'GDP growth by country')"),
+            query: z.string().min(1).max(500).describe("Natural language query (e.g., 'CPI vs unemployment since 2020', 'US GDP growth last 5 years')"),
           }),
           execute: async ({ query }, options) => {
             const valyuAccessToken = (options as any)?.experimental_context?.valyuAccessToken;
             try {
-              const response = await callValyuOAuthProxy({ query, search_type: 'proprietary', max_num_results: 5, included_sources: ['valyu/valyu-bls', 'valyu/valyu-fred', 'valyu/valyu-world-bank', 'valyu/valyu-government-spending'] }, valyuAccessToken);
+              const response = await callValyuOAuthProxy({
+                query,
+                search_type: 'proprietary',
+                max_num_results: 3,
+                included_sources: [
+                  'valyu/valyu-bls',
+                  'valyu/valyu-fred',
+                  'valyu/valyu-world-bank',
+                  'valyu/valyu-worldbank-indicators',
+                  'valyu/valyu-usaspending',
+                ],
+              }, valyuAccessToken);
               await trackValyuCall('economicsSearch', query, response, true);
               return response?.results?.length ? response : `🔍 No economic data found for "${query}".`;
             } catch (error) {
@@ -632,9 +765,9 @@ ${execution.result || "(No output produced)"}
     ? { patentSearch: valyuPatentSearch({ maxNumResults: 5 }) }
     : {
         patentSearch: tool({
-          description: "Search USPTO patent databases for patents, prior art discovery, freedom to operate analysis, and IP research.",
+          description: "Search patent databases for inventions and intellectual property. The API handles natural language - no need for patent numbers or classification codes.",
           inputSchema: z.object({
-            query: z.string().min(1).max(500).describe("Patent query (e.g., 'neural network optimization patents', 'battery technology prior art')"),
+            query: z.string().min(1).max(500).describe("Natural language query (e.g., 'solid-state battery patents', 'CRISPR gene editing methods')"),
           }),
           execute: async ({ query }, options) => {
             const valyuAccessToken = (options as any)?.experimental_context?.valyuAccessToken;
@@ -657,6 +790,8 @@ ${execution.result || "(No output produced)"}
             query: z.string().min(1).max(500).describe("Academic finance query (e.g., 'options pricing models', 'portfolio optimization theory', 'risk management frameworks')"),
           }),
           execute: async ({ query }) => {
+            const startTime = Date.now();
+            console.log('[financeJournalSearch] Query:', query);
             try {
               const apiKey = process.env.VALYU_API_KEY;
               if (!apiKey) throw new Error('VALYU_API_KEY required');
@@ -665,8 +800,13 @@ ${execution.result || "(No output produced)"}
                 headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
                 body: JSON.stringify({ query, search_type: 'proprietary', max_num_results: 5, included_sources: ['wiley/wiley-finance-papers', 'wiley/wiley-finance-books'] }),
               });
-              if (!res.ok) throw new Error(`API error: ${res.status}`);
+              if (!res.ok) {
+                const errBody = await res.text().catch(() => '');
+                console.error('[financeJournalSearch] API Error:', { status: res.status, body: errBody });
+                throw new Error(`API error: ${res.status}`);
+              }
               const response = await res.json();
+              console.log('[financeJournalSearch] Success:', { results: response?.results?.length || 0, elapsed: `${Date.now() - startTime}ms` });
               await trackValyuCall('financeJournalSearch', query, response, false);
               return response?.results?.length ? response : `🔍 No finance journal results found for "${query}".`;
             } catch (error) {
@@ -702,6 +842,8 @@ ${execution.result || "(No output produced)"}
             query: z.string().min(1).max(500).describe("Prediction market query (e.g., 'Fed interest rate probability', 'election odds', 'Bitcoin price prediction')"),
           }),
           execute: async ({ query }) => {
+            const startTime = Date.now();
+            console.log('[polymarketSearch] Query:', query);
             try {
               const apiKey = process.env.VALYU_API_KEY;
               if (!apiKey) throw new Error('VALYU_API_KEY required');
@@ -710,8 +852,13 @@ ${execution.result || "(No output produced)"}
                 headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
                 body: JSON.stringify({ query, search_type: 'proprietary', max_num_results: 5, included_sources: ['valyu/valyu-polymarket'] }),
               });
-              if (!res.ok) throw new Error(`API error: ${res.status}`);
+              if (!res.ok) {
+                const errBody = await res.text().catch(() => '');
+                console.error('[polymarketSearch] API Error:', { status: res.status, body: errBody });
+                throw new Error(`API error: ${res.status}`);
+              }
               const response = await res.json();
+              console.log('[polymarketSearch] Success:', { results: response?.results?.length || 0, elapsed: `${Date.now() - startTime}ms` });
               await trackValyuCall('polymarketSearch', query, response, false);
               return response?.results?.length ? response : `🔍 No Polymarket data found for "${query}".`;
             } catch (error) {

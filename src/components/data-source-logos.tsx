@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { motion, useAnimation } from "framer-motion";
+import { motion, useAnimationControls, useMotionValue } from "framer-motion";
 import { useTheme } from "next-themes";
 import Image from "next/image";
 
@@ -366,10 +366,10 @@ const DataSourceLogos = () => {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const controls = useAnimation();
-  const animationRef = useRef<any>(null);
-  const currentPositionRef = useRef(0);
-  const animationStartTimeRef = useRef(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const controls = useAnimationControls();
+  const x = useMotionValue(0);
+  const pausedPositionRef = useRef(0);
 
   // All logos from assets/banner
   const allLogos = [
@@ -395,62 +395,24 @@ const DataSourceLogos = () => {
   // Duplicate logos for seamless infinite scroll
   const duplicatedLogos = [...allLogos, ...allLogos, ...allLogos];
 
+  // Animation constants
+  const totalDistance = 100 * allLogos.length; // Total scroll distance in px
+  const speed = totalDistance / ((allLogos.length * 3) / 1.5); // px per second
+
   // Prevent hydration mismatch
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Start continuous animation
-  useEffect(() => {
-    const animate = async () => {
-      currentPositionRef.current = 0;
-      animationStartTimeRef.current = Date.now();
+  // Start/resume animation
+  const startAnimation = (fromPosition: number = 0) => {
+    // Normalize position to be within one cycle
+    const normalizedPosition = fromPosition % totalDistance;
+    const remainingDistance = totalDistance - Math.abs(normalizedPosition);
+    const remainingDuration = remainingDistance / speed;
 
-      await controls.start({
-        x: [0, -100 * allLogos.length],
-        transition: {
-          // ↓↓↓ Decrease duration by 1.5x for 1.5x speed ↑↑↑
-          duration: (allLogos.length * 3) / 1.5,
-          ease: "linear",
-          repeat: Infinity,
-        }
-      });
-    };
-
-    animate();
-  }, [controls, allLogos.length]);
-
-  const handleMouseEnter = (index: number) => {
-    setHoveredIndex(index);
-
-    // Calculate current position based on elapsed time
-    const elapsedTime = Date.now() - animationStartTimeRef.current;
-    const totalDuration = ((allLogos.length * 3) / 1.5) * 1000; // Convert to ms
-    const progress = (elapsedTime % totalDuration) / totalDuration;
-    currentPositionRef.current = -100 * allLogos.length * progress;
-
-    controls.stop();
-  };
-
-  const handleMouseLeave = () => {
-    setHoveredIndex(null);
-
-    // Get current position from ref
-    const currentX = currentPositionRef.current;
-    const targetX = -100 * allLogos.length;
-    const remainingDistance = Math.abs(targetX - currentX);
-    const totalDistance = 100 * allLogos.length;
-
-    // Calculate remaining duration to maintain constant speed
-    const totalDuration = (allLogos.length * 3) / 1.5;
-    const remainingDuration = (remainingDistance / totalDistance) * totalDuration;
-
-    // Update animation start time for next cycle
-    animationStartTimeRef.current = Date.now();
-
-    // Resume from current position with calculated duration
     controls.start({
-      x: targetX,
+      x: -totalDistance,
       transition: {
         duration: remainingDuration,
         ease: "linear",
@@ -458,6 +420,33 @@ const DataSourceLogos = () => {
         repeatType: "loop",
       }
     });
+  };
+
+  // Initial animation start
+  useEffect(() => {
+    if (mounted && !isPaused) {
+      x.set(0);
+      startAnimation(0);
+    }
+  }, [mounted]);
+
+  const handleMouseEnter = (index: number) => {
+    setHoveredIndex(index);
+    setIsPaused(true);
+
+    // Capture current position and stop
+    pausedPositionRef.current = x.get();
+    controls.stop();
+  };
+
+  const handleMouseLeave = () => {
+    setHoveredIndex(null);
+    setIsPaused(false);
+
+    // Resume from paused position at same speed
+    const currentPos = pausedPositionRef.current;
+    x.set(currentPos);
+    startAnimation(currentPos);
   };
 
   const isDark = mounted && resolvedTheme === 'dark';

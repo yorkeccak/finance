@@ -9,8 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^2.0.16",
-    "@ai-sdk/react": "^2.0.16",
+    "@ai-sdk/openai": "^3.0.22",
+    "@ai-sdk/react": "^3.0.63",
     "@daytonaio/sdk": "^0.25.5",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-dialog": "^1.1.14",
@@ -30,8 +30,9 @@
     "@tanstack/react-query": "^5.85.5",
     "@types/katex": "^0.16.7",
     "@uiw/react-json-view": "^2.0.0-alpha.34",
+    "@valyu/ai-sdk": "^1.0.9",
     "@vercel/analytics": "^1.5.0",
-    "ai": "^5.0.16",
+    "ai": "^6.0.61",
     "better-sqlite3": "^12.4.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -61,8 +62,7 @@
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
     "tw-animate-css": "^1.3.6",
-    "valyu-js": "^2.0.2",
-    "zod": "^4.0.17",
+    "zod": "^4.3.6",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
@@ -76,5 +76,14 @@
     "eslint-config-next": "^15.4.10",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "@tailwindcss/oxide",
+      "sharp",
+      "esbuild",
+      "unrs-resolver"
+    ]
   }
 }

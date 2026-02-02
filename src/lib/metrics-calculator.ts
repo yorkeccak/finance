@@ -63,11 +63,17 @@ export function calculateMessageMetrics(messageParts: any[]): MessageMetrics {
         }
       }
 
-      // Search tools: web search, financial search, wiley search
+      // Search tools: all search types
       if (
         toolName === 'webSearch' ||
         toolName === 'search' ||
         toolName === 'financialSearch' ||
+        toolName === 'financeSearch' ||
+        toolName === 'financeJournalSearch' ||
+        toolName === 'secSearch' ||
+        toolName === 'economicsSearch' ||
+        toolName === 'patentSearch' ||
+        toolName === 'polymarketSearch' ||
         toolName === 'wileySearch' ||
         toolName === 'researchSearch'
       ) {

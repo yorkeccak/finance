@@ -40,7 +40,7 @@ const THINKING_SUPPORT_MODELS = [
 export function LocalModelStatus() {
   const [ollamaStatus, setOllamaStatus] = useState<ProviderStatus | null>(null);
   const [lmstudioStatus, setLMStudioStatus] = useState<ProviderStatus | null>(null);
-  const [isMinimized, setIsMinimized] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
   const { selectedModel, setSelectedModel, selectedProvider, setSelectedProvider } = useLocalProvider();
   const [isEnabled, setIsEnabled] = useState(() => {

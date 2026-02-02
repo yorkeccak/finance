@@ -1,267 +1,120 @@
-import { streamText, convertToModelMessages } from "ai";
+import { streamText, convertToModelMessages, generateId, stepCountIs } from "ai";
+import { openai, createOpenAI } from "@ai-sdk/openai";
 import { financeTools } from "@/lib/tools";
 import { FinanceUIMessage } from "@/lib/types";
-import { openai, createOpenAI } from "@ai-sdk/openai";
-import { createOllama, ollama } from "ollama-ai-provider-v2";
-import { createClient } from '@supabase/supabase-js';
 import * as db from '@/lib/db';
 import { isSelfHostedMode } from '@/lib/local-db/local-auth';
-import { saveChatMessages } from '@/lib/db';
 
-// 13mins max streaming (vercel limit)
 export const maxDuration = 800;
 
 export async function POST(req: Request) {
   try {
     const { messages, sessionId, valyuAccessToken }: { messages: FinanceUIMessage[], sessionId?: string, valyuAccessToken?: string } = await req.json();
-    console.log("[Chat API] ========== NEW REQUEST ==========");
-    console.log("[Chat API] Received sessionId:", sessionId);
-    console.log("[Chat API] Number of messages:", messages.length);
-
-    // Check app mode and configure accordingly
     const isSelfHosted = isSelfHostedMode();
-    console.log("[Chat API] App mode:", isSelfHosted ? 'self-hosted' : 'valyu');
-
-    // Get authenticated user (uses local auth in dev mode)
     const { data: { user } } = await db.getUser();
-    console.log("[Chat API] Authenticated user:", user?.id || 'anonymous');
 
-    // REQUIRE VALYU AUTHENTICATION in valyu mode
-    // Users must sign in with Valyu to use the app - credits are handled by Valyu
+    console.log("[Chat API] Request | Session:", sessionId, "| Mode:", isSelfHosted ? 'self-hosted' : 'valyu', "| User:", user?.id || 'anonymous', "| Messages:", messages.length);
+
     if (!isSelfHosted && !valyuAccessToken) {
-      console.log("[Chat API] No Valyu token - authentication required");
-      return new Response(
-        JSON.stringify({
-          error: "AUTH_REQUIRED",
-          message: "Sign in with Valyu to continue. Get $10 free credits on signup!",
-        }),
-        {
-          status: 401,
-          headers: { "Content-Type": "application/json" },
-        }
+      return Response.json(
+        { error: "AUTH_REQUIRED", message: "Sign in with Valyu to continue. Get $10 free credits on signup!" },
+        { status: 401 }
       );
     }
 
-    // Log Valyu token status
-    if (valyuAccessToken) {
-      console.log("[Chat API] Valyu access token present (for API proxy)");
-    }
-
-    // Legacy Supabase clients (only used in valyu mode for user data)
-    let supabase: any = null;
-    if (!isSelfHosted) {
-      supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      );
-    }
-
-    // Detect available API keys and select provider/tools accordingly
     const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
     const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
     const lmstudioBaseUrl = process.env.LMSTUDIO_BASE_URL || 'http://localhost:1234';
+    const localEnabled = req.headers.get('x-ollama-enabled') !== 'false';
+    const localProvider = (req.headers.get('x-local-provider') as 'ollama' | 'lmstudio') || 'ollama';
+    const userPreferredModel = req.headers.get('x-ollama-model');
+
+    const thinkingModels = ['deepseek-r1', 'deepseek-v3', 'deepseek-v3.1', 'qwen3', 'qwq', 'phi4-reasoning', 'phi-4-reasoning', 'cogito'];
+    const preferredModels = ['deepseek-r1', 'qwen3', 'phi4-reasoning', 'cogito', 'llama3.1', 'gemma3:4b', 'gemma3', 'llama3.2', 'llama3', 'qwen2.5', 'codestral'];
 
     let selectedModel: any;
     let modelInfo: string;
     let supportsThinking = false;
 
-    // Check if local models are enabled and which provider to use
-    const localEnabled = req.headers.get('x-ollama-enabled') !== 'false'; // Legacy header name
-    const localProvider = (req.headers.get('x-local-provider') as 'ollama' | 'lmstudio' | null) || 'ollama';
-    const userPreferredModel = req.headers.get('x-ollama-model'); // Works for both providers
-
-    // Models that support thinking/reasoning
-    const thinkingModels = [
-      'deepseek-r1', 'deepseek-v3', 'deepseek-v3.1',
-      'qwen3', 'qwq',
-      'phi4-reasoning', 'phi-4-reasoning',
-      'cogito'
-    ];
-
     if (isSelfHosted && localEnabled) {
-      // Self-hosted mode: Try to use local provider (Ollama or LM Studio) first, fallback to OpenAI
       try {
-        let models: any[] = [];
-        let providerName = '';
-        let baseURL = '';
+        const isLMStudio = localProvider === 'lmstudio';
+        const baseURL = isLMStudio ? `${lmstudioBaseUrl}/v1` : `${ollamaBaseUrl}/v1`;
+        const providerName = isLMStudio ? 'LM Studio' : 'Ollama';
+        const apiEndpoint = isLMStudio ? `${lmstudioBaseUrl}/v1/models` : `${ollamaBaseUrl}/api/tags`;
 
-        // Try selected provider first
-        if (localProvider === 'lmstudio') {
-          // Try LM Studio
-          const lmstudioResponse = await fetch(`${lmstudioBaseUrl}/v1/models`, {
-            method: 'GET',
-            signal: AbortSignal.timeout(3000),
-          });
+        const response = await fetch(apiEndpoint, { method: 'GET', signal: AbortSignal.timeout(3000) });
+        if (!response.ok) throw new Error(`${providerName} API: ${response.status}`);
 
-          if (lmstudioResponse.ok) {
-            const data = await lmstudioResponse.json();
-            // Filter out embedding models - only keep chat/LLM models
-            const allModels = data.data.map((m: any) => ({ name: m.id })) || [];
-            models = allModels.filter((m: any) =>
-              !m.name.includes('embed') &&
-              !m.name.includes('embedding') &&
-              !m.name.includes('nomic')
-            );
-            providerName = 'LM Studio';
-            baseURL = `${lmstudioBaseUrl}/v1`;
-            console.log(`[Chat API] LM Studio - Filtered ${allModels.length - models.length} embedding models from ${allModels.length} total models`);
-          } else {
-            throw new Error(`LM Studio API responded with status ${lmstudioResponse.status}`);
-          }
+        const data = await response.json();
+        const models = isLMStudio
+          ? (data.data || []).map((m: any) => ({ name: m.id })).filter((m: any) => !m.name.includes('embed') && !m.name.includes('embedding') && !m.name.includes('nomic'))
+          : (data.models || []);
+
+        if (models.length === 0) throw new Error(`No models in ${localProvider}`);
+
+        let selectedModelName = models[0].name;
+        if (userPreferredModel && models.some((m: any) => m.name === userPreferredModel)) {
+          selectedModelName = userPreferredModel;
         } else {
-          // Try Ollama
-          const ollamaResponse = await fetch(`${ollamaBaseUrl}/api/tags`, {
-            method: 'GET',
-            signal: AbortSignal.timeout(3000),
-          });
-
-          if (ollamaResponse.ok) {
-            const data = await ollamaResponse.json();
-            models = data.models || [];
-            providerName = 'Ollama';
-            baseURL = `${ollamaBaseUrl}/v1`;
-          } else {
-            throw new Error(`Ollama API responded with status ${ollamaResponse.status}`);
-          }
+          const match = preferredModels.map(p => models.find((m: any) => m.name.includes(p))).find(Boolean);
+          if (match) selectedModelName = match.name;
         }
 
-        if (models.length > 0) {
-          // Prioritize reasoning models, then other capable models
-          const preferredModels = [
-            'deepseek-r1', 'qwen3', 'phi4-reasoning', 'cogito', // Reasoning models
-            'llama3.1', 'gemma3:4b', 'gemma3', 'llama3.2', 'llama3', 'qwen2.5', 'codestral' // Regular models
-          ];
-          let selectedModelName = models[0].name;
+        supportsThinking = thinkingModels.some(t => selectedModelName.toLowerCase().includes(t.toLowerCase()));
 
-          // Try to find a preferred model
-          if (userPreferredModel && models.some((m: any) => m.name === userPreferredModel)) {
-            selectedModelName = userPreferredModel;
-          } else {
-            for (const preferred of preferredModels) {
-              if (models.some((m: any) => m.name.includes(preferred))) {
-                selectedModelName = models.find((m: any) => m.name.includes(preferred))?.name;
-                break;
-              }
-            }
-          }
-
-          // Check if the selected model supports thinking
-          supportsThinking = thinkingModels.some(thinkModel =>
-            selectedModelName.toLowerCase().includes(thinkModel.toLowerCase())
-          );
-
-          // Both use OpenAI-compatible endpoints
-          const localProviderClient = createOpenAI({
-            baseURL: baseURL,
-            apiKey: localProvider === 'lmstudio' ? 'lm-studio' : 'ollama',
-          });
-
-          selectedModel = localProviderClient.chat(selectedModelName);
-
-          modelInfo = `${providerName} (${selectedModelName})${supportsThinking ? ' [Reasoning]' : ''} - Self-Hosted Mode`;
-        } else {
-          throw new Error(`No models available in ${localProvider}`);
-        }
+        const localProviderClient = createOpenAI({ baseURL, apiKey: isLMStudio ? 'lm-studio' : 'ollama' });
+        selectedModel = localProviderClient.chat(selectedModelName);
+        modelInfo = `${providerName} (${selectedModelName})${supportsThinking ? ' [Reasoning]' : ''} - Self-Hosted`;
       } catch (error) {
-        // Fallback to OpenAI in self-hosted mode
-        console.error(`[Chat API] Local provider error (${localProvider}):`, error);
-        console.log('[Chat API] Headers received:', {
-          'x-ollama-enabled': req.headers.get('x-ollama-enabled'),
-          'x-local-provider': req.headers.get('x-local-provider'),
-          'x-ollama-model': req.headers.get('x-ollama-model')
-        });
-        selectedModel = hasOpenAIKey ? openai("gpt-5") : "openai/gpt-5";
-        modelInfo = hasOpenAIKey
-          ? "OpenAI (gpt-5) - Self-Hosted Mode Fallback"
-          : 'Vercel AI Gateway ("gpt-5") - Self-Hosted Mode Fallback';
+        console.error('[Chat API] Local provider error:', error);
+        selectedModel = hasOpenAIKey ? openai("gpt-5.2-2025-12-11") : "openai/gpt-5.2-2025-12-11";
+        modelInfo = hasOpenAIKey ? "OpenAI (gpt-5.2) - Self-Hosted Fallback" : 'Vercel AI Gateway (gpt-5.2) - Self-Hosted Fallback';
       }
     } else {
-      // Valyu mode: Use standard OpenAI - billing handled by Valyu OAuth proxy
-      selectedModel = hasOpenAIKey ? openai("gpt-5") : "openai/gpt-5";
-      modelInfo = hasOpenAIKey
-        ? "OpenAI (gpt-5) - Valyu Mode (Valyu Credits)"
-        : 'Vercel AI Gateway ("gpt-5") - Valyu Mode (Valyu Credits)';
+      selectedModel = hasOpenAIKey ? openai("gpt-5.2-2025-12-11") : "openai/gpt-5.2-2025-12-11";
+      modelInfo = hasOpenAIKey ? "OpenAI (gpt-5.2) - Valyu Mode" : 'Vercel AI Gateway (gpt-5.2) - Valyu Mode';
     }
 
-    console.log("[Chat API] Model selected:", modelInfo);
-
-    // Note: Valyu API billing is handled by the OAuth proxy when tools call Valyu APIs
-
-    // Track processing start time
+    console.log("[Chat API] Model:", modelInfo);
     const processingStartTime = Date.now();
 
-    // Note: We don't save individual messages here anymore.
-    // The entire conversation is saved in onFinish callback after streaming completes.
-    // This follows the Vercel AI SDK v5 recommended pattern.
-
-    console.log(`[Chat API] About to call streamText with model:`, selectedModel);
-    console.log(`[Chat API] Model info:`, modelInfo);
-
-    // Build provider options conditionally based on whether we're using local providers
     const isUsingLocalProvider = isSelfHosted && localEnabled && (modelInfo.includes('Ollama') || modelInfo.includes('LM Studio'));
-    const providerOptions: any = {};
+    const providerOptions = {
+      openai: isUsingLocalProvider
+        ? { think: supportsThinking }
+        : { store: true, reasoningEffort: 'medium', reasoningSummary: 'auto', include: ['reasoning.encrypted_content'] }
+    };
 
-    if (isUsingLocalProvider) {
-      // For local models using OpenAI compatibility layer
-      // We need to use the openai provider options since createOpenAI is used
-      if (supportsThinking) {
-        // Enable thinking for reasoning models
-        providerOptions.openai = {
-          think: true
-        };
-        console.log(`[Chat API] Enabled thinking mode for ${localProvider} reasoning model`);
-      } else {
-        // Explicitly disable thinking for non-reasoning models
-        providerOptions.openai = {
-          think: false
-        };
-        console.log(`[Chat API] Disabled thinking mode for ${localProvider} non-reasoning model`);
-      }
-    } else {
-      // OpenAI-specific options (only when using OpenAI)
-      providerOptions.openai = {
-        store: true,
-        reasoningEffort: 'medium',
-        reasoningSummary: 'auto',
-        include: ['reasoning.encrypted_content'],
-      };
-    }
-
-    // Save user message immediately (before streaming starts)
+    // Save user message immediately before streaming
     if (user && sessionId && messages.length > 0) {
-      console.log('[Chat API] Saving user message immediately before streaming');
       const lastMessage = messages[messages.length - 1];
       if (lastMessage.role === 'user') {
         const { randomUUID } = await import('crypto');
-        const userMessageToSave = {
-          id: randomUUID(), // Generate proper UUID instead of using AI SDK's short ID
+        const { data: existingMessages } = await db.getChatMessages(sessionId);
+
+        await db.saveChatMessages(sessionId, [...(existingMessages || []), {
+          id: randomUUID(),
           role: 'user' as const,
           content: lastMessage.parts || [],
-        };
-
-        // Get existing messages first
-        const { data: existingMessages } = await db.getChatMessages(sessionId);
-        const allMessages = [...(existingMessages || []), userMessageToSave];
-
-        await saveChatMessages(sessionId, allMessages.map((msg: any) => ({
+        }].map((msg: any) => ({
           id: msg.id,
           role: msg.role,
           content: typeof msg.content === 'string' ? JSON.parse(msg.content) : msg.content,
         })));
 
-        // Update session timestamp
-        await db.updateChatSession(sessionId, user.id, {
-          last_message_at: new Date()
-        });
-        console.log('[Chat API] User message saved');
+        await db.updateChatSession(sessionId, user.id, { last_message_at: new Date() });
       }
     }
 
+    const convertedMessages = await convertToModelMessages(messages);
+
     const result = streamText({
       model: selectedModel as any,
-      messages: convertToModelMessages(messages),
+      messages: convertedMessages,
       tools: financeTools,
       toolChoice: "auto",
+      stopWhen: stepCountIs(10), // AI SDK v6: limit tool call rounds to prevent infinite loops (default is 20)
       experimental_context: {
         userId: user?.id,
         sessionId,
@@ -314,9 +167,25 @@ export async function POST(req: Request) {
 
       **CRITICAL NOTE**: You must only make max 5 parallel tool calls at a time.
 
+      **CRITICAL TOOL SELECTION RULES (MUST FOLLOW - NO EXCEPTIONS):**
+      - **financeSearch**: ALWAYS use for:
+        • Stock prices, stock data, equity prices (TSLA, NVDA, COIN, etc.)
+        • Cryptocurrency prices and data (Bitcoin, Ethereum, etc.)
+        • Market indices and sentiment indicators (Fear & Greed Index, VIX, etc.)
+        • Earnings data, financial metrics, revenue, profit
+        • Market correlations, price movements, trading data
+        • Any query involving tickers, prices, or market data
+      - **secSearch**: ALWAYS use for ANY SEC filing content (10-K, 10-Q, 8-K, proxy statements, exhibits, shareholder letters). NEVER use webSearch for SEC.gov content.
+      - **economicsSearch**: Use for BLS, FRED, World Bank, government spending data.
+      - **patentSearch**: Use for USPTO patents and intellectual property.
+      - **financeJournalSearch**: Use for academic papers, peer-reviewed research.
+      - **webSearch**: Use ONLY for general news, current events, and non-specialized content that does NOT involve financial data, market data, stock prices, crypto prices, or SEC filings.
+
+      NEVER use webSearch for: stock prices, crypto prices, market indices, Fear & Greed Index, market sentiment indicators, financial correlations, or any query that mentions tickers or financial instruments.
+
       **CRITICAL INSTRUCTIONS**: Your reports must be incredibly thorough and detailed, explore everything that is relevant to the user's query that will help to provide
       the perfect response that is of a level expected of a elite level professional financial analyst for the leading financial research firm in the world.
-      
+
       **SPECIALIZED SEARCH TOOLS:**
 
       **financeSearch** - Financial data and market information:
@@ -567,88 +436,48 @@ export async function POST(req: Request) {
       `,
     });
 
-    // Log streamText result object type
-    console.log("[Chat API] streamText result type:", typeof result);
-    console.log("[Chat API] streamText result:", result);
-
-    // Create the streaming response with chat persistence
     const streamResponse = result.toUIMessageStreamResponse({
       sendReasoning: true,
       originalMessages: messages,
+      generateMessageId: generateId,
       onFinish: async ({ messages: allMessages }) => {
-        // Calculate processing time
-        const processingEndTime = Date.now();
-        const processingTimeMs = processingEndTime - processingStartTime;
-        console.log('[Chat API] Processing completed in', processingTimeMs, 'ms');
-
-        // Save all messages to database
-        console.log('[Chat API] onFinish called - user:', !!user, 'sessionId:', sessionId);
-        console.log('[Chat API] Total messages in conversation:', allMessages.length);
-        console.log('[Chat API] Will save messages:', !!(user && sessionId));
+        const processingTimeMs = Date.now() - processingStartTime;
 
         if (user && sessionId) {
-          console.log('[Chat API] Saving messages to session:', sessionId);
-
-          // The correct pattern: Save ALL messages from the conversation
-          // This replaces all messages in the session with the complete, up-to-date conversation
           const { randomUUID } = await import('crypto');
-          const messagesToSave = allMessages.map((message: any, index: number) => {
-            // AI SDK v5 uses 'parts' array for UIMessage
-            let contentToSave = [];
+          const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+          const messagesToSave = allMessages.map((message: any, index: number) => {
+            // Extract content from parts (AI SDK v5+) or legacy content field
+            let contentToSave: any[] = [];
             if (message.parts && Array.isArray(message.parts)) {
               contentToSave = message.parts;
-            } else if (message.content) {
-              // Fallback for older format
-              if (typeof message.content === 'string') {
-                contentToSave = [{ type: 'text', text: message.content }];
-              } else if (Array.isArray(message.content)) {
-                contentToSave = message.content;
-              }
+            } else if (typeof message.content === 'string') {
+              contentToSave = [{ type: 'text', text: message.content }];
+            } else if (Array.isArray(message.content)) {
+              contentToSave = message.content;
             }
 
+            const isLastAssistant = message.role === 'assistant' && index === allMessages.length - 1;
             return {
-              id: message.id && message.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
-                ? message.id
-                : randomUUID(), // Generate UUID if message.id is not a valid UUID
+              id: UUID_REGEX.test(message.id || '') ? message.id : randomUUID(),
               role: message.role,
               content: contentToSave,
-              processing_time_ms:
-                message.role === 'assistant' &&
-                index === allMessages.length - 1 &&
-                processingTimeMs !== undefined
-                  ? processingTimeMs
-                  : undefined,
+              processing_time_ms: isLastAssistant ? processingTimeMs : undefined,
             };
           });
 
-          const saveResult = await saveChatMessages(sessionId, messagesToSave);
+          const saveResult = await db.saveChatMessages(sessionId, messagesToSave);
           if (saveResult.error) {
-            console.error('[Chat API] Error saving messages:', saveResult.error);
+            console.error('[Chat API] Save error:', saveResult.error);
           } else {
-            console.log('[Chat API] Successfully saved', messagesToSave.length, 'messages to session:', sessionId);
-
-            // Update session's last_message_at timestamp
-            const updateResult = await db.updateChatSession(sessionId, user.id, {
-              last_message_at: new Date()
-            });
-            if (updateResult.error) {
-              console.error('[Chat API] Error updating session timestamp:', updateResult.error);
-            } else {
-              console.log('[Chat API] Updated session timestamp for:', sessionId);
-            }
+            await db.updateChatSession(sessionId, user.id, { last_message_at: new Date() });
           }
-        } else {
-          console.log('[Chat API] Skipping message save - user:', !!user, 'sessionId:', sessionId);
         }
-
-        // Valyu API usage is tracked by the OAuth proxy when tools call Valyu APIs
-        console.log('[Chat API] Chat completed - Valyu API usage tracked via OAuth proxy');
       }
     });
 
     if (isSelfHosted) {
-      // Add self-hosted mode headers
       streamResponse.headers.set("X-Self-Hosted-Mode", "true");
     }
 
@@ -656,52 +485,26 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("[Chat API] Error:", error);
 
-    // Extract meaningful error message
     const errorMessage = error instanceof Error
       ? error.message
       : typeof error === 'string'
         ? error
         : 'An unexpected error occurred';
 
-    // Check if it's a tool/function calling compatibility error
-    const isToolError = errorMessage.toLowerCase().includes('tool') ||
-                       errorMessage.toLowerCase().includes('function');
-    const isThinkingError = errorMessage.toLowerCase().includes('thinking');
+    const lowerMsg = errorMessage.toLowerCase();
+    const isToolError = lowerMsg.includes('tool') || lowerMsg.includes('function');
+    const isThinkingError = lowerMsg.includes('thinking');
 
-    // Log full error details for debugging
-    console.error("[Chat API] Error details:", {
-      message: errorMessage,
-      stack: error instanceof Error ? error.stack : undefined,
-      error: error,
-      isToolError,
-      isThinkingError
-    });
-
-    // Return specific error codes for compatibility issues
     if (isToolError || isThinkingError) {
-      return new Response(
-        JSON.stringify({
-          error: "MODEL_COMPATIBILITY_ERROR",
-          message: errorMessage,
-          compatibilityIssue: isToolError ? "tools" : "thinking"
-        }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        }
+      return Response.json(
+        { error: "MODEL_COMPATIBILITY_ERROR", message: errorMessage, compatibilityIssue: isToolError ? "tools" : "thinking" },
+        { status: 400 }
       );
     }
 
-    return new Response(
-      JSON.stringify({
-        error: "CHAT_ERROR",
-        message: errorMessage,
-        details: error instanceof Error ? error.stack : undefined
-      }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }
+    return Response.json(
+      { error: "CHAT_ERROR", message: errorMessage, details: error instanceof Error ? error.stack : undefined },
+      { status: 500 }
     );
   }
 }

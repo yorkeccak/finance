@@ -2,10 +2,7 @@ import { z } from "zod";
 import { tool } from "ai";
 import { track } from "@vercel/analytics/server";
 import { Daytona } from '@daytonaio/sdk';
-import * as db from '@/lib/db';
 import { randomUUID } from 'crypto';
-
-// Import @valyu/ai-sdk tools for self-hosted mode
 import {
   webSearch as valyuWebSearch,
   financeSearch as valyuFinanceSearch,
@@ -13,34 +10,17 @@ import {
   economicsSearch as valyuEconomicsSearch,
   patentSearch as valyuPatentSearch,
 } from '@valyu/ai-sdk';
+import * as db from '@/lib/db';
 
-// Determine mode at module load time
 const isSelfHostedMode = process.env.NEXT_PUBLIC_APP_MODE === 'self-hosted';
-
-// Valyu OAuth Proxy URL (for valyu mode user credit billing)
 const VALYU_OAUTH_PROXY_URL = process.env.VALYU_OAUTH_PROXY_URL ||
   `${process.env.VALYU_APP_URL || process.env.NEXT_PUBLIC_VALYU_APP_URL || 'https://platform.valyu.ai'}/api/oauth/proxy`;
 
-/**
- * Call Valyu DeepSearch API via OAuth proxy (valyu mode only)
- * Self-hosted mode uses @valyu/ai-sdk directly instead
- */
-async function callValyuOAuthProxy(
-  requestBody: Record<string, any>,
-  valyuAccessToken: string
-): Promise<any> {
-  console.log('[callValyuOAuthProxy] Using OAuth proxy for user credit billing');
+async function callValyuOAuthProxy(requestBody: Record<string, any>, valyuAccessToken: string): Promise<any> {
   const response = await fetch(VALYU_OAUTH_PROXY_URL, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${valyuAccessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      path: '/v1/deepsearch',
-      method: 'POST',
-      body: requestBody
-    }),
+    headers: { 'Authorization': `Bearer ${valyuAccessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: '/v1/deepsearch', method: 'POST', body: requestBody }),
   });
 
   if (!response.ok) {
@@ -51,23 +31,26 @@ async function callValyuOAuthProxy(
   return response.json();
 }
 
-/**
- * Format search error response with helpful messages
- */
 function formatSearchError(error: unknown, toolName: string): string {
-  if (error instanceof Error) {
-    if (error.message.includes('401') || error.message.includes('unauthorized')) {
-      return '🔐 Authentication error with Valyu API. Please check your configuration.';
-    }
-    if (error.message.includes('429')) {
-      return '⏱️ Rate limit exceeded. Please try again in a moment.';
-    }
-    if (error.message.includes('network') || error.message.includes('fetch')) {
-      return '🌐 Network error connecting to Valyu API. Please check your internet connection.';
-    }
-    return `❌ Error in ${toolName}: ${error.message}`;
-  }
-  return `❌ Error in ${toolName}: Unknown error`;
+  if (!(error instanceof Error)) return `Error in ${toolName}: Unknown error`;
+
+  const msg = error.message;
+  if (msg.includes('401') || msg.includes('unauthorized')) return 'Authentication error with Valyu API.';
+  if (msg.includes('429')) return 'Rate limit exceeded. Please try again in a moment.';
+  if (msg.includes('network') || msg.includes('fetch')) return 'Network error connecting to Valyu API.';
+  return `Error in ${toolName}: ${msg}`;
+}
+
+async function trackValyuCall(toolType: string, query: string, response: any, usedOAuthProxy: boolean): Promise<void> {
+  await track('Valyu API Call', {
+    toolType,
+    query,
+    maxResults: 5,
+    resultCount: response?.results?.length || 0,
+    usedOAuthProxy,
+    cost: response?.total_deduction_dollars || null,
+    txId: response?.tx_id || null
+  });
 }
 
 
@@ -246,43 +229,34 @@ export const financeTools = {
         },
       };
 
-      // Save chart to database (requires authenticated user)
+      // Save chart to database if authenticated
       let chartId: string | null = null;
-      try {
-        if (!userId) {
-          console.warn('[createChart] No user ID - chart will not be saved (authentication required)');
-        } else {
+      if (userId) {
+        try {
           chartId = randomUUID();
-
-          const insertData = {
+          await db.createChart({
             id: chartId,
             user_id: userId,
             session_id: sessionId || null,
             chart_data: chartData,
-          };
-
-          await db.createChart(insertData);
+          });
+        } catch (error) {
+          console.error('[createChart] Error saving:', error);
+          chartId = null;
         }
-      } catch (error) {
-        console.error('[createChart] Error saving chart:', error);
-        chartId = null;
       }
 
-      // Track chart creation
+      const totalDataPoints = dataSeries.reduce((sum, s) => sum + s.data.length, 0);
       await track('Chart Created', {
         chartType: type,
-        title: title,
+        title,
         seriesCount: dataSeries.length,
-        totalDataPoints: dataSeries.reduce(
-          (sum, series) => sum + series.data.length,
-          0
-        ),
+        totalDataPoints,
         hasDescription: !!description,
         hasScatterData: dataSeries.some(s => s.data.some(d => d.size || d.label)),
         savedToDb: !!chartId,
       });
 
-      // Return chart data with chartId and imageUrl for markdown embedding
       return {
         ...chartData,
         chartId: chartId || undefined,
@@ -402,41 +376,35 @@ export const financeTools = {
           )
         ].join('\n');
 
-        // Save CSV to database (requires authenticated user)
+        // Save CSV to database if authenticated
         let csvId: string | null = null;
-        try {
-          if (!userId) {
-            console.warn('[createCSV] No user ID - CSV will not be saved (authentication required)');
-          } else {
+        if (userId) {
+          try {
             csvId = randomUUID();
-
-            const insertData = {
+            await db.createCSV({
               id: csvId,
               user_id: userId,
               session_id: sessionId || null,
               title,
               description: description || undefined,
               headers,
-              rows: rows,
-            };
-
-            await db.createCSV(insertData);
+              rows,
+            });
+          } catch (error) {
+            console.error('[createCSV] Error saving:', error);
+            csvId = null;
           }
-        } catch (error) {
-          console.error('[createCSV] Error saving CSV:', error);
-          csvId = null;
         }
 
-        // Track CSV creation
         await track('CSV Created', {
-          title: title,
+          title,
           rowCount: rows.length,
           columnCount: headers.length,
           hasDescription: !!description,
           savedToDb: !!csvId,
         });
 
-        const result = {
+        return {
           title,
           description,
           headers,
@@ -450,9 +418,6 @@ export const financeTools = {
             ? `IMPORTANT: Include this EXACT line in your markdown response to display the table:\n\n![csv](csv:${csvId})\n\nDo not write [View Table] or any other text - use the image syntax above.`
             : undefined,
         };
-
-
-        return result;
       } catch (error: any) {
         // Catch any unexpected errors and return error message
         return {
@@ -510,75 +475,54 @@ export const financeTools = {
           'Brief description of what the calculation or analysis does (e.g., "Calculate future value with compound interest", "Analyze portfolio risk metrics")'
         ),
     }),
-    execute: async ({ code, description }, options) => {
-      const userId = (options as any)?.experimental_context?.userId;
-      const sessionId = (options as any)?.experimental_context?.sessionId;
-      const userTier = (options as any)?.experimental_context?.userTier;
-      const isSelfHosted = process.env.NEXT_PUBLIC_APP_MODE === 'self-hosted';
-      
+    execute: async ({ code, description }) => {
       const startTime = Date.now();
 
+      if (code.length > 10000) {
+        return 'Error: Code too long. Please limit to 10,000 characters.';
+      }
+
+      const daytonaApiKey = process.env.DAYTONA_API_KEY;
+      if (!daytonaApiKey) {
+        return 'Configuration Error: Daytona API key not configured.';
+      }
+
+      const daytona = new Daytona({
+        apiKey: daytonaApiKey,
+        serverUrl: process.env.DAYTONA_API_URL,
+        target: (process.env.DAYTONA_TARGET as any) || undefined,
+      });
+
+      let sandbox: any | null = null;
       try {
+        sandbox = await daytona.create({ language: 'python' });
+        const execution = await sandbox.process.codeRun(code);
+        const executionTime = Date.now() - startTime;
 
-        // Check for reasonable code length
-        if (code.length > 10000) {
-          return '🚫 **Error**: Code too long. Please limit your code to 10,000 characters.';
-        }
-
-        // Initialize Daytona client
-        const daytonaApiKey = process.env.DAYTONA_API_KEY;
-        if (!daytonaApiKey) {
-          return '❌ **Configuration Error**: Daytona API key is not configured. Please set DAYTONA_API_KEY in your environment.';
-        }
-
-        const daytona = new Daytona({
-          apiKey: daytonaApiKey,
-          // Optional overrides if provided
-          serverUrl: process.env.DAYTONA_API_URL,
-          target: (process.env.DAYTONA_TARGET as any) || undefined,
+        await track('Python Code Executed', {
+          success: execution.exitCode === 0,
+          codeLength: code.length,
+          outputLength: execution.result?.length || 0,
+          executionTime,
+          hasDescription: !!description,
+          hasError: execution.exitCode !== 0,
+          hasArtifacts: !!execution.artifacts
         });
 
-        let sandbox: any | null = null;
-        try {
-          // Create a Python sandbox
-          sandbox = await daytona.create({ language: 'python' });
-
-          // Execute the user's code
-          const execution = await sandbox.process.codeRun(code);
-          const executionTime = Date.now() - startTime;
-
-          // Track code execution
-          await track('Python Code Executed', {
-            success: execution.exitCode === 0,
-            codeLength: code.length,
-            outputLength: execution.result?.length || 0,
-            executionTime: executionTime,
-            hasDescription: !!description,
-            hasError: execution.exitCode !== 0,
-            hasArtifacts: !!execution.artifacts
-          });
-
-          // Note: Daytona execution billing is handled separately (not per-tool tracking)
-
-          // Handle execution errors
-          if (execution.exitCode !== 0) {
-            // Provide helpful error messages for common issues
-            let helpfulError = execution.result || 'Unknown execution error';
-            if (helpfulError.includes('NameError')) {
-              helpfulError = `${helpfulError}\n\n💡 **Tip**: Make sure all variables are defined before use. If you're trying to calculate something, include the full calculation in your code.`;
-            } else if (helpfulError.includes('SyntaxError')) {
-              helpfulError = `${helpfulError}\n\n💡 **Tip**: Check your Python syntax. Make sure all parentheses, quotes, and indentation are correct.`;
-            } else if (helpfulError.includes('ModuleNotFoundError')) {
-              helpfulError = `${helpfulError}\n\n💡 **Tip**: You can install packages inside the Daytona sandbox using pip if needed (e.g., pip install numpy).`;
-            }
-
-            return `❌ **Execution Error**: ${helpfulError}`;
+        if (execution.exitCode !== 0) {
+          let errorMsg = execution.result || 'Unknown execution error';
+          if (errorMsg.includes('NameError')) {
+            errorMsg += '\n\nTip: Make sure all variables are defined before use.';
+          } else if (errorMsg.includes('SyntaxError')) {
+            errorMsg += '\n\nTip: Check your Python syntax - parentheses, quotes, and indentation.';
+          } else if (errorMsg.includes('ModuleNotFoundError')) {
+            errorMsg += '\n\nTip: You can install packages via pip in the sandbox.';
           }
+          return `Execution Error: ${errorMsg}`;
+        }
 
-          // Format the successful execution result
-          return `🐍 **Python Code Execution (Daytona Sandbox)**
+        return `**Python Code Execution (Daytona Sandbox)**
 ${description ? `**Description**: ${description}\n` : ""}
-
 \`\`\`python
 ${code}
 \`\`\`
@@ -588,61 +532,31 @@ ${code}
 ${execution.result || "(No output produced)"}
 \`\`\`
 
-⏱️ **Execution Time**: ${executionTime}ms`;
+**Execution Time**: ${executionTime}ms`;
 
-        } finally {
-          // Clean up sandbox
-          try {
-            if (sandbox) {
-              await sandbox.delete();
-            }
-          } catch (cleanupError) {
-          }
-        }
-        
       } catch (error: any) {
-        
-        return `❌ **Error**: Failed to execute Python code. ${error.message || 'Unknown error occurred'}`;
+        return `Error: Failed to execute Python code. ${error.message || 'Unknown error'}`;
+      } finally {
+        if (sandbox) {
+          try { await sandbox.delete(); } catch {}
+        }
       }
     },
   }),
 
-  // ============================================================================
-  // SEARCH TOOLS
-  // Self-hosted mode: Uses @valyu/ai-sdk directly with VALYU_API_KEY
-  // Valyu mode: Uses OAuth proxy for user credit billing
-  // ============================================================================
-
-  // Web Search - General web content, news, and articles
   ...(isSelfHostedMode
     ? { webSearch: valyuWebSearch({ maxNumResults: 5 }) }
     : {
         webSearch: tool({
-          description: "Search the web for current information, news, and articles. Use for general topics, current events, and non-specialized queries.",
+          description: "Search the web for general information ONLY. Use for: news articles, current events, Wikipedia-style information, general knowledge. DO NOT USE for: stock prices, crypto prices, market data, financial metrics, Fear & Greed Index, market sentiment, or any financial/investment data - use financeSearch for those.",
           inputSchema: z.object({
-            query: z.string().min(1).max(500).describe(
-              "Natural language query (e.g., 'latest AI developments', 'climate change solutions', 'Tesla news')"
-            ),
+            query: z.string().min(1).max(500).describe("Natural language query (e.g., 'latest AI developments', 'climate change solutions', 'Tesla news')"),
           }),
           execute: async ({ query }, options) => {
             const valyuAccessToken = (options as any)?.experimental_context?.valyuAccessToken;
             try {
-              const response = await callValyuOAuthProxy({
-                query,
-                search_type: 'all',
-                max_num_results: 5,
-              }, valyuAccessToken);
-
-              await track('Valyu API Call', {
-                toolType: 'webSearch',
-                query,
-                maxResults: 5,
-                resultCount: response?.results?.length || 0,
-                usedOAuthProxy: true,
-                cost: response?.total_deduction_dollars || null,
-                txId: response?.tx_id || null
-              });
-
+              const response = await callValyuOAuthProxy({ query, search_type: 'all', max_num_results: 5 }, valyuAccessToken);
+              await trackValyuCall('webSearch', query, response, true);
               return response?.results?.length ? response : `🔍 No web results found for "${query}".`;
             } catch (error) {
               return formatSearchError(error, 'webSearch');
@@ -651,37 +565,19 @@ ${execution.result || "(No output produced)"}
         }),
       }),
 
-  // Finance Search - Stock prices, earnings, market data, financial news
   ...(isSelfHostedMode
     ? { financeSearch: valyuFinanceSearch({ maxNumResults: 5 }) }
     : {
         financeSearch: tool({
-          description: "Search for financial data including stock prices, earnings reports, market data, financial statements, and financial news.",
+          description: "Search for ALL financial and market data. ALWAYS USE THIS for: stock prices (TSLA, NVDA, COIN), cryptocurrency prices (Bitcoin, Ethereum), market indices (S&P 500, VIX), Fear & Greed Index, market sentiment indicators, earnings reports, financial statements, revenue, profit, market correlations, price movements, and any query involving tickers or financial instruments.",
           inputSchema: z.object({
-            query: z.string().min(1).max(500).describe(
-              "Financial query (e.g., 'Apple Q4 earnings 2024', 'Tesla stock price history', 'Microsoft revenue growth')"
-            ),
+            query: z.string().min(1).max(500).describe("Financial query (e.g., 'Apple Q4 earnings 2024', 'Tesla stock price history', 'Microsoft revenue growth')"),
           }),
           execute: async ({ query }, options) => {
             const valyuAccessToken = (options as any)?.experimental_context?.valyuAccessToken;
             try {
-              const response = await callValyuOAuthProxy({
-                query,
-                search_type: 'proprietary',
-                max_num_results: 5,
-                category: 'finance',
-              }, valyuAccessToken);
-
-              await track('Valyu API Call', {
-                toolType: 'financeSearch',
-                query,
-                maxResults: 5,
-                resultCount: response?.results?.length || 0,
-                usedOAuthProxy: true,
-                cost: response?.total_deduction_dollars || null,
-                txId: response?.tx_id || null
-              });
-
+              const response = await callValyuOAuthProxy({ query, search_type: 'proprietary', max_num_results: 5, category: 'finance' }, valyuAccessToken);
+              await trackValyuCall('financeSearch', query, response, true);
               return response?.results?.length ? response : `🔍 No financial data found for "${query}".`;
             } catch (error) {
               return formatSearchError(error, 'financeSearch');
@@ -690,37 +586,19 @@ ${execution.result || "(No output produced)"}
         }),
       }),
 
-  // SEC Search - SEC filings (10-K, 10-Q, 8-K, proxy statements)
   ...(isSelfHostedMode
     ? { secSearch: valyuSecSearch({ maxNumResults: 5 }) }
     : {
         secSearch: tool({
           description: "Search SEC filings including 10-K annual reports, 10-Q quarterly reports, 8-K current reports, proxy statements, and regulatory filings.",
           inputSchema: z.object({
-            query: z.string().min(1).max(500).describe(
-              "SEC filing query (e.g., 'Apple 10-K 2024', 'Tesla risk factors', 'Microsoft executive compensation')"
-            ),
+            query: z.string().min(1).max(500).describe("SEC filing query (e.g., 'Apple 10-K 2024', 'Tesla risk factors', 'Microsoft executive compensation')"),
           }),
           execute: async ({ query }, options) => {
             const valyuAccessToken = (options as any)?.experimental_context?.valyuAccessToken;
             try {
-              const response = await callValyuOAuthProxy({
-                query,
-                search_type: 'proprietary',
-                max_num_results: 5,
-                included_sources: ['valyu/valyu-sec-filings'],
-              }, valyuAccessToken);
-
-              await track('Valyu API Call', {
-                toolType: 'secSearch',
-                query,
-                maxResults: 5,
-                resultCount: response?.results?.length || 0,
-                usedOAuthProxy: true,
-                cost: response?.total_deduction_dollars || null,
-                txId: response?.tx_id || null
-              });
-
+              const response = await callValyuOAuthProxy({ query, search_type: 'proprietary', max_num_results: 5, included_sources: ['valyu/valyu-sec-filings'] }, valyuAccessToken);
+              await trackValyuCall('secSearch', query, response, true);
               return response?.results?.length ? response : `🔍 No SEC filings found for "${query}".`;
             } catch (error) {
               return formatSearchError(error, 'secSearch');
@@ -729,37 +607,19 @@ ${execution.result || "(No output produced)"}
         }),
       }),
 
-  // Economics Search - Labor statistics, Federal Reserve data, World Bank indicators
   ...(isSelfHostedMode
     ? { economicsSearch: valyuEconomicsSearch({ maxNumResults: 5 }) }
     : {
         economicsSearch: tool({
           description: "Search economic data from BLS, FRED, World Bank, and government spending data. Use for unemployment, inflation, GDP, interest rates.",
           inputSchema: z.object({
-            query: z.string().min(1).max(500).describe(
-              "Economics query (e.g., 'US unemployment rate 2024', 'inflation trends', 'GDP growth by country')"
-            ),
+            query: z.string().min(1).max(500).describe("Economics query (e.g., 'US unemployment rate 2024', 'inflation trends', 'GDP growth by country')"),
           }),
           execute: async ({ query }, options) => {
             const valyuAccessToken = (options as any)?.experimental_context?.valyuAccessToken;
             try {
-              const response = await callValyuOAuthProxy({
-                query,
-                search_type: 'proprietary',
-                max_num_results: 5,
-                included_sources: ['valyu/valyu-bls', 'valyu/valyu-fred', 'valyu/valyu-world-bank', 'valyu/valyu-government-spending'],
-              }, valyuAccessToken);
-
-              await track('Valyu API Call', {
-                toolType: 'economicsSearch',
-                query,
-                maxResults: 5,
-                resultCount: response?.results?.length || 0,
-                usedOAuthProxy: true,
-                cost: response?.total_deduction_dollars || null,
-                txId: response?.tx_id || null
-              });
-
+              const response = await callValyuOAuthProxy({ query, search_type: 'proprietary', max_num_results: 5, included_sources: ['valyu/valyu-bls', 'valyu/valyu-fred', 'valyu/valyu-world-bank', 'valyu/valyu-government-spending'] }, valyuAccessToken);
+              await trackValyuCall('economicsSearch', query, response, true);
               return response?.results?.length ? response : `🔍 No economic data found for "${query}".`;
             } catch (error) {
               return formatSearchError(error, 'economicsSearch');
@@ -768,37 +628,19 @@ ${execution.result || "(No output produced)"}
         }),
       }),
 
-  // Patent Search - USPTO patent databases and intellectual property
   ...(isSelfHostedMode
     ? { patentSearch: valyuPatentSearch({ maxNumResults: 5 }) }
     : {
         patentSearch: tool({
           description: "Search USPTO patent databases for patents, prior art discovery, freedom to operate analysis, and IP research.",
           inputSchema: z.object({
-            query: z.string().min(1).max(500).describe(
-              "Patent query (e.g., 'neural network optimization patents', 'battery technology prior art')"
-            ),
+            query: z.string().min(1).max(500).describe("Patent query (e.g., 'neural network optimization patents', 'battery technology prior art')"),
           }),
           execute: async ({ query }, options) => {
             const valyuAccessToken = (options as any)?.experimental_context?.valyuAccessToken;
             try {
-              const response = await callValyuOAuthProxy({
-                query,
-                search_type: 'proprietary',
-                max_num_results: 5,
-                included_sources: ['valyu/valyu-patents'],
-              }, valyuAccessToken);
-
-              await track('Valyu API Call', {
-                toolType: 'patentSearch',
-                query,
-                maxResults: 5,
-                resultCount: response?.results?.length || 0,
-                usedOAuthProxy: true,
-                cost: response?.total_deduction_dollars || null,
-                txId: response?.tx_id || null
-              });
-
+              const response = await callValyuOAuthProxy({ query, search_type: 'proprietary', max_num_results: 5, included_sources: ['valyu/valyu-patents'] }, valyuAccessToken);
+              await trackValyuCall('patentSearch', query, response, true);
               return response?.results?.length ? response : `🔍 No patents found for "${query}".`;
             } catch (error) {
               return formatSearchError(error, 'patentSearch');
@@ -807,15 +649,12 @@ ${execution.result || "(No output produced)"}
         }),
       }),
 
-  // Finance Journal Search - Academic finance/business content (Wiley corpus)
   ...(isSelfHostedMode
     ? {
         financeJournalSearch: tool({
           description: "Search Wiley finance/business/accounting corpus for authoritative academic content including peer-reviewed papers, textbooks, and scholarly research.",
           inputSchema: z.object({
-            query: z.string().min(1).max(500).describe(
-              "Academic finance query (e.g., 'options pricing models', 'portfolio optimization theory', 'risk management frameworks')"
-            ),
+            query: z.string().min(1).max(500).describe("Academic finance query (e.g., 'options pricing models', 'portfolio optimization theory', 'risk management frameworks')"),
           }),
           execute: async ({ query }) => {
             try {
@@ -824,26 +663,11 @@ ${execution.result || "(No output produced)"}
               const res = await fetch('https://api.valyu.ai/v1/deepsearch', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-                body: JSON.stringify({
-                  query,
-                  search_type: 'proprietary',
-                  max_num_results: 5,
-                  included_sources: ['wiley/wiley-finance-papers', 'wiley/wiley-finance-books'],
-                }),
+                body: JSON.stringify({ query, search_type: 'proprietary', max_num_results: 5, included_sources: ['wiley/wiley-finance-papers', 'wiley/wiley-finance-books'] }),
               });
               if (!res.ok) throw new Error(`API error: ${res.status}`);
               const response = await res.json();
-
-              await track('Valyu API Call', {
-                toolType: 'financeJournalSearch',
-                query,
-                maxResults: 5,
-                resultCount: response?.results?.length || 0,
-                usedOAuthProxy: false,
-                cost: response?.total_deduction_dollars || null,
-                txId: response?.tx_id || null
-              });
-
+              await trackValyuCall('financeJournalSearch', query, response, false);
               return response?.results?.length ? response : `🔍 No finance journal results found for "${query}".`;
             } catch (error) {
               return formatSearchError(error, 'financeJournalSearch');
@@ -855,30 +679,13 @@ ${execution.result || "(No output produced)"}
         financeJournalSearch: tool({
           description: "Search Wiley finance/business/accounting corpus for authoritative academic content including peer-reviewed papers, textbooks, and scholarly research.",
           inputSchema: z.object({
-            query: z.string().min(1).max(500).describe(
-              "Academic finance query (e.g., 'options pricing models', 'portfolio optimization theory', 'risk management frameworks')"
-            ),
+            query: z.string().min(1).max(500).describe("Academic finance query (e.g., 'options pricing models', 'portfolio optimization theory', 'risk management frameworks')"),
           }),
           execute: async ({ query }, options) => {
             const valyuAccessToken = (options as any)?.experimental_context?.valyuAccessToken;
             try {
-              const response = await callValyuOAuthProxy({
-                query,
-                search_type: 'proprietary',
-                max_num_results: 5,
-                included_sources: ['wiley/wiley-finance-papers', 'wiley/wiley-finance-books'],
-              }, valyuAccessToken);
-
-              await track('Valyu API Call', {
-                toolType: 'financeJournalSearch',
-                query,
-                maxResults: 5,
-                resultCount: response?.results?.length || 0,
-                usedOAuthProxy: true,
-                cost: response?.total_deduction_dollars || null,
-                txId: response?.tx_id || null
-              });
-
+              const response = await callValyuOAuthProxy({ query, search_type: 'proprietary', max_num_results: 5, included_sources: ['wiley/wiley-finance-papers', 'wiley/wiley-finance-books'] }, valyuAccessToken);
+              await trackValyuCall('financeJournalSearch', query, response, true);
               return response?.results?.length ? response : `🔍 No finance journal results found for "${query}".`;
             } catch (error) {
               return formatSearchError(error, 'financeJournalSearch');
@@ -887,15 +694,12 @@ ${execution.result || "(No output produced)"}
         }),
       }),
 
-  // Polymarket Search - Prediction market data
   ...(isSelfHostedMode
     ? {
         polymarketSearch: tool({
           description: "Search Polymarket prediction market data for event probabilities, market odds, and sentiment on financial, economic, and geopolitical events.",
           inputSchema: z.object({
-            query: z.string().min(1).max(500).describe(
-              "Prediction market query (e.g., 'Fed interest rate probability', 'election odds', 'Bitcoin price prediction')"
-            ),
+            query: z.string().min(1).max(500).describe("Prediction market query (e.g., 'Fed interest rate probability', 'election odds', 'Bitcoin price prediction')"),
           }),
           execute: async ({ query }) => {
             try {
@@ -904,26 +708,11 @@ ${execution.result || "(No output produced)"}
               const res = await fetch('https://api.valyu.ai/v1/deepsearch', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-                body: JSON.stringify({
-                  query,
-                  search_type: 'proprietary',
-                  max_num_results: 5,
-                  included_sources: ['valyu/valyu-polymarket'],
-                }),
+                body: JSON.stringify({ query, search_type: 'proprietary', max_num_results: 5, included_sources: ['valyu/valyu-polymarket'] }),
               });
               if (!res.ok) throw new Error(`API error: ${res.status}`);
               const response = await res.json();
-
-              await track('Valyu API Call', {
-                toolType: 'polymarketSearch',
-                query,
-                maxResults: 5,
-                resultCount: response?.results?.length || 0,
-                usedOAuthProxy: false,
-                cost: response?.total_deduction_dollars || null,
-                txId: response?.tx_id || null
-              });
-
+              await trackValyuCall('polymarketSearch', query, response, false);
               return response?.results?.length ? response : `🔍 No Polymarket data found for "${query}".`;
             } catch (error) {
               return formatSearchError(error, 'polymarketSearch');
@@ -935,30 +724,13 @@ ${execution.result || "(No output produced)"}
         polymarketSearch: tool({
           description: "Search Polymarket prediction market data for event probabilities, market odds, and sentiment on financial, economic, and geopolitical events.",
           inputSchema: z.object({
-            query: z.string().min(1).max(500).describe(
-              "Prediction market query (e.g., 'Fed interest rate probability', 'election odds', 'Bitcoin price prediction')"
-            ),
+            query: z.string().min(1).max(500).describe("Prediction market query (e.g., 'Fed interest rate probability', 'election odds', 'Bitcoin price prediction')"),
           }),
           execute: async ({ query }, options) => {
             const valyuAccessToken = (options as any)?.experimental_context?.valyuAccessToken;
             try {
-              const response = await callValyuOAuthProxy({
-                query,
-                search_type: 'proprietary',
-                max_num_results: 5,
-                included_sources: ['valyu/valyu-polymarket'],
-              }, valyuAccessToken);
-
-              await track('Valyu API Call', {
-                toolType: 'polymarketSearch',
-                query,
-                maxResults: 5,
-                resultCount: response?.results?.length || 0,
-                usedOAuthProxy: true,
-                cost: response?.total_deduction_dollars || null,
-                txId: response?.tx_id || null
-              });
-
+              const response = await callValyuOAuthProxy({ query, search_type: 'proprietary', max_num_results: 5, included_sources: ['valyu/valyu-polymarket'] }, valyuAccessToken);
+              await trackValyuCall('polymarketSearch', query, response, true);
               return response?.results?.length ? response : `🔍 No Polymarket data found for "${query}".`;
             } catch (error) {
               return formatSearchError(error, 'polymarketSearch');

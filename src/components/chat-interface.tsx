@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useChat } from "@ai-sdk/react";
-import { useQueryClient, useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   DefaultChatTransport,
   lastAssistantMessageIsCompleteWithToolCalls,
@@ -14,7 +14,6 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { useLocalProvider } from "@/lib/ollama-context";
 import { useAuthStore } from "@/lib/stores/use-auth-store";
-// useSubscription removed - Valyu OAuth handles billing
 import { createClient } from '@/utils/supabase/client-wrapper';
 import { track } from '@vercel/analytics';
 import { AuthModal } from '@/components/auth/auth-modal';
@@ -51,7 +50,6 @@ import {
   Wrench,
   CheckCircle,
   Copy,
-  Clock,
   ChevronDown,
   ExternalLink,
   FileText,
@@ -91,8 +89,6 @@ import DataSourceLogos from "./data-source-logos";
 import SocialLinks from "./social-links";
 import { calculateMessageMetrics, MessageMetrics } from "@/lib/metrics-calculator";
 import { MetricsPills } from "@/components/metrics-pills";
-
-// Debug toggles removed per request
 
 // Professional Finance UI - Workflow-inspired with checkmarks and clean cards
 const TimelineStep = memo(({
@@ -380,8 +376,6 @@ const ChartImageRenderer = memo(ChartImageRendererComponent, (prevProps, nextPro
   return prevProps.chartId === nextProps.chartId && prevProps.alt === nextProps.alt;
 });
 ChartImageRenderer.displayName = 'ChartImageRenderer';
-
-// CSV rendering now handled by shared CsvRenderer component
 
 // Memoized Chart Result - prevents re-rendering when props don't change
 const MemoizedChartResult = memo(function MemoizedChartResult({
@@ -796,25 +790,12 @@ const MemoizedTextPartWithCitations = memo(
             const p = parts[i];
 
 
-        // Check for search tool results - handle both live streaming and saved message formats
-        // Live: p.type = "tool-financialSearch", Saved: p.type = "tool-result" with toolName
-        const isSearchTool =
-          p.type === "tool-financialSearch" ||
-          p.type === "tool-webSearch" ||
-          p.type === "tool-wileySearch" ||
-          (p.type === "tool-result" && (
-            p.toolName === "financialSearch" ||
-            p.toolName === "webSearch" ||
-            p.toolName === "wileySearch"
-          ));
-
-        if (isSearchTool && (p.output || p.result)) {
+        if (isSearchToolPart(p) && (p.output || p.result)) {
           try {
             const output = typeof p.output === "string" ? JSON.parse(p.output) :
                           typeof p.result === "string" ? JSON.parse(p.result) :
                           p.output || p.result;
 
-            // Check if this is a search result with multiple items
             if (output.results && Array.isArray(output.results)) {
               output.results.forEach((item: any) => {
                 const key = `[${citationNumber}]`;
@@ -833,18 +814,13 @@ const MemoizedTextPartWithCitations = memo(
                     authors: Array.isArray(item.authors) ? item.authors : [],
                     doi: item.doi,
                     relevanceScore: item.relevanceScore || item.relevance_score,
-                    toolType:
-                      p.type === "tool-financialSearch" || p.toolName === "financialSearch"
-                        ? "financial"
-                        : p.type === "tool-wileySearch" || p.toolName === "wileySearch"
-                        ? "wiley"
-                        : "web",
+                    toolType: getSearchToolType(p),
                   },
                 ];
                 citationNumber++;
               });
             }
-          } catch (error) {
+          } catch {
             // Ignore parse errors
           }
         }
@@ -855,17 +831,7 @@ const MemoizedTextPartWithCitations = memo(
         for (let i = 0; i < messageParts.length; i++) {
           const p = messageParts[i];
 
-          const isSearchTool =
-            p.type === "tool-financialSearch" ||
-            p.type === "tool-webSearch" ||
-            p.type === "tool-wileySearch" ||
-            (p.type === "tool-result" && (
-              p.toolName === "financialSearch" ||
-              p.toolName === "webSearch" ||
-              p.toolName === "wileySearch"
-            ));
-
-          if (isSearchTool && (p.output || p.result)) {
+          if (isSearchToolPart(p) && (p.output || p.result)) {
             try {
               const output = typeof p.output === "string" ? JSON.parse(p.output) :
                             typeof p.result === "string" ? JSON.parse(p.result) :
@@ -889,18 +855,13 @@ const MemoizedTextPartWithCitations = memo(
                       authors: Array.isArray(item.authors) ? item.authors : [],
                       doi: item.doi,
                       relevanceScore: item.relevanceScore || item.relevance_score,
-                      toolType:
-                        p.type === "tool-financialSearch" || p.toolName === "financialSearch"
-                          ? "financial"
-                          : p.type === "tool-wileySearch" || p.toolName === "wileySearch"
-                          ? "wiley"
-                          : "web",
+                      toolType: getSearchToolType(p),
                     },
                   ];
                   citationNumber++;
                 });
               }
-            } catch (error) {
+            } catch {
               // Ignore parse errors
             }
           }
@@ -980,6 +941,66 @@ const extractSearchResults = (jsonOutput: string) => {
   } catch (error) {
     return [];
   }
+};
+
+// Search tool names for type checking
+const SEARCH_TOOL_NAMES = [
+  "financeSearch",
+  "webSearch",
+  "financeJournalSearch",
+  "secSearch",
+  "economicsSearch",
+  "patentSearch",
+  "polymarketSearch",
+] as const;
+
+type SearchToolName = typeof SEARCH_TOOL_NAMES[number];
+
+// Helper to check if a part is a search tool (handles both live and saved formats)
+function isSearchToolPart(p: any): boolean {
+  const liveToolType = p.type?.replace("tool-", "");
+  return (
+    SEARCH_TOOL_NAMES.includes(liveToolType as SearchToolName) ||
+    (p.type === "tool-result" && SEARCH_TOOL_NAMES.includes(p.toolName as SearchToolName))
+  );
+}
+
+// Helper to get tool type for citation categorization
+function getSearchToolType(p: any): "financial" | "wiley" | "web" {
+  const toolName = p.type?.replace("tool-", "") || p.toolName;
+
+  if (["financeSearch", "secSearch", "economicsSearch", "patentSearch", "polymarketSearch"].includes(toolName)) {
+    return "financial";
+  }
+  if (toolName === "financeJournalSearch") {
+    return "wiley";
+  }
+  return "web";
+}
+
+// Helper to extract common tool state from a part
+function getToolState(part: any): {
+  callId: string;
+  isStreaming: boolean;
+  hasResults: boolean;
+  hasOutput: boolean;
+  hasError: boolean;
+} {
+  return {
+    callId: part.toolCallId,
+    isStreaming: part.state === "input-streaming" || part.state === "input-available",
+    hasResults: part.state === "output-available",
+    hasOutput: part.state === "output-available",
+    hasError: part.state === "output-error" || part.output?.error,
+  };
+}
+
+// Configuration for simple search tools (same UI pattern, different titles)
+const SIMPLE_SEARCH_TOOL_CONFIG: Record<string, { title: string; errorTitle: string; resultType: "financial" | "web" | "wiley" }> = {
+  "tool-secSearch": { title: "SEC Search", errorTitle: "SEC Search Error", resultType: "financial" },
+  "tool-economicsSearch": { title: "Economics Search", errorTitle: "Economics Search Error", resultType: "financial" },
+  "tool-patentSearch": { title: "Patent Search", errorTitle: "Patent Search Error", resultType: "financial" },
+  "tool-polymarketSearch": { title: "Prediction Markets", errorTitle: "Prediction Markets Error", resultType: "financial" },
 };
 
 // Search Result Card Component
@@ -1622,9 +1643,6 @@ export function ChatInterface({
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [liveProcessingTime, setLiveProcessingTime] = useState<number>(0);
 
-  // Live reasoning preview - no longer needed as global state
-  // Each reasoning component will handle its own preview based on streaming state
-
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
 
@@ -1780,9 +1798,6 @@ export function ChatInterface({
     return null;
   }, [user, generateSessionTitle]);
 
-  // Placeholder for loadSessionMessages - will be defined after useChat hook
-  
-  // Get Valyu access token for API proxy calls (with auto-refresh)
   const getValidValyuAccessToken = useAuthStore((state) => state.getValidValyuAccessToken);
 
   const transport = useMemo(() =>
@@ -2995,18 +3010,34 @@ export function ChatInterface({
                             // Get tool name and details
                             const toolType = latestStep.part.type.replace("tool-", "");
 
-                            if (toolType === "financialSearch") {
-                              latestStepTitle = "Financial Search";
+                            if (toolType === "financeSearch") {
+                              latestStepTitle = "Finance Search";
                               latestStepSubtitle = latestStep.part.input?.query || "...";
                               latestStepIcon = <Search className="h-5 w-5 text-blue-500" />;
                             } else if (toolType === "webSearch") {
                               latestStepTitle = "Web Search";
                               latestStepSubtitle = latestStep.part.input?.query || "...";
                               latestStepIcon = <Globe className="h-5 w-5 text-green-500" />;
-                            } else if (toolType === "wileySearch") {
+                            } else if (toolType === "financeJournalSearch") {
                               latestStepTitle = "Academic Search";
                               latestStepSubtitle = latestStep.part.input?.query || "...";
                               latestStepIcon = <BookOpen className="h-5 w-5 text-indigo-500" />;
+                            } else if (toolType === "secSearch") {
+                              latestStepTitle = "SEC Search";
+                              latestStepSubtitle = latestStep.part.input?.query || "...";
+                              latestStepIcon = <Search className="h-5 w-5 text-amber-500" />;
+                            } else if (toolType === "economicsSearch") {
+                              latestStepTitle = "Economics Search";
+                              latestStepSubtitle = latestStep.part.input?.query || "...";
+                              latestStepIcon = <Search className="h-5 w-5 text-purple-500" />;
+                            } else if (toolType === "patentSearch") {
+                              latestStepTitle = "Patent Search";
+                              latestStepSubtitle = latestStep.part.input?.query || "...";
+                              latestStepIcon = <Search className="h-5 w-5 text-rose-500" />;
+                            } else if (toolType === "polymarketSearch") {
+                              latestStepTitle = "Prediction Markets";
+                              latestStepSubtitle = latestStep.part.input?.query || "...";
+                              latestStepIcon = <Search className="h-5 w-5 text-cyan-500" />;
                             } else if (toolType === "codeExecution") {
                               latestStepTitle = "Code Execution";
                               latestStepSubtitle = latestStep.part.input?.description || "Running Python code";
@@ -3245,7 +3276,7 @@ export function ChatInterface({
                               }
 
                               // Financial Search Tool
-                              case "tool-financialSearch": {
+                              case "tool-financeSearch": {
                                 const callId = part.toolCallId;
                                 const isStreaming = part.state === "input-streaming" || part.state === "input-available";
                                 const hasResults = part.state === "output-available";
@@ -3447,7 +3478,7 @@ export function ChatInterface({
                               }
 
                               // Wiley Search Tool
-                              case "tool-wileySearch": {
+                              case "tool-financeJournalSearch": {
                                 const callId = part.toolCallId;
                                 const isStreaming = part.state === "input-streaming" || part.state === "input-available";
                                 const hasResults = part.state === "output-available";
@@ -3486,7 +3517,7 @@ export function ChatInterface({
                                       index={index}
                                       status={isStreaming ? "streaming" : "complete"}
                                       type="search"
-                                      title="Wiley Academic Search"
+                                      title="Finance Journal Search"
                                       subtitle={subtitle}
                                       icon={<BookOpen />}
                                       expandedTools={expandedTools}
@@ -3604,6 +3635,35 @@ export function ChatInterface({
                                       {hasOutput && !part.output?.error && (
                                         <CSVPreview {...part.output} />
                                       )}
+                                    </TimelineStep>
+                                  </div>
+                                );
+                              }
+
+                              // Simple Search Tools (SEC, Economics, Patent, Polymarket)
+                              case "tool-secSearch":
+                              case "tool-economicsSearch":
+                              case "tool-patentSearch":
+                              case "tool-polymarketSearch": {
+                                const config = SIMPLE_SEARCH_TOOL_CONFIG[part.type];
+                                const { callId, isStreaming, hasResults, hasError } = getToolState(part);
+
+                                if (hasError) {
+                                  return (
+                                    <div key={callId} className="my-1">
+                                      <TimelineStep part={part} messageId={message.id} index={index} status="error" type="search" title={config.errorTitle} subtitle={part.errorText} icon={<AlertCircle />} expandedTools={expandedTools} toggleToolExpansion={toggleToolExpansion} />
+                                    </div>
+                                  );
+                                }
+
+                                const results = hasResults ? extractSearchResults(part.output) : [];
+                                const query = part.input?.query || "";
+                                const subtitle = isStreaming ? query : `${query} · ${results.length} results`;
+
+                                return (
+                                  <div key={callId}>
+                                    <TimelineStep part={part} messageId={message.id} index={index} status={isStreaming ? "streaming" : "complete"} type="search" title={config.title} subtitle={subtitle} icon={<Search />} expandedTools={expandedTools} toggleToolExpansion={toggleToolExpansion}>
+                                      {hasResults && results.length > 0 && <SearchResultsCarousel results={results} type={config.resultType} />}
                                     </TimelineStep>
                                   </div>
                                 );

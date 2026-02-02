@@ -76,5 +76,14 @@
     "eslint-config-next": "^15.4.10",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "@tailwindcss/oxide",
+      "sharp",
+      "esbuild",
+      "unrs-resolver"
+    ]
   }
 }

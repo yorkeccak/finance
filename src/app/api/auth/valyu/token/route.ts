@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     const tokenEndpoint = `${VALYU_SUPABASE_URL}/auth/v1/oauth/token`;
+    const basicAuth = Buffer.from(`${VALYU_CLIENT_ID}:${VALYU_CLIENT_SECRET}`).toString('base64');
     let tokenParams: Record<string, string>;
 
     // Handle refresh token flow
@@ -47,8 +48,6 @@ export async function POST(request: NextRequest) {
       tokenParams = {
         grant_type: 'refresh_token',
         refresh_token,
-        client_id: VALYU_CLIENT_ID,
-        client_secret: VALYU_CLIENT_SECRET,
       };
     }
     // Handle authorization code flow
@@ -72,8 +71,6 @@ export async function POST(request: NextRequest) {
       console.log('[Valyu Token] Processing authorization code request');
       tokenParams = {
         grant_type: 'authorization_code',
-        client_id: VALYU_CLIENT_ID,
-        client_secret: VALYU_CLIENT_SECRET,
         code,
         redirect_uri,
         code_verifier,
@@ -89,6 +86,7 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${basicAuth}`,
       },
       body: new URLSearchParams(tokenParams),
     });

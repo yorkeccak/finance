@@ -21,6 +21,19 @@ const nextConfig: NextConfig = {
     maxInactiveAge: 25 * 1000,
     pagesBufferLength: 2,
   },
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: 'https://finance.valyu.ai',
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

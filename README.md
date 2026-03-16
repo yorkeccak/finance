@@ -262,45 +262,6 @@ rm -rf .local-data/
 cp -r .local-data/ .local-data-backup/
 ```
 
-## Valyu Mode (Optional)
-
-> **Note:** Valyu OAuth apps will be in general availability soon. Currently client id/secret are not publicly available. Contact contact@valyu.ai if you need access.
-
-Valyu mode is used by [finance.valyu.ai](https://finance.valyu.ai) for production deployment with full authentication and billing through Valyu credits.
-
-### Prerequisites for Valyu Mode
-
-- Node.js 18+
-- Valyu OAuth credentials (contact contact@valyu.ai)
-- OpenAI API key
-- Daytona API key
-- Supabase account and project
-
-### Valyu Mode Configuration
-
-```env
-# Enable Valyu Mode
-NEXT_PUBLIC_APP_MODE=valyu
-NEXT_PUBLIC_APP_URL=https://yourdomain.com
-
-# Valyu OAuth Credentials (contact contact@valyu.ai)
-NEXT_PUBLIC_VALYU_SUPABASE_URL=https://xxx.supabase.co
-NEXT_PUBLIC_VALYU_CLIENT_ID=your-client-id
-VALYU_CLIENT_SECRET=your-client-secret
-VALYU_APP_URL=https://platform.valyu.ai
-
-# OpenAI Configuration
-OPENAI_API_KEY=your-openai-api-key
-
-# Daytona Configuration
-DAYTONA_API_KEY=your-daytona-api-key
-
-# Your App's Supabase (for user data)
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-```
-
 ## Example Queries
 
 Try these powerful queries to see what Finance can do:

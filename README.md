@@ -1,3 +1,10 @@
+<p align="center">
+  <a href="https://github.com/yorkeccak/finance/stargazers"><img src="https://img.shields.io/github/stars/yorkeccak/finance?style=flat&color=yellow" alt="GitHub Stars"></a>
+  <a href="https://github.com/yorkeccak/finance/blob/main/LICENSE"><img src="https://img.shields.io/github/license/yorkeccak/finance" alt="License"></a>
+  <a href="https://github.com/yorkeccak/finance/issues"><img src="https://img.shields.io/github/issues/yorkeccak/finance" alt="Issues"></a>
+  <a href="https://github.com/yorkeccak/finance/pulls"><img src="https://img.shields.io/github/issues-pr/yorkeccak/finance" alt="Pull Requests"></a>
+</p>
+
 # Finance.
 
 > **We put bloomberg-grade data behind a chat interface and open-sourced it** - Access institutional-grade financial data, run complex financial analyses with code execution, and create stunning visualizations through natural language. The backend? 1 search API.
@@ -57,9 +64,9 @@ Self-hosted mode is the recommended way to run Finance. It's easy to set up and 
 ### Prerequisites
 
 - Node.js 18+
-- npm or yarn
+- pnpm (`npm install -g pnpm`)
 - Valyu API key (get one at [platform.valyu.ai](https://platform.valyu.ai))
-- Daytona API key (for code execution)
+- [Daytona](https://www.daytona.io) API key - used for secure sandboxed Python code execution (get one at [app.daytona.io](https://app.daytona.io))
 - [Ollama](https://ollama.com) or [LM Studio](https://lmstudio.ai) installed (optional but recommended)
 
 ### Installation
@@ -72,7 +79,7 @@ Self-hosted mode is the recommended way to run Finance. It's easy to set up and 
 
 2. **Install dependencies**
    ```bash
-   npm install
+   pnpm install
    ```
 
 3. **Set up environment variables**
@@ -101,7 +108,7 @@ Self-hosted mode is the recommended way to run Finance. It's easy to set up and 
 
 4. **Run the development server**
    ```bash
-   npm run dev
+   pnpm dev
    ```
 
 5. **Open your browser**
@@ -314,12 +321,27 @@ Try these powerful queries to see what Finance can do:
 ## Architecture
 
 - **Frontend**: Next.js 15 with App Router, Tailwind CSS, shadcn/ui
-- **AI**: OpenAI GPT-5 with function calling + Ollama/LM Studio for local models
+- **AI**: OpenAI GPT-5.2 with function calling + Ollama/LM Studio for local models
 - **Data**: Valyu API for comprehensive financial data
 - **Code Execution**: Daytona sandboxes for secure Python execution
 - **Visualizations**: Recharts for interactive charts
 - **Real-time**: Streaming responses with Vercel AI SDK
 - **Local Models**: Ollama and LM Studio integration for private, unlimited queries
+
+## Deploy to Vercel
+
+The quickest way to get Finance running in production:
+
+1. **Fork this repository** to your GitHub account
+2. **Create a new project** on [vercel.com](https://vercel.com) and import your fork
+3. **Add environment variables** in Vercel project settings (Settings > Environment Variables):
+   - `NEXT_PUBLIC_APP_MODE` = `self-hosted`
+   - `VALYU_API_KEY` = your Valyu API key
+   - `DAYTONA_API_KEY` = your Daytona API key
+   - `OPENAI_API_KEY` = your OpenAI API key (required for cloud deployment since local models aren't available)
+4. **Deploy** - Vercel handles the rest
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fyorkeccak%2Ffinance&env=NEXT_PUBLIC_APP_MODE,VALYU_API_KEY,DAYTONA_API_KEY,OPENAI_API_KEY&envDescription=API%20keys%20needed%20for%20Finance&envLink=https%3A%2F%2Fgithub.com%2Fyorkeccak%2Ffinance%23quick-start-self-hosted-mode)
 
 ## Security
 
@@ -334,7 +356,16 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Here's how to get started:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/your-feature`)
+3. Make your changes
+4. Run `pnpm dev` and test locally
+5. Commit your changes and push to your fork
+6. Open a Pull Request against `main`
+
+For bugs or feature requests, [open an issue](https://github.com/yorkeccak/finance/issues) or start a [discussion](https://github.com/yorkeccak/finance/discussions).
 
 ## Acknowledgments
 

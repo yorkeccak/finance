@@ -1,8 +1,8 @@
 <p align="center">
   <a href="https://github.com/yorkeccak/finance/stargazers"><img src="https://img.shields.io/github/stars/yorkeccak/finance?style=flat&color=yellow" alt="GitHub Stars"></a>
   <a href="https://github.com/yorkeccak/finance/blob/main/LICENSE"><img src="https://img.shields.io/github/license/yorkeccak/finance" alt="License"></a>
-  <a href="https://github.com/yorkeccak/finance/issues"><img src="https://img.shields.io/github/issues/yorkeccak/finance" alt="Issues"></a>
-  <a href="https://github.com/yorkeccak/finance/pulls"><img src="https://img.shields.io/github/issues-pr/yorkeccak/finance" alt="Pull Requests"></a>
+  <a href="https://github.com/yorkeccak/finance/network/members"><img src="https://img.shields.io/github/forks/yorkeccak/finance?style=flat" alt="Forks"></a>
+  <a href="https://github.com/yorkeccak/finance/graphs/contributors"><img src="https://img.shields.io/github/contributors/yorkeccak/finance" alt="Contributors"></a>
 </p>
 
 # Finance.

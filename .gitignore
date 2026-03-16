@@ -50,3 +50,6 @@ docs/
 
 # local development database
 .local-data/
+
+# test scripts
+test-scripts/

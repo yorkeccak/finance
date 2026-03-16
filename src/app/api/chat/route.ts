@@ -208,12 +208,15 @@ export async function POST(req: Request) {
       • Financial news and market analysis
       • Company financials and metrics (revenue, profit, EPS, P/E ratios)
 
-      **secSearch** - SEC regulatory filings (LIMITED SCOPE):
+      **secSearch** - SEC regulatory filings:
       • 10-K annual reports (full-text search of annual filings)
       • 10-Q quarterly reports (full-text search of quarterly filings)
       • 8-K current reports (material events, leadership changes)
       • Form 4 insider transactions (executive buys/sells)
-      • NOTE: Do NOT use for 13D, 13G, 13F institutional ownership, earnings summaries, balance sheets, or financial metrics - use financeSearch instead
+      • 13F-HR institutional holdings (hedge fund and institutional investor positions, top holdings with share counts and values)
+      • Schedule 13D activist investor filings (5%+ ownership stakes with intentions)
+      • Schedule 13G passive institutional ownership filings
+      • NOTE: Do NOT use for earnings summaries, balance sheets, or financial metrics - use financeSearch instead
 
       **economicsSearch** - Economic data and indicators:
       • BLS labor statistics (unemployment, wages, employment)

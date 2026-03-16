@@ -2930,7 +2930,7 @@ export function ChatInterface({
                   <motion.button
                     onClick={() =>
                       handlePromptClick(
-                        "Analyze the correlation between Bitcoin price movements and major tech stocks (TSLA, COIN, NVDA) over the past year. Create a CSV with daily prices, then generate correlation matrices and time series charts showing their relationships. Include analysis of crypto market sentiment and its impact on tech valuations."
+                        "Where are the biggest hedge funds and institutional investors placing their bets right now? Pull the latest 13F filings from major funds, analyze their top holdings and any significant position changes. Look for emerging trends - are the smart money managers converging on specific sectors or stocks? Create a comprehensive breakdown with charts showing position sizes and sector allocations."
                       )
                     }
                     className="bg-muted/50 p-2.5 sm:p-4 rounded-xl border border-border hover:border-muted-foreground/30 transition-colors hover:bg-muted text-left group"
@@ -2940,10 +2940,10 @@ export function ChatInterface({
                     whileTap={{ scale: 0.98 }}
                   >
                     <div className="text-foreground/80 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-foreground">
-                      🔗 Correlation Analysis
+                      🏦 Smart Money Tracker
                     </div>
                     <div className="text-[10px] sm:text-xs text-muted-foreground">
-                      Market relationships & statistical insights
+                      13F filings & institutional fund positions
                     </div>
                   </motion.button>
 

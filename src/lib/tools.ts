@@ -680,9 +680,9 @@ ${execution.result || "(No output produced)"}
   ...(isSelfHostedMode
     ? {
         secSearch: tool({
-          description: "Search SEC filings (10-K, 10-Q, 8-K, proxy statements). Use simple natural language with company name and filing type - no accession numbers or technical syntax needed.",
+          description: "Search SEC filings (10-K, 10-Q, 8-K, 13F, 13D, 13G, proxy statements). Use simple natural language with company name and filing type - no accession numbers or technical syntax needed.",
           inputSchema: z.object({
-            query: z.string().min(1).max(500).describe("Natural language query (e.g., 'Tesla 10-K risk factors', 'Apple executive compensation 2024')"),
+            query: z.string().min(1).max(500).describe("Natural language query (e.g., 'Tesla 10-K risk factors', 'Citadel 13F top holdings', '13D activist stakes 2024')"),
           }),
           execute: async ({ query }) => {
             const startTime = Date.now();
@@ -712,9 +712,9 @@ ${execution.result || "(No output produced)"}
       }
     : {
         secSearch: tool({
-          description: "Search SEC filings (10-K, 10-Q, 8-K, proxy statements). Use simple natural language with company name and filing type - no accession numbers or technical syntax needed.",
+          description: "Search SEC filings (10-K, 10-Q, 8-K, 13F, 13D, 13G, proxy statements). Use simple natural language with company name and filing type - no accession numbers or technical syntax needed.",
           inputSchema: z.object({
-            query: z.string().min(1).max(500).describe("Natural language query (e.g., 'Tesla 10-K risk factors', 'Apple executive compensation 2024')"),
+            query: z.string().min(1).max(500).describe("Natural language query (e.g., 'Tesla 10-K risk factors', 'Citadel 13F top holdings', '13D activist stakes 2024')"),
           }),
           execute: async ({ query }, options) => {
             const valyuAccessToken = (options as any)?.experimental_context?.valyuAccessToken;

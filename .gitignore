@@ -43,6 +43,7 @@ next-env.d.ts
 
 AGENTS.MD
 .mcp.json
+.claude/
 IMPLEMENTATION_SPEC.md
 
 docs/

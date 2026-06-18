@@ -72,6 +72,33 @@ export const csvs = sqliteTable("csvs", {
     .default(sql`(unixepoch())`),
 });
 
+// Reports table - async Valyu DeepResearch workflow runs (domain workflows feature)
+export const reports = sqliteTable("reports", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  workflowSlug: text("workflow_slug").notNull(),
+  workflowVersion: integer("workflow_version"),
+  workflowParams: text("workflow_params").notNull(), // JSON object of variable values
+  mode: text("mode").notNull(), // fast | standard | heavy | max
+  title: text("title").notNull(),
+  estimatedTime: text("estimated_time"), // e.g. "7-12 min" (per-workflow, displayed)
+  valyuTaskId: text("valyu_task_id"), // Valyu deepresearch_id (null until created)
+  status: text("status").notNull(), // queued | running | completed | failed | cancelled
+  output: text("output"), // markdown report, null until completed
+  sources: text("sources"), // JSON array of sources, null until completed
+  pdfUrl: text("pdf_url"), // public Valyu pdf_url (storage.valyu.ai), null until completed
+  errorMessage: text("error_message"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  completedAt: integer("completed_at", { mode: "timestamp" }),
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type ChatSession = typeof chatSessions.$inferSelect;
@@ -82,3 +109,5 @@ export type Chart = typeof charts.$inferSelect;
 export type InsertChart = typeof charts.$inferInsert;
 export type CSV = typeof csvs.$inferSelect;
 export type InsertCSV = typeof csvs.$inferInsert;
+export type Report = typeof reports.$inferSelect;
+export type InsertReport = typeof reports.$inferInsert;

@@ -451,3 +451,166 @@ export async function createCSV(csv: {
   const { error } = await supabase.from("csvs").insert(csv);
   return { error };
 }
+
+// ============================================================================
+// REPORT FUNCTIONS (async Valyu DeepResearch workflow runs)
+// ============================================================================
+
+export async function getReports(userId: string) {
+  if (isSelfHostedMode()) {
+    const db = getLocalDb();
+    const reports = await db.query.reports.findMany({
+      where: eq(schema.reports.userId, userId),
+      orderBy: [desc(schema.reports.createdAt)],
+    });
+    return { data: reports, error: null };
+  }
+
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("reports")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  return { data, error };
+}
+
+export async function getReport(reportId: string, userId: string) {
+  if (isSelfHostedMode()) {
+    const db = getLocalDb();
+    const report = await db.query.reports.findFirst({
+      where: and(
+        eq(schema.reports.id, reportId),
+        eq(schema.reports.userId, userId)
+      ),
+    });
+    return { data: report || null, error: null };
+  }
+
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("reports")
+    .select("*")
+    .eq("id", reportId)
+    .eq("user_id", userId)
+    .single();
+  return { data, error };
+}
+
+export async function createReport(report: {
+  id: string;
+  user_id: string;
+  workflow_slug: string;
+  workflow_version?: number | null;
+  workflow_params: Record<string, unknown>;
+  mode: string;
+  title: string;
+  estimated_time?: string | null;
+  valyu_task_id?: string | null;
+  status: string;
+}) {
+  if (isSelfHostedMode()) {
+    const db = getLocalDb();
+    await db.insert(schema.reports).values({
+      id: report.id,
+      userId: report.user_id,
+      workflowSlug: report.workflow_slug,
+      workflowVersion: report.workflow_version ?? null,
+      workflowParams: JSON.stringify(report.workflow_params),
+      mode: report.mode,
+      title: report.title,
+      estimatedTime: report.estimated_time ?? null,
+      valyuTaskId: report.valyu_task_id ?? null,
+      status: report.status,
+    });
+    return { error: null };
+  }
+
+  const supabase = await createSupabaseClient();
+  const { error } = await supabase.from("reports").insert({
+    id: report.id,
+    user_id: report.user_id,
+    workflow_slug: report.workflow_slug,
+    workflow_version: report.workflow_version ?? null,
+    workflow_params: report.workflow_params,
+    mode: report.mode,
+    title: report.title,
+    estimated_time: report.estimated_time ?? null,
+    valyu_task_id: report.valyu_task_id ?? null,
+    status: report.status,
+  });
+  return { error };
+}
+
+export async function updateReport(
+  reportId: string,
+  userId: string,
+  updates: {
+    status?: string;
+    valyu_task_id?: string | null;
+    output?: string | null;
+    sources?: unknown[] | null;
+    pdf_url?: string | null;
+    error_message?: string | null;
+    completed_at?: Date | null;
+  }
+) {
+  if (isSelfHostedMode()) {
+    const db = getLocalDb();
+    const updateData: any = { updatedAt: new Date() };
+    if (updates.status !== undefined) updateData.status = updates.status;
+    if (updates.valyu_task_id !== undefined) updateData.valyuTaskId = updates.valyu_task_id;
+    if (updates.output !== undefined) updateData.output = updates.output;
+    if (updates.sources !== undefined)
+      updateData.sources = updates.sources ? JSON.stringify(updates.sources) : null;
+    if (updates.pdf_url !== undefined) updateData.pdfUrl = updates.pdf_url;
+    if (updates.error_message !== undefined) updateData.errorMessage = updates.error_message;
+    if (updates.completed_at !== undefined) updateData.completedAt = updates.completed_at;
+
+    await db
+      .update(schema.reports)
+      .set(updateData)
+      .where(
+        and(eq(schema.reports.id, reportId), eq(schema.reports.userId, userId))
+      );
+    return { error: null };
+  }
+
+  const supabase = await createSupabaseClient();
+  const updateData: any = { updated_at: new Date().toISOString() };
+  if (updates.status !== undefined) updateData.status = updates.status;
+  if (updates.valyu_task_id !== undefined) updateData.valyu_task_id = updates.valyu_task_id;
+  if (updates.output !== undefined) updateData.output = updates.output;
+  if (updates.sources !== undefined) updateData.sources = updates.sources;
+  if (updates.pdf_url !== undefined) updateData.pdf_url = updates.pdf_url;
+  if (updates.error_message !== undefined) updateData.error_message = updates.error_message;
+  if (updates.completed_at !== undefined)
+    updateData.completed_at = updates.completed_at ? updates.completed_at.toISOString() : null;
+
+  const { error } = await supabase
+    .from("reports")
+    .update(updateData)
+    .eq("id", reportId)
+    .eq("user_id", userId);
+  return { error };
+}
+
+export async function deleteReport(reportId: string, userId: string) {
+  if (isSelfHostedMode()) {
+    const db = getLocalDb();
+    await db
+      .delete(schema.reports)
+      .where(
+        and(eq(schema.reports.id, reportId), eq(schema.reports.userId, userId))
+      );
+    return { error: null };
+  }
+
+  const supabase = await createSupabaseClient();
+  const { error } = await supabase
+    .from("reports")
+    .delete()
+    .eq("id", reportId)
+    .eq("user_id", userId);
+  return { error };
+}

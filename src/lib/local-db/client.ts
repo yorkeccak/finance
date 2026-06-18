@@ -82,11 +82,41 @@ function initializeDatabase(sqlite: Database.Database) {
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
 
+    CREATE TABLE IF NOT EXISTS reports (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      workflow_slug TEXT NOT NULL,
+      workflow_version INTEGER,
+      workflow_params TEXT NOT NULL,
+      mode TEXT NOT NULL,
+      title TEXT NOT NULL,
+      estimated_time TEXT,
+      valyu_task_id TEXT,
+      status TEXT NOT NULL,
+      output TEXT,
+      sources TEXT,
+      pdf_url TEXT,
+      error_message TEXT,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      completed_at INTEGER
+    );
+
     CREATE INDEX IF NOT EXISTS idx_chat_sessions_user_id ON chat_sessions(user_id);
     CREATE INDEX IF NOT EXISTS idx_chat_messages_session_id ON chat_messages(session_id);
     CREATE INDEX IF NOT EXISTS idx_charts_session_id ON charts(session_id);
     CREATE INDEX IF NOT EXISTS idx_csvs_session_id ON csvs(session_id);
+    CREATE INDEX IF NOT EXISTS idx_reports_user_id ON reports(user_id);
+    CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
   `);
+
+  // Lightweight migrations for columns added after a table already exists.
+  // SQLite has no "ADD COLUMN IF NOT EXISTS"; the ALTER throws if present.
+  try {
+    sqlite.exec("ALTER TABLE reports ADD COLUMN pdf_url TEXT");
+  } catch {
+    /* column already exists */
+  }
 
   // Insert dev user if it doesn't exist
   const existingUser = sqlite

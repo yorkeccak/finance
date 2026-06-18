@@ -242,6 +242,15 @@
   height: auto;
 }
 
+/* When the fixed migration banner is visible, push desktop content below it so
+   the hero isn't clipped (mobile already clears it via pt-14). The .has-top-banner
+   flag is toggled on <html> by MigrationBanner and removed on dismiss — no gap. */
+@media (min-width: 768px) {
+  html.has-top-banner .main-content-shell {
+    padding-top: calc(var(--top-banner-h, 3rem) + 0.75rem);
+  }
+}
+
 /* Improve readability in prose blocks */
 .prose .katex {
   color: inherit;

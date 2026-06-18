@@ -11,6 +11,7 @@ import {
   MessageSquare,
   MessagesSquare,
   MessageCirclePlus,
+  FileText,
   Settings,
   LogOut,
   Trash2,
@@ -598,6 +599,29 @@ export function Sidebar({
                   </button>
                   <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
                     New Chat
+                  </div>
+                </div>
+              )}
+
+              {/* Reports */}
+              {user && (
+                <div className="relative group/tooltip">
+                  <button
+                    onClick={() => router.push('/reports')}
+                    className={`w-12 h-12 flex items-center justify-center rounded-[20px] transition-all duration-200 hover:scale-110 active:scale-95 ${
+                      pathname?.startsWith('/reports')
+                        ? 'bg-gray-900 dark:bg-gray-100 shadow-lg'
+                        : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    <FileText className={`h-6 w-6 transition-colors ${
+                      pathname?.startsWith('/reports')
+                        ? 'text-white dark:text-gray-900'
+                        : 'text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-gray-100'
+                    }`} />
+                  </button>
+                  <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                    Reports
                   </div>
                 </div>
               )}

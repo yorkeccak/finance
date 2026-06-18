@@ -272,19 +272,19 @@ function HomeContent() {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 min-w-0 flex flex-col pt-14 md:pt-0">
+      <div className="main-content-shell flex-1 min-w-0 flex flex-col pt-14 md:pt-0">
         {/* Header - Animate out when messages appear */}
         <AnimatePresence mode="wait">
             {!hasMessages && (
               <motion.div
-                className="text-center pt-8 md:pt-16 pb-6 md:pb-4 px-4 md:px-0"
+                className="text-center pt-4 md:pt-8 pb-2 md:pb-2 px-4 md:px-0"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20, transition: { duration: 0.3 } }}
                 transition={{ duration: 0.6, ease: "easeOut" }}
               >
               <motion.div 
-                className="relative mb-10 inline-block"
+                className="relative mb-5 inline-block"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1, duration: 0.6, ease: "easeOut" }}

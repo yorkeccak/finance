@@ -87,6 +87,7 @@ import {
 import { parseFirstLine } from "@/lib/text-utils";
 import { motion, AnimatePresence } from "framer-motion";
 import DataSourceLogos from "./data-source-logos";
+import { HomeWorkflows } from "./home-workflows";
 import SocialLinks from "./social-links";
 import { calculateMessageMetrics, MessageMetrics } from "@/lib/metrics-calculator";
 import { MetricsPills } from "@/components/metrics-pills";
@@ -2861,154 +2862,92 @@ export function ChatInterface({
       {/* Messages */}
       <div
         ref={messagesContainerRef}
-        className={`space-y-4 sm:space-y-8 min-h-[300px] overflow-y-auto overflow-x-hidden ${
-          messages.length > 0 ? "pt-4 md:pt-24" : "pt-2 md:pt-4"
-        } ${isFormAtBottom ? "pb-44 md:pb-36" : "pb-4 md:pb-8"}`}
+        className={`min-h-[300px] overflow-y-auto overflow-x-hidden ${
+          messages.length === 0 ? "flex flex-col" : "space-y-4 sm:space-y-8"
+        } ${messages.length > 0 ? "pt-4 md:pt-24" : "pt-2 md:pt-4"} ${
+          isFormAtBottom ? "pb-44 md:pb-36" : "pb-4 md:pb-8"
+        }`}
       >
         {messages.length === 0 && (
           <motion.div
-            className="pt-8 1"
+            className="order-2 w-full mt-2"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}
           >
-            <div className="text-center mb-6 sm:mb-8">
+            <div className="text-center mb-3">
               {/* Capabilities */}
               <div className="max-w-3xl mx-auto overflow-hidden">
                 <motion.div
-                  className="text-center mb-4 sm:mb-6"
+                  className="text-center mb-2.5"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1, duration: 0.5 }}
                 >
-                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Try these capabilities
+                  <h3 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                    Try these
                   </h3>
                 </motion.div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 px-4 sm:px-0">
-                  <motion.button
-                    onClick={() =>
-                      handlePromptClick(
-                        "Build a Monte Carlo simulation to predict Tesla's stock price in 6 months. Use Python to fetch historical data, calculate volatility and drift, run 10,000 simulations, and visualize the probability distribution with confidence intervals."
-                      )
-                    }
-                    className="bg-muted/50 p-2.5 sm:p-4 rounded-xl border border-border hover:border-muted-foreground/30 transition-colors hover:bg-muted text-left group"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3, duration: 0.5 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <div className="text-foreground/80 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-foreground">
-                      🐍 ML Models
-                    </div>
-                    <div className="text-[10px] sm:text-xs text-muted-foreground">
-                      Advanced Python modeling & simulations
-                    </div>
-                  </motion.button>
-
-                  <motion.button
-                    onClick={() =>
-                      handlePromptClick(
-                        "Analyze GameStop's latest 10-K filing. Extract key financial metrics, identify risk factors, and compare revenue streams vs last year. Show me insider trading activity and institutional ownership changes."
-                      )
-                    }
-                    className="bg-muted/50 p-2.5 sm:p-4 rounded-xl border border-border hover:border-muted-foreground/30 transition-colors hover:bg-muted text-left group"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4, duration: 0.5 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <div className="text-foreground/80 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-foreground">
-                      📊 SEC Filings
-                    </div>
-                    <div className="text-[10px] sm:text-xs text-muted-foreground">
-                      Deep dive into regulatory filings & insider data
-                    </div>
-                  </motion.button>
-
-                  <motion.button
-                    onClick={() =>
-                      handlePromptClick(
-                        "Where are the biggest hedge funds and institutional investors placing their bets right now? Pull the latest 13F filings from major funds, analyze their top holdings and any significant position changes. Look for emerging trends - are the smart money managers converging on specific sectors or stocks? Create a comprehensive breakdown with charts showing position sizes and sector allocations."
-                      )
-                    }
-                    className="bg-muted/50 p-2.5 sm:p-4 rounded-xl border border-border hover:border-muted-foreground/30 transition-colors hover:bg-muted text-left group"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5, duration: 0.5 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <div className="text-foreground/80 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-foreground">
-                      🏦 Smart Money Tracker
-                    </div>
-                    <div className="text-[10px] sm:text-xs text-muted-foreground">
-                      13F filings & institutional fund positions
-                    </div>
-                  </motion.button>
-
-                  <motion.button
-                    onClick={() =>
-                      handlePromptClick(
-                        "Analyze Netflix's subscriber growth and revenue metrics over the past 5 years. Pull financial data from SEC filings, create a comprehensive CSV with quarterly metrics (subscribers, ARPU, revenue, content spend), then generate charts showing: 1) Subscriber growth trends by region, 2) Revenue vs content spending, 3) Stock price correlation with subscriber announcements. Include competitive analysis vs Disney+."
-                      )
-                    }
-                    className="bg-muted/50 p-2.5 sm:p-4 rounded-xl border border-border hover:border-muted-foreground/30 transition-colors hover:bg-muted text-left group"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.6, duration: 0.5 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <div className="text-foreground/80 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-foreground">
-                      📊 Growth Metrics
-                    </div>
-                    <div className="text-[10px] sm:text-xs text-muted-foreground">
-                      Business KPIs with trend visualizations
-                    </div>
-                  </motion.button>
-
-                  <motion.button
-                    onClick={() =>
-                      handlePromptClick(
-                        "Compare the top 5 tech stocks (AAPL, MSFT, GOOGL, AMZN, NVDA) over the past 5 years. Create a CSV with their annual revenue, profit margins, and P/E ratios. Then generate visualizations showing: 1) Stock price performance comparison chart, 2) Revenue growth trends, 3) Profitability metrics comparison. Provide detailed analysis of which performed best and why."
-                      )
-                    }
-                    className="bg-muted/50 p-2.5 sm:p-4 rounded-xl border border-border hover:border-muted-foreground/30 transition-colors hover:bg-muted text-left group"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.7, duration: 0.5 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <div className="text-foreground/80 mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-foreground">
-                      📈 Comparative Analysis
-                    </div>
-                    <div className="text-[10px] sm:text-xs text-muted-foreground">
-                      Multi-stock comparison with charts & data
-                    </div>
-                  </motion.button>
-
-                  <motion.button
-                    onClick={() =>
-                      handlePromptClick(
-                        "Do an in-depth report into the effect COVID-19 had on Pfizer. Analyze insider trades made during that time period, research those specific high-profile people involved, look at the company's stock price pre and post COVID, with income statements, balance sheets, and any relevant info from SEC filings around this time. Be thorough and execute code for deep analysis. Create a comprehensive CSV of ALL insider trades with columns: Date, Insider Name, Title/Position, Transaction Type (Buy/Sale/Option), Transaction Size (shares), Dollar Value, Stock Price at Time, and News Events Around Transaction Date."
-                      )
-                    }
-                    className="bg-gradient-to-r from-primary/10 to-accent/30 p-2.5 sm:p-4 rounded-xl border border-primary/30 hover:border-primary/50 transition-colors hover:from-primary/20 hover:to-accent/40 text-left group col-span-1 sm:col-span-2 lg:col-span-1"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.8, duration: 0.5 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <div className="text-primary mb-1.5 sm:mb-2 text-xs sm:text-sm font-medium group-hover:text-primary/80">
-                      🚀 Deep Investigation
-                    </div>
-                    <div className="text-[10px] sm:text-xs text-primary/70">
-                      Multi-source research + Insider data + Financial analysis
-                    </div>
-                  </motion.button>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 px-4 sm:px-0">
+                  {[
+                    {
+                      label: "🐍 ML Models",
+                      desc: "Advanced Python modeling & simulations",
+                      prompt:
+                        "Build a Monte Carlo simulation to predict Tesla's stock price in 6 months. Use Python to fetch historical data, calculate volatility and drift, run 10,000 simulations, and visualize the probability distribution with confidence intervals.",
+                    },
+                    {
+                      label: "📊 SEC Filings",
+                      desc: "Deep dive into regulatory filings & insider data",
+                      prompt:
+                        "Analyze GameStop's latest 10-K filing. Extract key financial metrics, identify risk factors, and compare revenue streams vs last year. Show me insider trading activity and institutional ownership changes.",
+                    },
+                    {
+                      label: "🏦 Smart Money",
+                      desc: "13F filings & institutional fund positions",
+                      prompt:
+                        "Where are the biggest hedge funds and institutional investors placing their bets right now? Pull the latest 13F filings from major funds, analyze their top holdings and any significant position changes. Look for emerging trends - are the smart money managers converging on specific sectors or stocks? Create a comprehensive breakdown with charts showing position sizes and sector allocations.",
+                    },
+                    {
+                      label: "📈 Growth Metrics",
+                      desc: "Business KPIs with trend visualizations",
+                      prompt:
+                        "Analyze Netflix's subscriber growth and revenue metrics over the past 5 years. Pull financial data from SEC filings, create a comprehensive CSV with quarterly metrics (subscribers, ARPU, revenue, content spend), then generate charts showing: 1) Subscriber growth trends by region, 2) Revenue vs content spending, 3) Stock price correlation with subscriber announcements. Include competitive analysis vs Disney+.",
+                    },
+                    {
+                      label: "📊 Comparative Analysis",
+                      desc: "Multi-stock comparison with charts & data",
+                      prompt:
+                        "Compare the top 5 tech stocks (AAPL, MSFT, GOOGL, AMZN, NVDA) over the past 5 years. Create a CSV with their annual revenue, profit margins, and P/E ratios. Then generate visualizations showing: 1) Stock price performance comparison chart, 2) Revenue growth trends, 3) Profitability metrics comparison. Provide detailed analysis of which performed best and why.",
+                    },
+                    {
+                      label: "🚀 Deep Investigation",
+                      desc: "Multi-source research + insider data + financials",
+                      prompt:
+                        "Do an in-depth report into the effect COVID-19 had on Pfizer. Analyze insider trades made during that time period, research those specific high-profile people involved, look at the company's stock price pre and post COVID, with income statements, balance sheets, and any relevant info from SEC filings around this time. Be thorough and execute code for deep analysis. Create a comprehensive CSV of ALL insider trades with columns: Date, Insider Name, Title/Position, Transaction Type (Buy/Sale/Option), Transaction Size (shares), Dollar Value, Stock Price at Time, and News Events Around Transaction Date.",
+                    },
+                  ].map((c, i) => (
+                    <motion.button
+                      key={c.label}
+                      onClick={() => handlePromptClick(c.prompt)}
+                      className="bg-muted/50 p-3 rounded-xl border border-border hover:border-muted-foreground/30 hover:bg-muted transition-colors text-left group"
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3 + i * 0.05, duration: 0.4 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <div className="text-xs sm:text-[13px] font-medium text-foreground/80 group-hover:text-foreground">
+                        {c.label}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground mt-1 leading-snug">
+                        {c.desc}
+                      </div>
+                    </motion.button>
+                  ))}
                 </div>
 
-                <div className="mt-4 sm:mt-8">
+                <div className="mt-4 opacity-80">
                   <DataSourceLogos />
                 </div>
               </div>
@@ -3016,10 +2955,11 @@ export function ChatInterface({
           </motion.div>
         )}
 
-        {/* Input Form when not at bottom (desktop only) */}
+        {/* Input Form when not at bottom (desktop only) — order-1 keeps the chat
+            directly under the hero (chat-first, above the fold). */}
         {!isFormAtBottom && messages.length === 0 && !isMobile && (
           <motion.div
-            className="mt-8 mb-16"
+            className="order-1 mt-2 mb-6"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.9, duration: 0.5 }}
@@ -3080,33 +3020,42 @@ export function ChatInterface({
                   </Button>
                 </div>
               </form>
-
-              {/* Powered by Valyu */}
-              <motion.div
-                className="flex items-center justify-center mt-4"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1.1, duration: 0.5 }}
-              >
-                <span className="text-xs text-muted-foreground/60">
-                  Powered by
-                </span>
-                <a
-                  href="https://platform.valyu.ai"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center hover:scale-105 transition-transform"
-                >
-                  <Image
-                    src="/valyu.svg"
-                    alt="Valyu"
-                    width={60}
-                    height={60}
-                    className="h-4 opacity-60 hover:opacity-100 transition-opacity cursor-pointer dark:invert"
-                  />
-                </a>
-              </motion.div>
             </div>
+          </motion.div>
+        )}
+
+        {/* Deep Research workflows discovery — rendered BELOW the chat input so
+            the chat stays above the fold (chat-first). Not gated on !isMobile:
+            on mobile the chat is a fixed bottom bar, so showing this here is fine. */}
+        {messages.length === 0 && (
+          <div className="order-3 w-full max-w-3xl mx-auto px-4 sm:px-6">
+            <HomeWorkflows />
+          </div>
+        )}
+
+        {/* Powered by Valyu — anchored at the very bottom of the empty state. */}
+        {messages.length === 0 && (
+          <motion.div
+            className="order-4 flex items-center justify-center gap-1 mt-8 mb-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.1, duration: 0.5 }}
+          >
+            <span className="text-xs text-muted-foreground/60">Powered by</span>
+            <a
+              href="https://platform.valyu.ai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center hover:scale-105 transition-transform"
+            >
+              <Image
+                src="/valyu.svg"
+                alt="Valyu"
+                width={60}
+                height={60}
+                className="h-4 opacity-60 hover:opacity-100 transition-opacity cursor-pointer dark:invert"
+              />
+            </a>
           </motion.div>
         )}
 

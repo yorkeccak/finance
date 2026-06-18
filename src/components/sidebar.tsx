@@ -144,47 +144,18 @@ export function Sidebar({
   }, [alwaysOpen]);
 
   const handleLogoClick = () => {
-    // If there's an active chat (either with session ID or just messages), warn before leaving
-    if (currentSessionId || hasMessages) {
-      const confirmed = window.confirm(
-        user
-          ? 'Leave this conversation? Your chat history will be saved.'
-          : 'Start a new chat? Your current conversation will be lost.'
-      );
-
-      if (confirmed) {
-        // Only close sidebar if not in alwaysOpen mode
-        if (!alwaysOpen) {
-          setIsOpen(false);
-        }
-        setShowHistory(false);
-        onNewChat?.(); // Call onNewChat to properly reset the chat interface
-      }
-      return;
+    // Everything is persisted (research runs + reports), so there's nothing to
+    // lose — just go to a fresh homepage. router.push('/') also clears any
+    // active ?research run so Home always lands on the input.
+    if (!alwaysOpen) {
+      setIsOpen(false);
     }
-
-    // If on homepage without active chat, collapse sidebar only if not in alwaysOpen mode
+    setShowHistory(false);
     if (pathname === '/') {
-      if (!alwaysOpen) {
-        setIsOpen(false);
-      }
-      setShowHistory(false);
-      return;
+      // Already home: reset to a clean input (drop ?research / ?chatId).
+      onNewChat?.();
     }
-
-    // If on other pages, warn before leaving
-    const confirmed = window.confirm(
-      'Leave this page? Your current session will be saved, but any unsaved changes will be lost.'
-    );
-
-    if (confirmed) {
-      // Only close sidebar if not in alwaysOpen mode
-      if (!alwaysOpen) {
-        setIsOpen(false);
-      }
-      setShowHistory(false);
-      router.push('/');
-    }
+    router.push('/');
   };
 
   const handleViewCredits = () => {

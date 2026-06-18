@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -46,10 +46,16 @@ function ResearchInput({ onLaunched }: { onLaunched: (id: string) => void }) {
   const [mode, setMode] = useState("standard");
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Synchronous re-entrancy guard. The `launching` state can't block a second
+  // submit() fired in the same tick (rapid double-click / double-Enter) because
+  // React hasn't re-rendered yet — without this, one fumble = two runs = double
+  // credits charged.
+  const submittingRef = useRef(false);
 
   const submit = async () => {
     const q = input.trim();
-    if (!q || launching) return;
+    if (!q || submittingRef.current) return;
+    submittingRef.current = true;
     setLaunching(true);
     setError(null);
     // Ask for OS notification permission so we can ping when this finishes
@@ -57,10 +63,11 @@ function ResearchInput({ onLaunched }: { onLaunched: (id: string) => void }) {
     void requestNotifyPermission();
     try {
       const report = await apiCreateResearch(q, mode);
-      onLaunched(report.id);
+      onLaunched(report.id); // navigates away (unmounts) on success
     } catch (e) {
       setError((e as Error).message);
       setLaunching(false);
+      submittingRef.current = false; // allow retry after a failure
     }
   };
 

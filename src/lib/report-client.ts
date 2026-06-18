@@ -56,6 +56,32 @@ export async function apiCreateReport(input: CreateReportInput): Promise<ReportD
   return json.report;
 }
 
+/** Launch a freeform DeepResearch run from a chat query. */
+export async function apiCreateResearch(query: string, mode: string): Promise<ReportDTO> {
+  const { headers, valyuAccessToken } = await buildAuth();
+  const res = await fetch("/api/reports", {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ query, mode, valyuAccessToken }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || json.message || "Failed to start research");
+  return json.report;
+}
+
+/** Cancel a running report/research run. */
+export async function apiCancelReport(reportId: string): Promise<ReportDTO> {
+  const { headers, valyuAccessToken } = await buildAuth();
+  const res = await fetch(`/api/reports/${reportId}/cancel`, {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ valyuAccessToken }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || "Failed to cancel");
+  return json.report;
+}
+
 export async function apiSyncReport(
   reportId: string,
 ): Promise<{ report: ReportDTO; progress?: { current_step?: number; total_steps?: number } | null; transient?: boolean; syncError?: string }> {

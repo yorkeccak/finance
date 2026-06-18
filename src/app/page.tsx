@@ -1,6 +1,6 @@
 'use client';
 
-import { ChatInterface } from '@/components/chat-interface';
+import { ResearchChat } from '@/components/research-chat';
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BottomBar from '@/components/bottom-bar';
@@ -30,6 +30,10 @@ function HomeContent() {
   const [autoTiltTriggered, setAutoTiltTriggered] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   
+  // An active DeepResearch run (?research=<id>) takes over the main area; hide
+  // the hero while it's showing.
+  const researchActive = !!searchParams.get('research');
+
   // Get chatId from URL params
   const chatIdParam = searchParams.get('chatId');
   const [currentSessionId, setCurrentSessionId] = useState<string | undefined>(chatIdParam || undefined);
@@ -198,6 +202,7 @@ function HomeContent() {
     } else {
       url.searchParams.delete('chatId');
       url.searchParams.delete('q'); // Also clear query parameter for clean new chat
+      url.searchParams.delete('research'); // Clear any active DeepResearch run
     }
     // Use replace to avoid creating browser history entries
     window.history.replaceState(null, '', url.toString());
@@ -273,9 +278,9 @@ function HomeContent() {
 
       {/* Main Content Area */}
       <div className="main-content-shell flex-1 min-w-0 flex flex-col pt-14 md:pt-0">
-        {/* Header - Animate out when messages appear */}
+        {/* Header - Animate out when a research run is active */}
         <AnimatePresence mode="wait">
-            {!hasMessages && (
+            {!hasMessages && !researchActive && (
               <motion.div
                 className="text-center pt-4 md:pt-8 pb-2 md:pb-2 px-4 md:px-0"
                 initial={{ opacity: 0, y: 20 }}
@@ -369,21 +374,15 @@ function HomeContent() {
           )}
         </AnimatePresence>
         
-        {/* Chat Interface */}
-        <motion.div 
-          className="flex-1 px-0 md:px-4 overflow-x-hidden"
+        {/* DeepResearch runner (replaces the old chat) */}
+        <motion.div
+          className="flex-1 px-0 md:px-4 overflow-x-hidden pb-16"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
         >
           <Suspense fallback={<div className="text-center py-8">Loading...</div>}>
-            <ChatInterface
-              key={chatKey}
-              sessionId={currentSessionId}
-              onMessagesChange={handleMessagesChange}
-              onSessionCreated={handleSessionCreated}
-              onNewChat={handleNewChat}
-            />
+            <ResearchChat />
           </Suspense>
         </motion.div>
         

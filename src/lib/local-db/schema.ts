@@ -78,9 +78,10 @@ export const reports = sqliteTable("reports", {
   userId: text("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  workflowSlug: text("workflow_slug").notNull(),
+  workflowSlug: text("workflow_slug").notNull(), // "freeform" for chat-launched research
   workflowVersion: integer("workflow_version"),
   workflowParams: text("workflow_params").notNull(), // JSON object of variable values
+  query: text("query"), // freeform research query (chat-launched runs); null for workflow runs
   mode: text("mode").notNull(), // fast | standard | heavy | max
   title: text("title").notNull(),
   estimatedTime: text("estimated_time"), // e.g. "7-12 min" (per-workflow, displayed)
@@ -88,6 +89,7 @@ export const reports = sqliteTable("reports", {
   status: text("status").notNull(), // queued | running | completed | failed | cancelled
   output: text("output"), // markdown report, null until completed
   sources: text("sources"), // JSON array of sources, null until completed
+  activity: text("activity"), // JSON snapshot of parsed activity feed (reasoning/steps/sources)
   pdfUrl: text("pdf_url"), // public Valyu pdf_url (storage.valyu.ai), null until completed
   errorMessage: text("error_message"),
   createdAt: integer("created_at", { mode: "timestamp" })

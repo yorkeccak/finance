@@ -4,7 +4,7 @@
  * produced it. Lucide icons are plain component refs (no JSX) so this stays a
  * .ts module.
  */
-import { Landmark, Briefcase, LineChart, Target, type LucideIcon } from "lucide-react";
+import { Landmark, Briefcase, LineChart, Target, Sparkles, type LucideIcon } from "lucide-react";
 
 const SLUG_PREFIX: Record<string, string> = {
   "ib-": "investment-banking",
@@ -27,4 +27,4 @@ export const iconForVertical = (v: string | undefined): LucideIcon =>
   (v && DOMAIN_ICON[v]) || Target;
 
 export const iconForSlug = (slug: string): LucideIcon =>
-  iconForVertical(verticalForSlug(slug));
+  slug === "freeform" ? Sparkles : iconForVertical(verticalForSlug(slug));

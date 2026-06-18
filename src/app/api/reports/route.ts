@@ -37,6 +37,7 @@ export async function POST(req: Request) {
     const {
       workflow_slug,
       workflow_params,
+      query,
       mode = "standard",
       title,
       estimated_time,
@@ -44,6 +45,7 @@ export async function POST(req: Request) {
     }: {
       workflow_slug?: string;
       workflow_params?: Record<string, unknown>;
+      query?: string;
       mode?: ResearchMode;
       title?: string;
       estimated_time?: string;
@@ -53,18 +55,23 @@ export async function POST(req: Request) {
     const { data: { user } } = await db.getUserFromRequest(reqClone);
     if (!user) return json({ error: "Unauthorized" }, 401);
 
-    if (!workflow_slug || !workflow_params) {
-      return json({ error: "workflow_slug and workflow_params are required" }, 400);
+    // Two launch modes: freeform `query` (chat-launched) OR a workflow run.
+    const freeformQuery = typeof query === "string" ? query.trim() : "";
+    const isFreeform = freeformQuery.length > 0;
+    if (!isFreeform && (!workflow_slug || !workflow_params)) {
+      return json({ error: "Provide a query, or workflow_slug + workflow_params" }, 400);
     }
     if (!isSelfHostedMode() && !valyuAccessToken) {
-      return json({ error: "AUTH_REQUIRED", message: "Sign in with Valyu to run reports." }, 401);
+      return json({ error: "AUTH_REQUIRED", message: "Sign in with Valyu to run research." }, 401);
     }
 
     // Kick off the async Valyu task.
     let task;
     try {
       task = await createDeepResearchTask(
-        { workflowSlug: workflow_slug, workflowParams: workflow_params, mode },
+        isFreeform
+          ? { query: freeformQuery, mode }
+          : { workflowSlug: workflow_slug, workflowParams: workflow_params, mode },
         { valyuAccessToken },
       );
     } catch (e) {
@@ -74,15 +81,22 @@ export async function POST(req: Request) {
       throw e;
     }
 
+    // Initial title for freeform runs = a truncated query; replaced by Valyu's
+    // auto-generated title on first sync.
+    const initialTitle = isFreeform
+      ? (title || freeformQuery.slice(0, 80) + (freeformQuery.length > 80 ? "…" : ""))
+      : (title || workflow_slug || "Report");
+
     const reportId = randomUUID();
     const { error } = await db.createReport({
       id: reportId,
       user_id: user.id,
-      workflow_slug,
+      workflow_slug: isFreeform ? "freeform" : workflow_slug!,
       workflow_version: task.workflowVersion ?? null,
-      workflow_params,
+      workflow_params: isFreeform ? {} : workflow_params!,
+      query: isFreeform ? freeformQuery : null,
       mode,
-      title: title || workflow_slug,
+      title: initialTitle,
       estimated_time: estimated_time ?? null,
       valyu_task_id: task.deepresearchId,
       status: task.status,

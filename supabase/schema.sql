@@ -101,6 +101,7 @@ CREATE TABLE IF NOT EXISTS public.reports (
   workflow_slug text NOT NULL,
   workflow_version integer,
   workflow_params jsonb NOT NULL,
+  query text,
   mode text NOT NULL,
   title text NOT NULL,
   estimated_time text,
@@ -108,6 +109,7 @@ CREATE TABLE IF NOT EXISTS public.reports (
   status text NOT NULL,
   output text,
   sources jsonb,
+  activity jsonb,
   pdf_url text,
   error_message text,
   created_at timestamp with time zone DEFAULT now(),
@@ -128,3 +130,7 @@ CREATE INDEX IF NOT EXISTS idx_collection_items_collection_id ON public.collecti
 CREATE INDEX IF NOT EXISTS idx_reports_user_id ON public.reports(user_id);
 CREATE INDEX IF NOT EXISTS idx_reports_status ON public.reports(status);
 CREATE INDEX IF NOT EXISTS idx_reports_created_at ON public.reports(created_at DESC);
+
+-- Migrations for columns added after the reports table already existed.
+ALTER TABLE public.reports ADD COLUMN IF NOT EXISTS query text;
+ALTER TABLE public.reports ADD COLUMN IF NOT EXISTS activity jsonb;

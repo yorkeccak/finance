@@ -2876,78 +2876,8 @@ export function ChatInterface({
             transition={{ duration: 0.5 }}
           >
             <div className="text-center mb-3">
-              {/* Capabilities */}
               <div className="max-w-3xl mx-auto overflow-hidden">
-                <motion.div
-                  className="text-center mb-2.5"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1, duration: 0.5 }}
-                >
-                  <h3 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                    Try these
-                  </h3>
-                </motion.div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 px-4 sm:px-0">
-                  {[
-                    {
-                      label: "🐍 ML Models",
-                      desc: "Advanced Python modeling & simulations",
-                      prompt:
-                        "Build a Monte Carlo simulation to predict Tesla's stock price in 6 months. Use Python to fetch historical data, calculate volatility and drift, run 10,000 simulations, and visualize the probability distribution with confidence intervals.",
-                    },
-                    {
-                      label: "📊 SEC Filings",
-                      desc: "Deep dive into regulatory filings & insider data",
-                      prompt:
-                        "Analyze GameStop's latest 10-K filing. Extract key financial metrics, identify risk factors, and compare revenue streams vs last year. Show me insider trading activity and institutional ownership changes.",
-                    },
-                    {
-                      label: "🏦 Smart Money",
-                      desc: "13F filings & institutional fund positions",
-                      prompt:
-                        "Where are the biggest hedge funds and institutional investors placing their bets right now? Pull the latest 13F filings from major funds, analyze their top holdings and any significant position changes. Look for emerging trends - are the smart money managers converging on specific sectors or stocks? Create a comprehensive breakdown with charts showing position sizes and sector allocations.",
-                    },
-                    {
-                      label: "📈 Growth Metrics",
-                      desc: "Business KPIs with trend visualizations",
-                      prompt:
-                        "Analyze Netflix's subscriber growth and revenue metrics over the past 5 years. Pull financial data from SEC filings, create a comprehensive CSV with quarterly metrics (subscribers, ARPU, revenue, content spend), then generate charts showing: 1) Subscriber growth trends by region, 2) Revenue vs content spending, 3) Stock price correlation with subscriber announcements. Include competitive analysis vs Disney+.",
-                    },
-                    {
-                      label: "📊 Comparative Analysis",
-                      desc: "Multi-stock comparison with charts & data",
-                      prompt:
-                        "Compare the top 5 tech stocks (AAPL, MSFT, GOOGL, AMZN, NVDA) over the past 5 years. Create a CSV with their annual revenue, profit margins, and P/E ratios. Then generate visualizations showing: 1) Stock price performance comparison chart, 2) Revenue growth trends, 3) Profitability metrics comparison. Provide detailed analysis of which performed best and why.",
-                    },
-                    {
-                      label: "🚀 Deep Investigation",
-                      desc: "Multi-source research + insider data + financials",
-                      prompt:
-                        "Do an in-depth report into the effect COVID-19 had on Pfizer. Analyze insider trades made during that time period, research those specific high-profile people involved, look at the company's stock price pre and post COVID, with income statements, balance sheets, and any relevant info from SEC filings around this time. Be thorough and execute code for deep analysis. Create a comprehensive CSV of ALL insider trades with columns: Date, Insider Name, Title/Position, Transaction Type (Buy/Sale/Option), Transaction Size (shares), Dollar Value, Stock Price at Time, and News Events Around Transaction Date.",
-                    },
-                  ].map((c, i) => (
-                    <motion.button
-                      key={c.label}
-                      onClick={() => handlePromptClick(c.prompt)}
-                      className="bg-muted/50 p-3 rounded-xl border border-border hover:border-muted-foreground/30 hover:bg-muted transition-colors text-left group"
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.3 + i * 0.05, duration: 0.4 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <div className="text-xs sm:text-[13px] font-medium text-foreground/80 group-hover:text-foreground">
-                        {c.label}
-                      </div>
-                      <div className="text-[11px] text-muted-foreground mt-1 leading-snug">
-                        {c.desc}
-                      </div>
-                    </motion.button>
-                  ))}
-                </div>
-
-                <div className="mt-4 opacity-80">
+                <div className="opacity-80">
                   <DataSourceLogos />
                 </div>
               </div>

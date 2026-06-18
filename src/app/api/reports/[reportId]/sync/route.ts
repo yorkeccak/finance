@@ -56,19 +56,34 @@ export async function POST(
       return json({ report, syncError: message }, 200);
     }
 
+    const activity = status.activity && status.activity.length > 0 ? status.activity : undefined;
+    // Adopt Valyu's auto-generated title once available (freeform runs start
+    // with a truncated-query placeholder).
+    const newTitle =
+      status.title && status.title.trim() && status.title !== report.title ? status.title : undefined;
+
     if (isTerminalStatus(status.status)) {
       const completedAt = new Date();
       await db.updateReport(reportId, user.id, {
         status: status.status,
+        title: newTitle,
         output: status.output ?? null,
         sources: status.sources ?? null,
+        // Only overwrite activity when this response carried it — don't wipe
+        // the feed accumulated during the run if the terminal payload omits it.
+        activity,
         pdf_url: status.pdfUrl ?? null,
         error_message: status.status === "failed" ? (status.raw?.error ?? "Research task failed") : null,
         completed_at: completedAt,
       });
-    } else if (status.status && status.status !== report.status) {
-      // queued → running transition
-      await db.updateReport(reportId, user.id, { status: status.status });
+    } else {
+      // Running/queued: persist the growing activity feed + title + status so a
+      // mid-run resume (reload / reopen from /reports) shows progress so far.
+      await db.updateReport(reportId, user.id, {
+        status: status.status && status.status !== report.status ? status.status : undefined,
+        title: newTitle,
+        activity,
+      });
     }
 
     const { data: fresh } = await db.getReport(reportId, user.id);

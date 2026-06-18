@@ -15,6 +15,7 @@
  */
 
 import { isSelfHostedMode } from "./local-db/local-auth";
+import { parseActivityFromMessages, type ActivityItem } from "./reports";
 
 const VALYU_API_BASE = process.env.VALYU_API_URL || "https://api.valyu.ai";
 const VALYU_OAUTH_PROXY_URL =
@@ -132,9 +133,28 @@ export async function getWorkflow(slug: string, opts: CallOpts = {}): Promise<an
 // DeepResearch tasks
 // ---------------------------------------------------------------------------
 
+/**
+ * Public webhook URL Valyu pings on task completion (for email notifications).
+ * Returns null unless a public base URL + REPORT_WEBHOOK_SECRET are set — so it
+ * stays off in local dev (Valyu can't reach localhost).
+ */
+export function buildWebhookUrl(): string | null {
+  const base =
+    process.env.VALYU_WEBHOOK_BASE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "";
+  const secret = process.env.REPORT_WEBHOOK_SECRET;
+  if (!base || !secret) return null;
+  if (!base.startsWith("https://")) return null; // must be publicly reachable
+  return `${base.replace(/\/$/, "")}/api/reports/webhook?key=${encodeURIComponent(secret)}`;
+}
+
 export interface CreateTaskInput {
-  workflowSlug: string;
-  workflowParams: Record<string, unknown>;
+  // Either a workflow run (slug + params) OR a freeform chat-launched research
+  // (query). When `query` is set it takes precedence and no workflow is used.
+  workflowSlug?: string;
+  workflowParams?: Record<string, unknown>;
+  query?: string;
   mode: ResearchMode;
 }
 
@@ -149,19 +169,24 @@ export async function createDeepResearchTask(
   input: CreateTaskInput,
   opts: CallOpts = {},
 ): Promise<CreateTaskResult> {
-  const resp = await valyuCall(
-    "/v1/deepresearch/tasks",
-    "POST",
-    {
-      workflow_id: input.workflowSlug,
-      workflow_params: input.workflowParams,
-      mode: input.mode,
-      // Always request a PDF alongside markdown so each report has a public,
-      // openable pdf_url (storage.valyu.ai) in addition to the in-app render.
-      output_formats: ["markdown", "pdf"],
-    },
-    opts,
-  );
+  // Always request a PDF alongside markdown so each report has a public,
+  // openable pdf_url (storage.valyu.ai) in addition to the in-app render.
+  const body: Record<string, unknown> = {
+    mode: input.mode,
+    output_formats: ["markdown", "pdf"],
+  };
+  // Email-on-completion: Valyu calls this public URL when the task finishes.
+  // Only set when a public base URL + shared secret are configured (so it's a
+  // no-op in local dev where Valyu can't reach localhost).
+  const webhookUrl = buildWebhookUrl();
+  if (webhookUrl) body.webhook_url = webhookUrl;
+  if (input.query) {
+    body.query = input.query;
+  } else {
+    body.workflow_id = input.workflowSlug;
+    body.workflow_params = input.workflowParams ?? {};
+  }
+  const resp = await valyuCall("/v1/deepresearch/tasks", "POST", body, opts);
   const deepresearchId = resp?.deepresearch_id ?? resp?.id ?? resp?.task_id;
   if (!deepresearchId) {
     throw new ValyuError("Valyu did not return a task id", 502, JSON.stringify(resp));
@@ -176,8 +201,10 @@ export async function createDeepResearchTask(
 
 export interface TaskStatusResult {
   status: TaskStatus;
+  title?: string | null;
   output?: string | null;
   sources?: unknown[] | null;
+  activity?: ActivityItem[];
   pdfUrl?: string | null;
   isPublic?: boolean;
   progress?: { current_step?: number; total_steps?: number } | null;
@@ -192,12 +219,23 @@ export async function getDeepResearchStatus(
   const resp = await valyuCall(`/v1/deepresearch/tasks/${taskId}/status`, "GET", undefined, opts);
   return {
     status: resp?.status as TaskStatus,
+    title: resp?.title ?? null,
     output: resp?.output ?? null,
     sources: resp?.sources ?? null,
+    // Parsed live activity feed (reasoning / research steps / sources found).
+    activity: parseActivityFromMessages(resp?.messages),
     pdfUrl: resp?.pdf_url ?? null,
     isPublic: resp?.public ?? false,
     progress: resp?.progress ?? null,
     usage: resp?.usage ?? null,
     raw: resp,
   };
+}
+
+/** Cancel a running DeepResearch task. */
+export async function cancelDeepResearchTask(
+  taskId: string,
+  opts: CallOpts = {},
+): Promise<void> {
+  await valyuCall(`/v1/deepresearch/tasks/${taskId}/cancel`, "POST", {}, opts);
 }

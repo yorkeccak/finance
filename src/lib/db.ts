@@ -497,12 +497,35 @@ export async function getReport(reportId: string, userId: string) {
   return { data, error };
 }
 
+/**
+ * Look up a report by its Valyu task id, WITHOUT a user filter. For the
+ * unauthenticated completion webhook (Valyu → us). Returns the raw row.
+ */
+export async function getReportByTaskId(taskId: string) {
+  if (isSelfHostedMode()) {
+    const db = getLocalDb();
+    const report = await db.query.reports.findFirst({
+      where: eq(schema.reports.valyuTaskId, taskId),
+    });
+    return { data: report || null, error: null };
+  }
+
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("reports")
+    .select("*")
+    .eq("valyu_task_id", taskId)
+    .maybeSingle();
+  return { data, error };
+}
+
 export async function createReport(report: {
   id: string;
   user_id: string;
   workflow_slug: string;
   workflow_version?: number | null;
   workflow_params: Record<string, unknown>;
+  query?: string | null;
   mode: string;
   title: string;
   estimated_time?: string | null;
@@ -517,6 +540,7 @@ export async function createReport(report: {
       workflowSlug: report.workflow_slug,
       workflowVersion: report.workflow_version ?? null,
       workflowParams: JSON.stringify(report.workflow_params),
+      query: report.query ?? null,
       mode: report.mode,
       title: report.title,
       estimatedTime: report.estimated_time ?? null,
@@ -533,6 +557,7 @@ export async function createReport(report: {
     workflow_slug: report.workflow_slug,
     workflow_version: report.workflow_version ?? null,
     workflow_params: report.workflow_params,
+    query: report.query ?? null,
     mode: report.mode,
     title: report.title,
     estimated_time: report.estimated_time ?? null,
@@ -547,9 +572,11 @@ export async function updateReport(
   userId: string,
   updates: {
     status?: string;
+    title?: string;
     valyu_task_id?: string | null;
     output?: string | null;
     sources?: unknown[] | null;
+    activity?: unknown[] | null;
     pdf_url?: string | null;
     error_message?: string | null;
     completed_at?: Date | null;
@@ -559,10 +586,13 @@ export async function updateReport(
     const db = getLocalDb();
     const updateData: any = { updatedAt: new Date() };
     if (updates.status !== undefined) updateData.status = updates.status;
+    if (updates.title !== undefined) updateData.title = updates.title;
     if (updates.valyu_task_id !== undefined) updateData.valyuTaskId = updates.valyu_task_id;
     if (updates.output !== undefined) updateData.output = updates.output;
     if (updates.sources !== undefined)
       updateData.sources = updates.sources ? JSON.stringify(updates.sources) : null;
+    if (updates.activity !== undefined)
+      updateData.activity = updates.activity ? JSON.stringify(updates.activity) : null;
     if (updates.pdf_url !== undefined) updateData.pdfUrl = updates.pdf_url;
     if (updates.error_message !== undefined) updateData.errorMessage = updates.error_message;
     if (updates.completed_at !== undefined) updateData.completedAt = updates.completed_at;
@@ -579,9 +609,11 @@ export async function updateReport(
   const supabase = await createSupabaseClient();
   const updateData: any = { updated_at: new Date().toISOString() };
   if (updates.status !== undefined) updateData.status = updates.status;
+  if (updates.title !== undefined) updateData.title = updates.title;
   if (updates.valyu_task_id !== undefined) updateData.valyu_task_id = updates.valyu_task_id;
   if (updates.output !== undefined) updateData.output = updates.output;
   if (updates.sources !== undefined) updateData.sources = updates.sources;
+  if (updates.activity !== undefined) updateData.activity = updates.activity;
   if (updates.pdf_url !== undefined) updateData.pdf_url = updates.pdf_url;
   if (updates.error_message !== undefined) updateData.error_message = updates.error_message;
   if (updates.completed_at !== undefined)

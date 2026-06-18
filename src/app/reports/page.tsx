@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Trash2, ExternalLink } from "lucide-react";
@@ -9,6 +9,7 @@ import { WorkflowBrowser } from "@/components/reports/workflow-browser";
 import { ReportDrawer } from "@/components/reports/report-drawer";
 import { apiListReports, apiDeleteReport } from "@/lib/report-client";
 import { isTerminal } from "@/lib/reports";
+import { markSeen } from "@/lib/report-notify";
 import { iconForSlug, verticalForSlug } from "@/lib/domain-icons";
 import { DOMAINS } from "@/lib/domains";
 
@@ -23,6 +24,7 @@ const STATUS_STYLES: Record<string, string> = {
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
 const domainLabel = (slug: string): string | null => {
+  if (slug === "freeform") return "Deep Research";
   const v = verticalForSlug(slug);
   return DOMAINS.find((d) => d.id === v)?.label ?? null;
 };
@@ -66,6 +68,12 @@ export default function ReportsPage() {
     queryFn: apiListReports,
     refetchInterval: 8000,
   });
+
+  // Visiting the reports list acknowledges all finished runs → clears the badge.
+  useEffect(() => {
+    const done = reports.filter((r) => isTerminal(r.status)).map((r) => r.id);
+    if (done.length) markSeen(done);
+  }, [reports]);
 
   const handleDelete = async (id: string) => {
     await apiDeleteReport(id);

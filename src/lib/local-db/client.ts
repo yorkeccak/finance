@@ -88,6 +88,7 @@ function initializeDatabase(sqlite: Database.Database) {
       workflow_slug TEXT NOT NULL,
       workflow_version INTEGER,
       workflow_params TEXT NOT NULL,
+      query TEXT,
       mode TEXT NOT NULL,
       title TEXT NOT NULL,
       estimated_time TEXT,
@@ -95,6 +96,7 @@ function initializeDatabase(sqlite: Database.Database) {
       status TEXT NOT NULL,
       output TEXT,
       sources TEXT,
+      activity TEXT,
       pdf_url TEXT,
       error_message TEXT,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
@@ -114,6 +116,16 @@ function initializeDatabase(sqlite: Database.Database) {
   // SQLite has no "ADD COLUMN IF NOT EXISTS"; the ALTER throws if present.
   try {
     sqlite.exec("ALTER TABLE reports ADD COLUMN pdf_url TEXT");
+  } catch {
+    /* column already exists */
+  }
+  try {
+    sqlite.exec("ALTER TABLE reports ADD COLUMN query TEXT");
+  } catch {
+    /* column already exists */
+  }
+  try {
+    sqlite.exec("ALTER TABLE reports ADD COLUMN activity TEXT");
   } catch {
     /* column already exists */
   }

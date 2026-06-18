@@ -24,6 +24,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
+import { apiListReports } from '@/lib/report-client';
+import { unseenCompletedCount } from '@/lib/report-notify';
 import { SettingsModal } from '@/components/user/settings-modal';
 import { EnterpriseContactModal } from '@/components/enterprise/enterprise-contact-modal';
 
@@ -54,6 +56,15 @@ export function Sidebar({
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const isSelfHosted = process.env.NEXT_PUBLIC_APP_MODE === 'self-hosted';
+
+  // Reports badge: count of completed runs the user hasn't acknowledged yet.
+  const { data: reportsForBadge = [] } = useQuery({
+    queryKey: ['reports'],
+    queryFn: apiListReports,
+    refetchInterval: 10000,
+    enabled: !!user,
+  });
+  const unseenReports = unseenCompletedCount(reportsForBadge);
 
   // Keep dock open by default for everyone
   const [isOpen, setIsOpen] = useState(true);
@@ -619,6 +630,11 @@ export function Sidebar({
                         ? 'text-white dark:text-gray-900'
                         : 'text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-gray-100'
                     }`} />
+                    {unseenReports > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-semibold leading-none ring-2 ring-[#F5F5F5] dark:ring-gray-950">
+                        {unseenReports > 9 ? '9+' : unseenReports}
+                      </span>
+                    )}
                   </button>
                   <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
                     Reports

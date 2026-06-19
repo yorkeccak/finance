@@ -10,6 +10,7 @@ import { isTerminal } from "@/lib/reports";
 import { apiCreateResearch, apiSyncReport, apiCancelReport } from "@/lib/report-client";
 import { requestNotifyPermission } from "@/lib/report-notify";
 import { ReportView } from "@/components/reports/report-view";
+import { ErrorNote } from "@/components/reports/error-note";
 import { HomeWorkflows } from "@/components/home-workflows";
 import DataSourceLogos from "@/components/data-source-logos";
 
@@ -123,7 +124,7 @@ function ResearchInput({ onLaunched }: { onLaunched: (id: string) => void }) {
           ))}
         </div>
 
-        {error && <div className="mt-2 text-xs text-red-500">{error}</div>}
+        {error && <ErrorNote message={error} className="mt-2" />}
       </motion.div>
 
       <div className="mt-8 opacity-80">
@@ -138,7 +139,23 @@ function ResearchInput({ onLaunched }: { onLaunched: (id: string) => void }) {
         animate={{ opacity: 1 }}
         transition={{ delay: 1.1, duration: 0.5 }}
       >
-        <span className="text-xs text-muted-foreground/60">Powered by Valyu DeepResearch</span>
+        <span className="text-xs text-muted-foreground/60">Powered by Valyu</span>
+        <a
+          href="https://platform.valyu.ai"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Valyu"
+          className="inline-flex items-center text-muted-foreground/70 hover:text-foreground hover:scale-105 transition-all"
+        >
+          <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
+            <path
+              d="M4 6 H20 L12 19 Z"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </a>
       </motion.div>
     </div>
   );

@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2, AlertCircle, Clock, Download, ExternalLink } from "lucide-react";
 import { CitationTextRenderer } from "@/components/citation-text-renderer";
 import { ActivityFeed } from "@/components/reports/activity-feed";
+import { ErrorNote } from "@/components/reports/error-note";
 import { apiSyncReport, apiDownloadReportPdf } from "@/lib/report-client";
 import { isTerminal } from "@/lib/reports";
 import { markSeen } from "@/lib/report-notify";
@@ -133,6 +134,18 @@ export function ReportView({ reportId }: { reportId: string }) {
       {/* Running / queued */}
       {!isTerminal(report.status) && (
         <>
+          {/* A non-transient status-poll error (e.g. credits/auth) — the run may
+              be stuck. Surface it instead of leaving the card spinning silently. */}
+          {data?.syncError && (
+            <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 flex items-start gap-2.5">
+              <AlertCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+              <div className="min-w-0">
+                <div className="text-xs font-medium text-destructive">Couldn&apos;t refresh status</div>
+                <ErrorNote message={data.syncError} className="mt-0.5" />
+              </div>
+            </div>
+          )}
+
           <div className="rounded-2xl border border-border bg-card p-5 mb-5 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
             <div className="flex items-center gap-3">
               <span className="relative flex h-9 w-9 items-center justify-center flex-shrink-0">

@@ -22,6 +22,7 @@ import { apiListWorkflows } from "@/lib/workflow-client";
 import { apiCreateReport } from "@/lib/report-client";
 import { getExample } from "@/lib/example-reports/registry";
 import { ExampleReportDrawer } from "@/components/reports/example-report-drawer";
+import { ErrorNote } from "@/components/reports/error-note";
 import { iconForVertical, verticalForSlug } from "@/lib/domain-icons";
 
 const LS_KEY = "reports.lastDomain";
@@ -435,7 +436,7 @@ function RunPanel({
         </div>
       </div>
 
-      {error && <div className="mt-4 text-xs text-red-500">{error}</div>}
+      {error && <ErrorNote message={error} className="mt-4" />}
 
       <div className="mt-5">
         <button

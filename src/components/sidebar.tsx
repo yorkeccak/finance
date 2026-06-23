@@ -14,6 +14,7 @@ import {
   FileText,
   Settings,
   LogOut,
+  LogIn,
   Trash2,
   BarChart3,
   Plus,
@@ -286,7 +287,7 @@ export function Sidebar({
           ) : (
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('show-auth-modal'))}
-              className="px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-lg"
+              className="px-3 py-1.5 text-sm font-medium text-background bg-foreground hover:bg-foreground/90 rounded-lg transition-colors"
             >
               Log in
             </button>
@@ -458,9 +459,9 @@ export function Sidebar({
                           setShowMobileDrawer(false);
                           window.dispatchEvent(new CustomEvent('show-auth-modal'));
                         }}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-emerald-600 text-white rounded-xl font-medium text-sm"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-foreground text-background hover:bg-foreground/90 rounded-xl font-medium text-sm transition-colors"
                       >
-                        <LogOut className="h-4 w-4 rotate-180" />
+                        <LogIn className="h-4 w-4" />
                         Log in
                       </button>
                     )}
@@ -518,14 +519,14 @@ export function Sidebar({
                   onClick={() => setAlwaysOpen(!alwaysOpen)}
                   className={`w-12 h-12 flex items-center justify-center rounded-[20px] transition-all duration-200 hover:scale-110 active:scale-95 ${
                     alwaysOpen
-                      ? 'bg-blue-100 dark:bg-blue-900/30'
+                      ? 'bg-gray-100 dark:bg-gray-800'
                       : 'hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`}
                 >
                   <svg
                     className={`w-6 h-6 transition-colors ${
                       alwaysOpen
-                        ? 'text-blue-600 dark:text-blue-400'
+                        ? 'text-gray-900 dark:text-gray-100'
                         : 'text-gray-600 dark:text-gray-400'
                     }`}
                     fill="none"
@@ -702,13 +703,9 @@ export function Sidebar({
                     onClick={() => {
                       window.dispatchEvent(new CustomEvent('show-auth-modal'));
                     }}
-                    className="w-12 h-12 flex items-center justify-center bg-gradient-to-br from-blue-50 to-emerald-50 dark:from-blue-900/30 dark:to-emerald-900/30 hover:from-blue-100 hover:to-emerald-100 dark:hover:from-blue-900/40 dark:hover:to-emerald-900/40 rounded-[20px] transition-all duration-200 hover:scale-110 active:scale-95 border border-blue-200/50 dark:border-blue-800/50 relative"
+                    className="w-12 h-12 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-[20px] transition-all duration-200 hover:scale-110 active:scale-95"
                   >
-                    <LogOut className="h-6 w-6 text-blue-600 dark:text-blue-400 rotate-180" />
-                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
-                    </span>
+                    <LogIn className="h-6 w-6 text-gray-600 dark:text-gray-400" />
                   </button>
                   <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
                     Log in

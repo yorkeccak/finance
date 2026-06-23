@@ -23,7 +23,13 @@ import { apiCreateReport } from "@/lib/report-client";
 import { getExample } from "@/lib/example-reports/registry";
 import { ExampleReportDrawer } from "@/components/reports/example-report-drawer";
 import { ErrorNote } from "@/components/reports/error-note";
+import { AuthModal } from "@/components/auth/auth-modal";
 import { iconForVertical, verticalForSlug } from "@/lib/domain-icons";
+
+/** True when an error message looks like a lapsed/absent session rather than a
+ * genuine failure — keep matching generic so we never leak internals. */
+const isAuthError = (message: string): boolean =>
+  /AUTH_REQUIRED|session expired|sign in|unauthor/i.test(message);
 
 const LS_KEY = "reports.lastDomain";
 
@@ -90,6 +96,7 @@ export function WorkflowBrowser({
   const [pendingSlug, setPendingSlug] = useState<string | null>(null);
   const [openExampleDomain, setOpenExampleDomain] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Deep link from an example: /reports?workflow=<slug> → jump to its domain
   // and auto-open the run panel once the catalog loads. Otherwise restore
@@ -181,6 +188,7 @@ export function WorkflowBrowser({
         <RunPanel
           workflow={selected}
           onBack={() => setSelected(null)}
+          onAuthRequired={() => setShowAuthModal(true)}
           onLaunched={(id) => {
             queryClient.invalidateQueries({ queryKey: ["reports"] });
             if (onOpenReport) {
@@ -324,6 +332,8 @@ export function WorkflowBrowser({
           setPendingSlug(slug);
         }}
       />
+
+      <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </div>
   );
 }
@@ -332,10 +342,12 @@ function RunPanel({
   workflow,
   onBack,
   onLaunched,
+  onAuthRequired,
 }: {
   workflow: WorkflowDTO;
   onBack: () => void;
   onLaunched: (reportId: string) => void;
+  onAuthRequired: () => void;
 }) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [mode, setMode] = useState(workflow.recommended_mode || "standard");
@@ -377,7 +389,14 @@ function RunPanel({
       });
       onLaunched(report.id);
     } catch (e) {
-      setError((e as Error).message);
+      const message = (e as Error).message;
+      // A lapsed session isn't a failed launch — prompt re-auth instead of
+      // surfacing a raw error string.
+      if (isAuthError(message)) {
+        onAuthRequired();
+      } else {
+        setError(message);
+      }
       setLaunching(false);
     }
   };

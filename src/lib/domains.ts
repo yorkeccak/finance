@@ -47,5 +47,4 @@ export const MODES: ModeOption[] = [
   { id: "fast", label: "Fast", note: "Lighter, fastest" },
   { id: "standard", label: "Standard", note: "Recommended depth" },
   { id: "heavy", label: "Heavy", note: "Deepest analysis" },
-  { id: "max", label: "Max", note: "Exhaustive — use sparingly" },
 ];

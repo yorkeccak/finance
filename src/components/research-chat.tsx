@@ -1,20 +1,73 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { ArrowRight, Loader2, Plus, Ban, Zap } from "lucide-react";
+import { ArrowRight, Loader2, Plus, Ban, Zap, BarChart3, Terminal, FileSpreadsheet, AlertCircle, X, ChevronDown } from "lucide-react";
 import { MODES } from "@/lib/domains";
 import { isTerminal } from "@/lib/reports";
 import { apiCreateResearch, apiSyncReport, apiCancelReport } from "@/lib/report-client";
+import type { DeliverableType, DeliverableItem } from "@/lib/report-client";
 import { requestNotifyPermission } from "@/lib/report-notify";
 import { ReportView } from "@/components/reports/report-view";
 import { ErrorNote } from "@/components/reports/error-note";
 import { HomeWorkflows } from "@/components/home-workflows";
+import { AuthModal } from "@/components/auth/auth-modal";
 import DataSourceLogos from "@/components/data-source-logos";
 
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+
+type ToolKey = "charts" | "codeExecution" | "deliverables";
+
+const RESEARCH_TOOLS: {
+  key: ToolKey;
+  label: string;
+  icon: typeof BarChart3;
+  title: string;
+}[] = [
+  {
+    key: "charts",
+    label: "Chart Generation",
+    icon: BarChart3,
+    title: "Generate charts in the report",
+  },
+  {
+    key: "codeExecution",
+    label: "Code Execution",
+    icon: Terminal,
+    title: "Run Python for calculations and analysis",
+  },
+  {
+    key: "deliverables",
+    label: "Deliverables",
+    icon: FileSpreadsheet,
+    title: "Export Excel/PowerPoint/Word files",
+  },
+];
+
+// Deliverable formats offered in the picker, with a sample description to
+// guide the user on what to ask for. Office formats (xlsx/pptx/docx) are
+// produced via code execution, so requesting any of them forces it on.
+const DELIVERABLE_FORMATS: {
+  type: DeliverableType;
+  label: string;
+  sample: string;
+}[] = [
+  { type: "xlsx", label: "Excel (.xlsx)", sample: "e.g. 3-statement model with quarterly revenue, margins and free cash flow" },
+  { type: "pptx", label: "PowerPoint (.pptx)", sample: "e.g. 10-slide IC deck: thesis, comps, risks, recommendation" },
+  { type: "docx", label: "Word (.docx)", sample: "e.g. Full memo with exec summary, analysis and appendix" },
+  { type: "csv", label: "CSV (.csv)", sample: "e.g. Peer comps table: ticker, EV/EBITDA, P/E, revenue growth" },
+  { type: "pdf", label: "PDF (.pdf)", sample: "e.g. One-page summary of key findings and the verdict" },
+];
+
+const SAMPLE_DESC: Record<DeliverableType, string> = Object.fromEntries(
+  DELIVERABLE_FORMATS.map((f) => [f.type, f.sample]),
+) as Record<DeliverableType, string>;
+
+const OFFICE_FORMATS: DeliverableType[] = ["xlsx", "pptx", "docx"];
+const isOfficeFormat = (type: DeliverableType) => OFFICE_FORMATS.includes(type);
 
 /**
  * Homepage research surface. A freeform query launches a Valyu DeepResearch
@@ -45,8 +98,50 @@ export function ResearchChat() {
 function ResearchInput({ onLaunched }: { onLaunched: (id: string) => void }) {
   const [input, setInput] = useState("");
   const [mode, setMode] = useState("standard");
+  const [tools, setTools] = useState<{
+    charts: boolean;
+    codeExecution: boolean;
+    deliverables: DeliverableItem[];
+  }>({ charts: true, codeExecution: false, deliverables: [] });
+  const [deliverablesOpen, setDeliverablesOpen] = useState(false);
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Office deliverables (xlsx/pptx/docx) are produced via code execution, so
+  // requesting any of them implies it (reflected in the Code Execution pill).
+  const hasOfficeDeliverable = tools.deliverables.some((d) => isOfficeFormat(d.type));
+
+  const toggleTool = (key: "charts" | "codeExecution") =>
+    setTools((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const MAX_DELIVERABLES = 5;
+
+  const addDeliverable = () =>
+    setTools((prev) =>
+      prev.deliverables.length >= MAX_DELIVERABLES
+        ? prev
+        : { ...prev, deliverables: [...prev.deliverables, { type: "xlsx", description: "" }] },
+    );
+
+  const updateDeliverable = (i: number, patch: Partial<DeliverableItem>) =>
+    setTools((prev) => ({
+      ...prev,
+      deliverables: prev.deliverables.map((d, idx) => (idx === i ? { ...d, ...patch } : d)),
+    }));
+
+  const removeDeliverable = (i: number) =>
+    setTools((prev) => ({
+      ...prev,
+      deliverables: prev.deliverables.filter((_, idx) => idx !== i),
+    }));
+
+  // Opening the panel with nothing configured seeds one row so it's not empty.
+  const toggleDeliverablesPanel = () => {
+    setDeliverablesOpen((open) => {
+      if (!open && tools.deliverables.length === 0) addDeliverable();
+      return !open;
+    });
+  };
   // Synchronous re-entrancy guard. The `launching` state can't block a second
   // submit() fired in the same tick (rapid double-click / double-Enter) because
   // React hasn't re-rendered yet — without this, one fumble = two runs = double
@@ -63,7 +158,11 @@ function ResearchInput({ onLaunched }: { onLaunched: (id: string) => void }) {
     // (it's a long async run — the user will likely switch away).
     void requestNotifyPermission();
     try {
-      const report = await apiCreateResearch(q, mode);
+      const report = await apiCreateResearch(q, mode, {
+        charts: tools.charts,
+        codeExecution: tools.codeExecution || hasOfficeDeliverable,
+        deliverables: tools.deliverables,
+      });
       onLaunched(report.id); // navigates away (unmounts) on success
     } catch (e) {
       setError((e as Error).message);
@@ -104,57 +203,174 @@ function ResearchInput({ onLaunched }: { onLaunched: (id: string) => void }) {
           </button>
         </div>
 
-        {/* Depth selector */}
-        <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
-          <span className="text-[11px] font-medium text-muted-foreground mr-0.5">Depth</span>
-          {MODES.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => setMode(m.id)}
-              title={m.note}
-              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
-                mode === m.id
-                  ? "bg-foreground text-background border-foreground"
-                  : "bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
-              }`}
-            >
-              {m.id === "fast" && <Zap className="h-3 w-3 fill-current" strokeWidth={0} />}
-              {m.label}
-            </button>
-          ))}
+        {/* Depth + Tools — two labeled sub-groups on a single wrapping row */}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-4">
+          {/* Depth selector */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-medium text-muted-foreground mr-0.5">Depth</span>
+            {MODES.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => setMode(m.id)}
+                title={m.note}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                  mode === m.id
+                    ? "bg-foreground text-background border-foreground"
+                    : "bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
+                }`}
+              >
+                {m.id === "fast" && <Zap className="h-3 w-3 fill-current" strokeWidth={0} />}
+                {m.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Research tools */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-medium text-muted-foreground mr-0.5">Tools</span>
+            {RESEARCH_TOOLS.map((t) => {
+              const Icon = t.icon;
+              if (t.key === "deliverables") {
+                const count = tools.deliverables.length;
+                const active = count > 0;
+                return (
+                  <button
+                    key={t.key}
+                    onClick={toggleDeliverablesPanel}
+                    aria-pressed={active}
+                    aria-expanded={deliverablesOpen}
+                    title={t.title}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                      active
+                        ? "bg-foreground text-background border-foreground"
+                        : "bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
+                    }`}
+                  >
+                    <Icon className="h-3 w-3" />
+                    {t.label}
+                    {count > 0 && <span className="opacity-70">({count})</span>}
+                    <ChevronDown
+                      className={`h-3 w-3 transition-transform ${deliverablesOpen ? "rotate-180" : ""}`}
+                    />
+                  </button>
+                );
+              }
+              const active =
+                t.key === "codeExecution"
+                  ? tools.codeExecution || hasOfficeDeliverable
+                  : tools[t.key];
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => toggleTool(t.key as "charts" | "codeExecution")}
+                  aria-pressed={active}
+                  title={t.title}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                    active
+                      ? "bg-foreground text-background border-foreground"
+                      : "bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
+                  }`}
+                >
+                  <Icon className="h-3 w-3" />
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
+
+        {/* Deliverables builder — pick a format and describe what it should contain */}
+        {deliverablesOpen && (
+          <div className="mt-3 rounded-xl border border-border bg-muted/30 p-3">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-[11px] font-medium text-foreground">Deliverables</span>
+              <span className="text-[10px] text-muted-foreground/70">
+                Pick a format and describe what it should contain
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              {tools.deliverables.map((d, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <select
+                    value={d.type}
+                    onChange={(e) => updateDeliverable(i, { type: e.target.value as DeliverableType })}
+                    aria-label="Deliverable format"
+                    className="shrink-0 rounded-lg border border-border bg-background px-2 py-1.5 text-[11px] font-medium text-foreground outline-none focus:border-muted-foreground/40 cursor-pointer"
+                  >
+                    {DELIVERABLE_FORMATS.map((f) => (
+                      <option key={f.type} value={f.type}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    value={d.description}
+                    onChange={(e) => updateDeliverable(i, { description: e.target.value })}
+                    placeholder={SAMPLE_DESC[d.type]}
+                    maxLength={500}
+                    className="flex-1 min-w-0 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-muted-foreground/40"
+                  />
+                  <button
+                    onClick={() => removeDeliverable(i)}
+                    aria-label="Remove deliverable"
+                    className="shrink-0 h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {tools.deliverables.length < MAX_DELIVERABLES && (
+              <button
+                onClick={addDeliverable}
+                className="mt-2.5 inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Plus className="h-3 w-3" /> Add deliverable
+              </button>
+            )}
+
+            {hasOfficeDeliverable && (
+              <p className="mt-2.5 text-[10px] text-muted-foreground/60">
+                Excel, PowerPoint, and Word files are produced via code execution.
+              </p>
+            )}
+          </div>
+        )}
 
         {error && <ErrorNote message={error} className="mt-2" />}
       </motion.div>
 
-      <div className="mt-8 opacity-80">
+      <div className="mt-10 sm:mt-12">
+        <HomeWorkflows />
+      </div>
+
+      <div className="mt-6 sm:mt-8 opacity-80">
         <DataSourceLogos />
       </div>
 
-      <HomeWorkflows />
-
       <motion.div
-        className="flex items-center justify-center gap-1 mt-10 mb-4"
+        className="flex items-center justify-center mt-6 sm:mt-8"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1.1, duration: 0.5 }}
       >
-        <span className="text-xs text-muted-foreground/60">Powered by Valyu</span>
+        <span className="text-xs text-muted-foreground/60">Powered by</span>
         <a
           href="https://platform.valyu.ai"
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Valyu"
-          className="inline-flex items-center text-muted-foreground/70 hover:text-foreground hover:scale-105 transition-all"
+          className="inline-flex items-center hover:scale-105 transition-transform"
         >
-          <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
-            <path
-              d="M4 6 H20 L12 19 Z"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <Image
+            src="/valyu.svg"
+            alt="Valyu"
+            width={60}
+            height={60}
+            className="h-4 opacity-60 hover:opacity-100 transition-opacity cursor-pointer dark:invert"
+          />
         </a>
       </motion.div>
     </div>
@@ -164,6 +380,7 @@ function ResearchInput({ onLaunched }: { onLaunched: (id: string) => void }) {
 function ResearchRun({ reportId, onNew }: { reportId: string; onNew: () => void }) {
   const queryClient = useQueryClient();
   const [cancelling, setCancelling] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Shares the ["report", reportId] cache with <ReportView> — React Query
   // dedupes, so this is one poll, not two.
@@ -171,7 +388,11 @@ function ResearchRun({ reportId, onNew }: { reportId: string; onNew: () => void 
     queryKey: ["report", reportId],
     queryFn: () => apiSyncReport(reportId),
     refetchInterval: (query) => {
-      const status = query.state.data?.report?.status;
+      const synced = query.state.data;
+      // The session lapsed — further polls would 401 in a loop. Stop and let
+      // the user re-auth; the run continues server-side regardless.
+      if (synced?.authExpired) return false;
+      const status = synced?.report?.status;
       return status && isTerminal(status) ? false : 4000;
     },
     refetchOnWindowFocus: true,
@@ -237,7 +458,29 @@ function ResearchRun({ reportId, onNew }: { reportId: string; onNew: () => void 
         </div>
       </div>
 
+      {/* Re-auth needed — the session lapsed while the run continues
+          server-side. Polling is paused; offer sign-in to resume live updates. */}
+      {data?.authExpired && (
+        <div className="mb-6 rounded-xl border border-border bg-card px-4 py-3 flex items-start gap-2.5">
+          <AlertCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-medium text-foreground">Sign in to keep tracking progress</div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Your session expired. The report keeps running; sign back in to see live updates.
+            </p>
+            <button
+              onClick={() => setShowAuthModal(true)}
+              className="mt-2 inline-flex items-center rounded-lg bg-foreground text-background px-3 py-1.5 text-xs font-medium hover:opacity-90 transition-opacity"
+            >
+              Sign in with Valyu to continue
+            </button>
+          </div>
+        </div>
+      )}
+
       <ReportView reportId={reportId} />
+
+      <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </motion.div>
   );
 }

@@ -82,7 +82,7 @@ export const reports = sqliteTable("reports", {
   workflowVersion: integer("workflow_version"),
   workflowParams: text("workflow_params").notNull(), // JSON object of variable values
   query: text("query"), // freeform research query (chat-launched runs); null for workflow runs
-  mode: text("mode").notNull(), // fast | standard | heavy | max
+  mode: text("mode").notNull(), // fast | standard | heavy
   title: text("title").notNull(),
   estimatedTime: text("estimated_time"), // e.g. "7-12 min" (per-workflow, displayed)
   valyuTaskId: text("valyu_task_id"), // Valyu deepresearch_id (null until created)

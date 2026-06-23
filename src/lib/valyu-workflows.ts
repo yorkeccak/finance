@@ -22,7 +22,16 @@ const VALYU_OAUTH_PROXY_URL =
   process.env.VALYU_OAUTH_PROXY_URL ||
   `${process.env.VALYU_APP_URL || process.env.NEXT_PUBLIC_VALYU_APP_URL || "https://platform.valyu.ai"}/api/oauth/proxy`;
 
-export type ResearchMode = "fast" | "standard" | "heavy" | "max";
+/** Default API descriptions per deliverable type (description is required). */
+const DEFAULT_DELIVERABLE_DESC: Record<string, string> = {
+  csv: "Underlying data as a CSV table",
+  xlsx: "Key figures and supporting data as a spreadsheet",
+  pptx: "Summary presentation of the findings",
+  docx: "Full written report as a Word document",
+  pdf: "Full report as a PDF document",
+};
+
+export type ResearchMode = "fast" | "standard" | "heavy";
 export type TaskStatus =
   | "queued"
   | "running"
@@ -100,8 +109,11 @@ async function valyuCall(
     if (res.status === 402) {
       throw new ValyuError("Insufficient Valyu credits. Top up your account to continue.", 402, text);
     }
-    if (res.status === 401 || res.status === 403) {
-      throw new ValyuError("Valyu session expired. Please sign in again.", res.status, text);
+    if (res.status === 401) {
+      throw new ValyuError("Valyu session expired. Please sign in again.", 401, text);
+    }
+    if (res.status === 403) {
+      throw new ValyuError("This Valyu feature is not available for your account.", 403, text);
     }
     const msg = json?.error?.message || json?.message || json?.error || `Valyu request failed (${res.status})`;
     throw new ValyuError(typeof msg === "string" ? msg : `Valyu request failed (${res.status})`, res.status, text);
@@ -156,6 +168,14 @@ export interface CreateTaskInput {
   workflowParams?: Record<string, unknown>;
   query?: string;
   mode: ResearchMode;
+  // Optional per-run enhancements. Charts default on; document deliverables
+  // (xlsx/pptx/docx) are produced via code execution, so requesting them
+  // implies code_execution.
+  tools?: {
+    charts?: boolean;
+    codeExecution?: boolean;
+    deliverables?: { type: string; description?: string }[];
+  };
 }
 
 export interface CreateTaskResult {
@@ -185,6 +205,32 @@ export async function createDeepResearchTask(
   } else {
     body.workflow_id = input.workflowSlug;
     body.workflow_params = input.workflowParams ?? {};
+  }
+  // Map optional per-run enhancements onto the task body.
+  //  - charts default on (improves every report) unless explicitly off.
+  //  - code execution is enabled by an explicit toggle OR by any document
+  //    deliverable (xlsx/pptx/docx), which are produced via code execution.
+  //  - deliverables go in a top-level array, not under `tools`. Each entry is
+  //    a { type, description }; description is required by the API.
+  const deliverables = input.tools?.deliverables ?? [];
+  const needsCodeForDeliverables = deliverables.some((d) =>
+    ["xlsx", "pptx", "docx"].includes(d.type),
+  );
+  const wantsCharts = input.tools?.charts ?? true;
+  const wantsCode = !!(input.tools?.codeExecution || needsCodeForDeliverables);
+  const taskTools: Record<string, unknown> = {};
+  if (wantsCharts) taskTools.charts = true;
+  if (wantsCode) taskTools.code_execution = { enabled: true };
+  if (Object.keys(taskTools).length > 0) body.tools = taskTools;
+  if (deliverables.length > 0) {
+    // Use the caller's description; fall back to a sensible default per type.
+    body.deliverables = deliverables.map((d) => ({
+      type: d.type,
+      description:
+        d.description?.trim() ||
+        DEFAULT_DELIVERABLE_DESC[d.type] ||
+        "Supporting deliverable",
+    }));
   }
   const resp = await valyuCall("/v1/deepresearch/tasks", "POST", body, opts);
   const deepresearchId = resp?.deepresearch_id ?? resp?.id ?? resp?.task_id;

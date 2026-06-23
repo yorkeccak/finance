@@ -42,6 +42,7 @@ export async function POST(req: Request) {
       title,
       estimated_time,
       valyuAccessToken,
+      tools,
     }: {
       workflow_slug?: string;
       workflow_params?: Record<string, unknown>;
@@ -50,6 +51,11 @@ export async function POST(req: Request) {
       title?: string;
       estimated_time?: string;
       valyuAccessToken?: string;
+      tools?: {
+        charts?: boolean;
+        codeExecution?: boolean;
+        deliverables?: { type: string; description?: string }[];
+      };
     } = body;
 
     const { data: { user } } = await db.getUserFromRequest(reqClone);
@@ -70,7 +76,7 @@ export async function POST(req: Request) {
     try {
       task = await createDeepResearchTask(
         isFreeform
-          ? { query: freeformQuery, mode }
+          ? { query: freeformQuery, mode, tools }
           : { workflowSlug: workflow_slug, workflowParams: workflow_params, mode },
         { valyuAccessToken },
       );

@@ -38,7 +38,10 @@ export async function GET(req: Request) {
       }
     } catch (e) {
       if (e instanceof ValyuError) {
-        return json({ error: e.message }, e.status === 401 || e.status === 403 ? 401 : 502);
+        if (e.status === 401) return json({ error: e.message }, 401);
+        if (e.status === 402) return json({ error: e.message }, 402);
+        if (e.status === 403) return json({ error: "Workflows are temporarily unavailable." }, 503);
+        return json({ error: e.message }, 502);
       }
       throw e;
     }

@@ -1,4 +1,5 @@
 import * as db from "@/lib/db";
+import { isSelfHostedMode } from "@/lib/local-db/local-auth";
 import { normalizeReport, isTerminal } from "@/lib/reports";
 import {
   getDeepResearchStatus,
@@ -38,6 +39,13 @@ export async function POST(
 
     const report = normalizeReport(row);
 
+    // No hosted access token → the user needs to re-authenticate before we can
+    // poll status. Surface this as a first-class signal (200 so the report
+    // still renders) rather than letting a downstream 401 spin forever.
+    if (!isSelfHostedMode() && !valyuAccessToken) {
+      return json({ report, authExpired: true }, 200);
+    }
+
     // Already done, or no task to poll — return as-is.
     if (isTerminal(report.status) || !report.valyu_task_id) {
       return json({ report });
@@ -51,7 +59,12 @@ export async function POST(
       if (isTransientValyuError(e)) {
         return json({ report, transient: true });
       }
-      // Hard error (e.g. credits/auth) → surface it but don't kill the run.
+      // Auth expired/forbidden → surface a re-auth signal so the client can
+      // prompt sign-in instead of polling against a dead token.
+      if (e instanceof ValyuError && (e.status === 401 || e.status === 403)) {
+        return json({ report, authExpired: true }, 200);
+      }
+      // Hard error (e.g. credits) → surface it but don't kill the run.
       const message = e instanceof ValyuError ? e.message : "Status check failed";
       return json({ report, syncError: message }, 200);
     }

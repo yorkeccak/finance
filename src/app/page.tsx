@@ -277,12 +277,14 @@ function HomeContent() {
       />
 
       {/* Main Content Area */}
-      <div className="main-content-shell flex-1 min-w-0 flex flex-col pt-14 md:pt-0">
+      <div className={`main-content-shell flex-1 min-w-0 flex flex-col pt-14 md:pt-0 ${
+        !hasMessages && !researchActive ? 'justify-center' : ''
+      }`}>
         {/* Header - Animate out when a research run is active */}
         <AnimatePresence mode="wait">
             {!hasMessages && !researchActive && (
               <motion.div
-                className="text-center pt-4 md:pt-8 pb-2 md:pb-2 px-4 md:px-0"
+                className="text-center pt-0 md:pt-2 pb-6 md:pb-10 px-4 md:px-0"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20, transition: { duration: 0.3 } }}
@@ -368,7 +370,7 @@ function HomeContent() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.6, ease: "easeOut" }}
               >
-                Powered by Valyu&apos;s enterprise-grade search infrastructure for real-time financial analysis
+                Real-time financial research with deep, cited analysis
               </motion.p>
             </motion.div>
           )}
@@ -376,7 +378,9 @@ function HomeContent() {
         
         {/* DeepResearch runner (replaces the old chat) */}
         <motion.div
-          className="flex-1 px-0 md:px-4 overflow-x-hidden pb-16"
+          className={`px-0 md:px-4 overflow-x-hidden ${
+            !hasMessages && !researchActive ? 'pb-4 md:pb-6' : 'flex-1 pb-16'
+          }`}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
@@ -385,7 +389,7 @@ function HomeContent() {
             <ResearchChat />
           </Suspense>
         </motion.div>
-        
+
         <BottomBar />
       </div>
       

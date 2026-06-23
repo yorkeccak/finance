@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { track } from '@vercel/analytics';
 import { createClient } from '@/utils/supabase/client-wrapper';
-import { buildAuthorizationUrl, refreshAccessToken } from '@/lib/valyu-oauth';
+import { buildAuthorizationUrl, refreshAccessToken, OAuthError } from '@/lib/valyu-oauth';
 import type { User, Session } from '@supabase/supabase-js';
 
 /**
@@ -95,6 +95,10 @@ const initialState: AuthState = {
 
 // Separate storage for Valyu tokens (not in Supabase)
 const VALYU_TOKEN_KEY = 'valyu_oauth_tokens';
+
+// Single-flight guard so concurrent callers (multiple pollers / tabs) share one
+// refresh instead of each spending the rotating refresh token in parallel.
+let refreshInFlight: Promise<string | null> | null = null;
 
 function loadValyuTokens(): { accessToken: string | null; refreshToken: string | null; expiresAt: number | null } {
   if (typeof window === 'undefined') {
@@ -349,15 +353,51 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
   },
 
   getValidValyuAccessToken: async () => {
-    const { valyuAccessToken, valyuRefreshToken, valyuTokenExpiresAt } = get();
+    // Reconcile with persisted tokens before evaluating. On a cold load the
+    // store is still null until the async initialize() resolves, so a reports /
+    // sync call would otherwise see null and trigger a spurious 401 even though
+    // valid tokens exist on disk. loadValyuTokens() already nulls past-expiry
+    // tokens; prefer the persisted copy and write it back into the store if it
+    // diverges (e.g. another tab refreshed and rotated the tokens).
+    const store = get();
+    const persisted = loadValyuTokens();
 
-    // Check if we have a valid token (with 2 min buffer for long requests)
+    const valyuAccessToken = persisted.accessToken ?? store.valyuAccessToken;
+    const valyuRefreshToken = persisted.refreshToken ?? store.valyuRefreshToken;
+    const valyuTokenExpiresAt = persisted.expiresAt ?? store.valyuTokenExpiresAt;
+
+    if (
+      persisted.accessToken &&
+      (persisted.accessToken !== store.valyuAccessToken ||
+        persisted.refreshToken !== store.valyuRefreshToken ||
+        persisted.expiresAt !== store.valyuTokenExpiresAt)
+    ) {
+      set({
+        valyuAccessToken: persisted.accessToken,
+        valyuRefreshToken: persisted.refreshToken,
+        valyuTokenExpiresAt: persisted.expiresAt,
+      });
+    }
+
+    // Fast path: token still valid (with 2 min buffer for long requests).
     if (valyuAccessToken && valyuTokenExpiresAt && valyuTokenExpiresAt > Date.now() + 2 * 60 * 1000) {
       return valyuAccessToken;
     }
 
-    // Try to refresh if we have a refresh token
-    if (valyuRefreshToken) {
+    // No refresh token: nothing to refresh, but keep any still-usable access
+    // token rather than reporting failure.
+    if (!valyuRefreshToken) {
+      if (valyuAccessToken && valyuTokenExpiresAt && valyuTokenExpiresAt > Date.now()) {
+        return valyuAccessToken;
+      }
+      return null;
+    }
+
+    // Single-flight: concurrent callers reuse the in-progress refresh so the
+    // rotating refresh token is only spent once.
+    if (refreshInFlight) return refreshInFlight;
+
+    refreshInFlight = (async () => {
       try {
         console.log('[Auth Store] Token expired or expiring soon, refreshing...');
         const tokenResponse = await refreshAccessToken(valyuRefreshToken);
@@ -376,19 +416,33 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
         return tokenResponse.access_token;
       } catch (error) {
         console.error('[Auth Store] Token refresh failed:', error);
-        // Clear tokens on refresh failure - user needs to re-auth
-        clearValyuTokens();
-        set({
-          valyuAccessToken: null,
-          valyuRefreshToken: null,
-          valyuTokenExpiresAt: null,
-        });
-        return null;
-      }
-    }
 
-    // No valid token and no refresh token
-    return null;
+        // Only clear credentials when the grant is definitively rejected.
+        // Transient failures (network, 5xx, timeout) must leave the refresh
+        // token intact so a later poll can retry - otherwise a single blip or a
+        // cross-tab rotation race would kill a multi-minute report poll.
+        if (error instanceof OAuthError && error.code === 'invalid_grant') {
+          clearValyuTokens();
+          set({
+            valyuAccessToken: null,
+            valyuRefreshToken: null,
+            valyuTokenExpiresAt: null,
+          });
+          return null;
+        }
+
+        // Transient error: return the in-memory access token if it is still
+        // usable, otherwise null, without touching the stored refresh token.
+        if (valyuAccessToken && valyuTokenExpiresAt && valyuTokenExpiresAt > Date.now()) {
+          return valyuAccessToken;
+        }
+        return null;
+      } finally {
+        refreshInFlight = null;
+      }
+    })();
+
+    return refreshInFlight;
   },
 
   isAuthenticated: () => {

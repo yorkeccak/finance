@@ -56,13 +56,30 @@ export async function apiCreateReport(input: CreateReportInput): Promise<ReportD
   return json.report;
 }
 
+/** Downloadable artifact formats a run can produce alongside the report. */
+export type DeliverableType = "csv" | "xlsx" | "pptx" | "docx" | "pdf";
+
+/** A requested downloadable artifact: a format plus a description of what it
+ *  should contain (the description guides what the run produces). */
+export interface DeliverableItem {
+  type: DeliverableType;
+  description: string;
+}
+
+/** Optional research enhancements toggled per run. */
+export interface ResearchTools {
+  charts?: boolean;
+  codeExecution?: boolean;
+  deliverables?: DeliverableItem[];
+}
+
 /** Launch a freeform DeepResearch run from a chat query. */
-export async function apiCreateResearch(query: string, mode: string): Promise<ReportDTO> {
+export async function apiCreateResearch(query: string, mode: string, tools?: ResearchTools): Promise<ReportDTO> {
   const { headers, valyuAccessToken } = await buildAuth();
   const res = await fetch("/api/reports", {
     method: "POST",
     headers: { ...headers, "Content-Type": "application/json" },
-    body: JSON.stringify({ query, mode, valyuAccessToken }),
+    body: JSON.stringify({ query, mode, valyuAccessToken, tools }),
   });
   const json = await res.json();
   if (!res.ok) throw new Error(json.error || json.message || "Failed to start research");
@@ -84,7 +101,7 @@ export async function apiCancelReport(reportId: string): Promise<ReportDTO> {
 
 export async function apiSyncReport(
   reportId: string,
-): Promise<{ report: ReportDTO; progress?: { current_step?: number; total_steps?: number } | null; transient?: boolean; syncError?: string }> {
+): Promise<{ report: ReportDTO; progress?: { current_step?: number; total_steps?: number } | null; transient?: boolean; syncError?: string; authExpired?: boolean }> {
   const { headers, valyuAccessToken } = await buildAuth();
   const res = await fetch(`/api/reports/${reportId}/sync`, {
     method: "POST",

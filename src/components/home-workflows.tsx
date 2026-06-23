@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
-  Sparkles,
   Landmark,
   Briefcase,
   LineChart,
@@ -82,22 +82,35 @@ export function HomeWorkflows() {
             <button
               key={ex.domainId}
               onClick={() => setOpenExampleDomain(ex.domainId)}
-              className="group text-left p-3 rounded-xl border border-border bg-muted/30 hover:bg-muted/60 hover:border-muted-foreground/30 transition-colors"
+              className="group relative overflow-hidden text-left p-3 rounded-xl border border-border bg-muted/30 hover:bg-muted/60 hover:border-muted-foreground/30 transition-colors"
             >
-              <div className="flex items-center justify-between mb-2">
-                <div className="h-8 w-8 rounded-lg bg-background border border-border flex items-center justify-center flex-shrink-0">
-                  <Icon className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
+              {/* Faint editorial motif, strongest in the top portion behind the icon */}
+              <Image
+                src={`/assets/workflows/${ex.domainId}.png?v=2`}
+                alt=""
+                aria-hidden="true"
+                fill
+                sizes="(max-width: 640px) 50vw, 25vw"
+                className="absolute inset-0 object-cover object-center opacity-[0.7] dark:opacity-40 transition-opacity duration-300 group-hover:opacity-90 dark:group-hover:opacity-55"
+              />
+              {/* Theme-aware scrim so lower text stays readable while the motif shows through */}
+              <div className="absolute inset-0 bg-gradient-to-t from-card via-card/45 to-card/10 dark:from-card dark:via-card/55 dark:to-card/20" />
+
+              <div className="relative z-10">
+                <div className="flex items-center mb-2">
+                  <div className="h-8 w-8 rounded-lg bg-background border border-border flex items-center justify-center flex-shrink-0">
+                    <Icon className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
+                  </div>
                 </div>
-                <Sparkles className="h-3.5 w-3.5 text-muted-foreground/40" />
-              </div>
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 line-clamp-1">
-                {DOMAIN_LABEL[ex.domainId] ?? "Example"}
-              </span>
-              <div className="text-xs font-medium text-foreground leading-snug line-clamp-2 mt-0.5">
-                {ex.title}
-              </div>
-              <div className="text-[10px] text-muted-foreground/70 mt-1.5">
-                {ex.sources_count > 0 ? `${ex.sources_count} sources ` : ""}→
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 line-clamp-1">
+                  {DOMAIN_LABEL[ex.domainId] ?? "Example"}
+                </span>
+                <div className="text-xs font-medium text-foreground leading-snug line-clamp-2 mt-0.5">
+                  {ex.title}
+                </div>
+                <div className="text-[10px] text-muted-foreground/70 mt-1.5">
+                  {ex.sources_count > 0 ? `${ex.sources_count} sources ` : ""}→
+                </div>
               </div>
             </button>
           );

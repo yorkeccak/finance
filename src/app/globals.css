@@ -267,3 +267,11 @@
   background: var(--muted);
   border-color: var(--border);
 }
+
+/* Data-source banner marquee. The track holds 3 identical sets, so shifting
+   by one third loops seamlessly. Pausing the animation (on hover) freezes it
+   in place and resuming continues from the same point at the same speed. */
+@keyframes data-source-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-33.3333%); }
+}

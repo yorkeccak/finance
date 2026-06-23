@@ -11,8 +11,9 @@ import {
   patentSearch as valyuPatentSearch,
 } from '@valyu/ai-sdk';
 import * as db from '@/lib/db';
+import { isSelfHostedMode } from '@/lib/local-db/local-auth';
 
-const isSelfHostedMode = process.env.NEXT_PUBLIC_APP_MODE === 'self-hosted';
+const selfHosted = isSelfHostedMode();
 const VALYU_OAUTH_PROXY_URL = process.env.VALYU_OAUTH_PROXY_URL ||
   `${process.env.VALYU_APP_URL || process.env.NEXT_PUBLIC_VALYU_APP_URL || 'https://platform.valyu.ai'}/api/oauth/proxy`;
 
@@ -555,7 +556,7 @@ ${execution.result || "(No output produced)"}
     },
   }),
 
-  ...(isSelfHostedMode
+  ...(selfHosted
     ? { webSearch: valyuWebSearch({ maxNumResults: 5 }) }
     : {
         webSearch: tool({
@@ -585,7 +586,7 @@ ${execution.result || "(No output produced)"}
         }),
       }),
 
-  ...(isSelfHostedMode
+  ...(selfHosted
     ? {
         financeSearch: tool({
           description: "Search financial data: stock prices, earnings, balance sheets, income statements, cash flows, SEC filings, dividends, insider transactions, crypto, forex, and economic indicators. The API handles natural language - ask your full question in one query per topic.",
@@ -677,7 +678,7 @@ ${execution.result || "(No output produced)"}
         }),
       }),
 
-  ...(isSelfHostedMode
+  ...(selfHosted
     ? {
         secSearch: tool({
           description: "Search SEC filings (10-K, 10-Q, 8-K, 13F, 13D, 13G, proxy statements). Use simple natural language with company name and filing type - no accession numbers or technical syntax needed.",
@@ -729,7 +730,7 @@ ${execution.result || "(No output produced)"}
         }),
       }),
 
-  ...(isSelfHostedMode
+  ...(selfHosted
     ? { economicsSearch: valyuEconomicsSearch({ maxNumResults: 3 }) }
     : {
         economicsSearch: tool({
@@ -761,7 +762,7 @@ ${execution.result || "(No output produced)"}
         }),
       }),
 
-  ...(isSelfHostedMode
+  ...(selfHosted
     ? { patentSearch: valyuPatentSearch({ maxNumResults: 5 }) }
     : {
         patentSearch: tool({
@@ -782,7 +783,7 @@ ${execution.result || "(No output produced)"}
         }),
       }),
 
-  ...(isSelfHostedMode
+  ...(selfHosted
     ? {
         financeJournalSearch: tool({
           description: "Search Wiley finance/business/accounting corpus for authoritative academic content including peer-reviewed papers, textbooks, and scholarly research.",
@@ -834,7 +835,7 @@ ${execution.result || "(No output produced)"}
         }),
       }),
 
-  ...(isSelfHostedMode
+  ...(selfHosted
     ? {
         polymarketSearch: tool({
           description: "Search Polymarket prediction market data for event probabilities, market odds, and sentiment on financial, economic, and geopolitical events.",

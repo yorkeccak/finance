@@ -6,6 +6,7 @@ import { Loader2, AlertCircle, Clock, Download, ExternalLink } from "lucide-reac
 import { CitationTextRenderer } from "@/components/citation-text-renderer";
 import { ActivityFeed } from "@/components/reports/activity-feed";
 import { ErrorNote } from "@/components/reports/error-note";
+import { AuthModal } from "@/components/auth/auth-modal";
 import { apiSyncReport, apiDownloadReportPdf } from "@/lib/report-client";
 import { isTerminal } from "@/lib/reports";
 import { markSeen } from "@/lib/report-notify";
@@ -49,12 +50,17 @@ function ProgressBar({ value, max }: { value: number; max: number }) {
  */
 export function ReportView({ reportId }: { reportId: string }) {
   const [downloading, setDownloading] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["report", reportId],
     queryFn: () => apiSyncReport(reportId),
     refetchInterval: (query) => {
-      const status = query.state.data?.report?.status;
+      const data = query.state.data;
+      // Stop polling once we need re-auth — the token is dead, retrying is
+      // pointless until the user signs in again.
+      if (data?.authExpired) return false;
+      const status = data?.report?.status;
       return status && isTerminal(status) ? false : 4000;
     },
     refetchOnWindowFocus: true,
@@ -131,16 +137,37 @@ export function ReportView({ reportId }: { reportId: string }) {
         ) : null}
       </div>
 
+      {/* Re-auth needed — the session lapsed while the run continues server-side.
+          Offer sign-in; the run itself is unaffected. */}
+      {!isTerminal(report.status) && data?.authExpired && (
+        <div className="mb-4 rounded-xl border border-border bg-card px-4 py-3 flex items-start gap-2.5">
+          <AlertCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-medium text-foreground">Sign in to keep tracking progress</div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Your session expired. The report keeps running; sign back in to see live updates.
+            </p>
+            <button
+              onClick={() => setShowAuthModal(true)}
+              className="mt-2 inline-flex items-center rounded-lg bg-foreground text-background px-3 py-1.5 text-xs font-medium hover:opacity-90 transition-opacity"
+            >
+              Sign in with Valyu to continue
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Running / queued */}
       {!isTerminal(report.status) && (
         <>
-          {/* A non-transient status-poll error (e.g. credits/auth) — the run may
-              be stuck. Surface it instead of leaving the card spinning silently. */}
-          {data?.syncError && (
-            <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 flex items-start gap-2.5">
-              <AlertCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+          {/* A non-transient status-poll error (e.g. credits) — the run may
+              still be alive. Surface it as a non-fatal notice instead of
+              leaving the card spinning silently or rendering terminal failure. */}
+          {data?.syncError && !data?.authExpired && (
+            <div className="mb-4 rounded-xl border border-border bg-card px-4 py-3 flex items-start gap-2.5">
+              <AlertCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
               <div className="min-w-0">
-                <div className="text-xs font-medium text-destructive">Couldn&apos;t refresh status</div>
+                <div className="text-xs font-medium text-foreground">Couldn&apos;t refresh status</div>
                 <ErrorNote message={data.syncError} className="mt-0.5" />
               </div>
             </div>
@@ -241,6 +268,8 @@ export function ReportView({ reportId }: { reportId: string }) {
           )}
         </div>
       )}
+
+      <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </>
   );
 }

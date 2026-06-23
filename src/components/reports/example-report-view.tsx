@@ -33,7 +33,7 @@ export function ExampleReportView({
 
   return (
     <>
-      <div className="flex items-center gap-2 text-xs font-medium text-violet-600 dark:text-violet-400 mb-2">
+      <div className="flex items-center gap-2 text-xs font-medium text-primary mb-2">
         <Sparkles className="h-3.5 w-3.5" />
         Example report · {domain?.label ?? example.domainId}
       </div>

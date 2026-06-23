@@ -14,11 +14,11 @@ import { iconForSlug, verticalForSlug } from "@/lib/domain-icons";
 import { DOMAINS } from "@/lib/domains";
 
 const STATUS_STYLES: Record<string, string> = {
-  completed: "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300",
-  failed: "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300",
+  completed: "bg-positive/10 text-positive",
+  failed: "bg-destructive/10 text-destructive",
   cancelled: "bg-muted text-muted-foreground",
-  running: "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300",
-  queued: "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300",
+  running: "bg-primary/10 text-primary",
+  queued: "bg-muted text-muted-foreground",
 };
 
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
@@ -81,7 +81,7 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] dark:bg-gray-950 flex overflow-x-hidden">
+    <div className="min-h-screen bg-background flex overflow-x-hidden">
       <Sidebar
         currentSessionId={undefined}
         onSessionSelect={(id: string) => router.push(`/?chatId=${id}`)}
@@ -163,10 +163,10 @@ export default function ReportsPage() {
                           e.stopPropagation();
                           handleDelete(r.id);
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex-shrink-0"
+                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-destructive/10 transition-all flex-shrink-0"
                         aria-label="Delete report"
                       >
-                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-red-500" />
+                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
                       </button>
                     </div>
                   );

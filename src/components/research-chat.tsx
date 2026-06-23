@@ -196,7 +196,7 @@ function ResearchInput({ onLaunched }: { onLaunched: (id: string) => void }) {
           <button
             onClick={submit}
             disabled={launching || !input.trim()}
-            className="absolute right-2 bottom-2 rounded-xl h-9 w-9 p-0 flex items-center justify-center bg-foreground hover:bg-foreground/80 text-background disabled:opacity-40 transition-opacity"
+            className="absolute right-2 bottom-2 rounded-xl h-9 w-9 p-0 flex items-center justify-center bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-40 transition-opacity"
             aria-label="Start research"
           >
             {launching ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
@@ -215,7 +215,7 @@ function ResearchInput({ onLaunched }: { onLaunched: (id: string) => void }) {
                 title={m.note}
                 className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
                   mode === m.id
-                    ? "bg-foreground text-background border-foreground"
+                    ? "bg-primary text-primary-foreground border-primary"
                     : "bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
                 }`}
               >
@@ -242,7 +242,7 @@ function ResearchInput({ onLaunched }: { onLaunched: (id: string) => void }) {
                     title={t.title}
                     className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
                       active
-                        ? "bg-foreground text-background border-foreground"
+                        ? "bg-primary text-primary-foreground border-primary"
                         : "bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
                     }`}
                   >
@@ -267,7 +267,7 @@ function ResearchInput({ onLaunched }: { onLaunched: (id: string) => void }) {
                   title={t.title}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
                     active
-                      ? "bg-foreground text-background border-foreground"
+                      ? "bg-primary text-primary-foreground border-primary"
                       : "bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
                   }`}
                 >

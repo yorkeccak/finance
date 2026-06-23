@@ -67,13 +67,13 @@ export const TooltipContent = React.forwardRef<
     <div
       ref={ref}
       className={cn(
-        'absolute z-50 px-3 py-1.5 text-sm font-medium text-white bg-gray-900 dark:bg-gray-700 rounded-lg shadow-sm transition-all duration-200 bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap pointer-events-none',
+        'absolute z-50 px-3 py-1.5 text-sm font-medium text-primary-foreground bg-primary rounded-lg shadow-sm transition-all duration-200 bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap pointer-events-none',
         isVisible ? 'opacity-100 visible' : 'opacity-0 invisible',
         className
       )}
     >
       {children}
-      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700" />
+      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-primary" />
     </div>
   );
 });

@@ -1,6 +1,10 @@
-import * as db from "@/lib/db";
-import { normalizeReport, isTerminal } from "@/lib/reports";
-import { cancelDeepResearchTask, ValyuError } from "@/lib/valyu-workflows";
+import { isSelfHostedMode } from "@/lib/local-db/local-auth";
+import { statusToDTO } from "@/lib/reports";
+import {
+  cancelDeepResearchTask,
+  getDeepResearchStatus,
+  ValyuError,
+} from "@/lib/valyu-workflows";
 
 const json = (data: any, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -9,8 +13,8 @@ const json = (data: any, status = 200) =>
   });
 
 /**
- * POST /api/reports/[reportId]/cancel — cancel a running DeepResearch task and
- * mark the report cancelled. No-op if already terminal.
+ * POST /api/reports/[reportId]/cancel - cancel a running DeepResearch task.
+ * `reportId` is the deepresearch id. Returns the refreshed task as the report.
  */
 export async function POST(
   req: Request,
@@ -18,34 +22,23 @@ export async function POST(
 ) {
   try {
     const { reportId } = await params;
-    const body = await req.clone().json().catch(() => ({}));
+    const body = await req.json().catch(() => ({}));
     const valyuAccessToken: string | undefined = body?.valyuAccessToken;
 
-    const { data: { user } } = await db.getUserFromRequest(req);
-    if (!user) return json({ error: "Unauthorized" }, 401);
-
-    const { data: row } = await db.getReport(reportId, user.id);
-    if (!row) return json({ error: "Not found" }, 404);
-
-    const report = normalizeReport(row);
-    if (isTerminal(report.status)) return json({ report });
-
-    if (report.valyu_task_id) {
-      try {
-        await cancelDeepResearchTask(report.valyu_task_id, { valyuAccessToken });
-      } catch (e) {
-        // If Valyu cancel fails non-fatally, still mark locally cancelled.
-        if (!(e instanceof ValyuError)) throw e;
-      }
+    if (!isSelfHostedMode() && !valyuAccessToken) {
+      return json({ error: "AUTH_REQUIRED", message: "Sign in with Valyu to cancel research." }, 401);
     }
 
-    await db.updateReport(reportId, user.id, {
-      status: "cancelled",
-      completed_at: new Date(),
-    });
+    try {
+      await cancelDeepResearchTask(reportId, { valyuAccessToken });
+    } catch (e) {
+      // A non-fatal cancel failure (e.g. already terminal) still falls through
+      // to a status read so the client gets the current state.
+      if (!(e instanceof ValyuError)) throw e;
+    }
 
-    const { data: fresh } = await db.getReport(reportId, user.id);
-    return json({ report: fresh ? normalizeReport(fresh) : { ...report, status: "cancelled" } });
+    const status = await getDeepResearchStatus(reportId, { valyuAccessToken });
+    return json({ report: statusToDTO(reportId, status) });
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : "Unknown error" }, 500);
   }

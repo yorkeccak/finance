@@ -244,7 +244,7 @@ export function WorkflowBrowser({
               <Loader2 className="h-4 w-4 animate-spin" /> Loading workflows…
             </div>
           ) : error ? (
-            <div className="flex items-center gap-2 text-red-600 text-sm py-10">
+            <div className="flex items-center gap-2 text-destructive text-sm py-10">
               <AlertCircle className="h-4 w-4" /> {(error as Error).message}
             </div>
           ) : filtered.length === 0 ? (
@@ -448,7 +448,7 @@ function RunPanel({
             >
               <span className="font-medium text-foreground">{m.label}</span>
               {workflow.recommended_mode === m.id && (
-                <span className="ml-1.5 text-[10px] text-emerald-600">rec</span>
+                <span className="ml-1.5 text-[10px] text-primary">rec</span>
               )}
             </button>
           ))}
@@ -488,7 +488,7 @@ function Field({
     <div>
       <label className="block text-xs font-medium text-foreground mb-1">
         {variable.label}
-        {variable.required && <span className="text-red-400 ml-0.5">*</span>}
+        {variable.required && <span className="text-destructive ml-0.5">*</span>}
       </label>
       {variable.type === "textarea" ? (
         <textarea

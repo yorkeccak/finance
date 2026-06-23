@@ -13,6 +13,7 @@ import { logEnvironmentStatus } from "@/lib/env-validation";
 import { LocalModelStatus } from "@/components/local-model-status";
 import { MigrationBanner } from "@/components/migration-banner";
 import { ResearchNotifications } from "@/components/research-notifications";
+import { HeroSplash } from "@/components/hero-splash";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -168,6 +169,7 @@ export default function RootLayout({
                   <LocalModelStatus />
                   <MigrationBanner />
                   <ResearchNotifications />
+                  <HeroSplash />
                   {children}
                   <Analytics />
                 </OllamaProvider>

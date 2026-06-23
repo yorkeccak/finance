@@ -45,7 +45,7 @@ export function ShareButton({ query, className }: ShareButtonProps) {
         onClick={shareOnX}
         variant="outline"
         size="sm"
-        className="transition-all duration-200 rounded-lg h-9 w-9 sm:h-10 sm:w-10 p-0 border-none shadow-none hover:bg-gray-100 dark:hover:bg-gray-800 group"
+        className="transition-all duration-200 rounded-lg h-9 w-9 sm:h-10 sm:w-10 p-0 border-none shadow-none hover:bg-accent hover:text-accent-foreground group"
         title="Share on X"
       >
         <RiTwitterXFill className="h-3.5 w-3.5 sm:h-4 sm:w-4 group-hover:scale-110 transition-transform" />
@@ -54,13 +54,13 @@ export function ShareButton({ query, className }: ShareButtonProps) {
         onClick={copyLink}
         variant="outline"
         size="sm"
-        className={`transition-all duration-200 rounded-lg h-9 w-9 sm:h-10 sm:w-10 p-0 border-none shadow-none hover:bg-gray-100 dark:hover:bg-gray-800 group ${
-          copied ? 'bg-green-100 dark:bg-green-900/20' : ''
+        className={`transition-all duration-200 rounded-lg h-9 w-9 sm:h-10 sm:w-10 p-0 border-none shadow-none hover:bg-accent hover:text-accent-foreground group ${
+          copied ? 'bg-positive/10' : ''
         }`}
         title={copied ? 'Copied!' : 'Copy link'}
       >
         {copied ? (
-          <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600 dark:text-green-400" />
+          <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-positive" />
         ) : (
           <Link2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 group-hover:scale-110 transition-transform" />
         )}

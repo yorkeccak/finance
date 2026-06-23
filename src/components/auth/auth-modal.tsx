@@ -90,10 +90,10 @@ export function AuthModal({ open, onClose, onSignUpSuccess }: AuthModalProps) {
           </p>
 
           {/* Free Credits Badge */}
-          <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
+          <div className="bg-positive/10 border border-positive/20 rounded-xl p-4">
             <div className="flex items-center justify-center gap-2 mb-1">
               <span className="text-xl">🎁</span>
-              <span className="text-green-600 dark:text-green-400 font-bold">$10 Free Credits</span>
+              <span className="text-positive font-bold">$10 Free Credits</span>
             </div>
             <p className="text-center text-xs text-muted-foreground">
               New accounts get $10 in free search credits. No credit card required.
@@ -101,15 +101,15 @@ export function AuthModal({ open, onClose, onSignUpSuccess }: AuthModalProps) {
           </div>
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-center">
-              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 text-center">
+              <p className="text-sm text-destructive">{error}</p>
             </div>
           )}
 
           <Button
             onClick={handleValyuSignIn}
             disabled={isLoading}
-            className="w-full h-12 bg-black hover:bg-gray-800 text-white font-medium"
+            className="w-full h-12 bg-foreground hover:bg-foreground/90 text-background font-medium"
           >
             {isLoading ? (
               <span className="flex items-center gap-2">
@@ -127,7 +127,7 @@ export function AuthModal({ open, onClose, onSignUpSuccess }: AuthModalProps) {
                   alt="Valyu"
                   width={60}
                   height={20}
-                  className="h-5 w-auto invert"
+                  className="h-5 w-auto invert dark:invert-0"
                 />
               </span>
             )}

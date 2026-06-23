@@ -232,14 +232,14 @@ function HomeContent() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#F5F5F5] dark:bg-gray-950">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
       </div>
     );
   }
 
   return (
-    <div className='min-h-screen bg-[#F5F5F5] dark:bg-gray-950 flex overflow-x-hidden'>
+    <div className='min-h-screen bg-background flex overflow-x-hidden'>
       {/* Enterprise Banner */}
       <EnterpriseBanner />
 
@@ -254,8 +254,8 @@ function HomeContent() {
           >
             <div className={`flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-sm font-medium ${
               notification.type === 'success'
-                ? 'bg-green-50 text-green-800 border border-green-200'
-                : 'bg-red-50 text-red-800 border border-red-200'
+                ? 'bg-positive/10 text-positive border border-positive/20'
+                : 'bg-destructive/10 text-destructive border border-destructive/20'
             }`}>
               {notification.type === 'success' ? (
                 <CheckCircle className="h-4 w-4" />
@@ -311,7 +311,7 @@ function HomeContent() {
                 onClick={handleTitleClick}
               >
                 <motion.h1 
-                  className={`text-3xl sm:text-5xl font-light text-gray-900 dark:text-gray-100 tracking-tight relative z-10 ${
+                  className={`text-3xl sm:text-5xl font-light text-foreground tracking-tight relative z-10 ${
                     isMobile ? 'cursor-pointer' : 'cursor-default'
                   }`}
                   style={{ transformOrigin: '15% 100%' }}
@@ -336,7 +336,7 @@ function HomeContent() {
                     y: { delay: isHoveringTitle ? 0.1 : 0, duration: 0.3, ease: [0.23, 1, 0.32, 1] }
                   }}
                 >
-                  <span className="text-sm text-gray-500 dark:text-gray-400 font-light">By</span>
+                  <span className="text-sm text-muted-foreground font-light">By</span>
                   <Image 
                     src="/valyu.svg" 
                     alt="Valyu" 
@@ -355,7 +355,7 @@ function HomeContent() {
                     exit={{ opacity: 0 }}
                     transition={{ delay: 3, duration: 0.5 }}
                   >
-                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                    <span className="text-xs text-muted-foreground">
                       Tap to reveal
                     </span>
                   </motion.div>
@@ -365,7 +365,7 @@ function HomeContent() {
                 <div className="absolute inset-0 -bottom-10" />
               </motion.div>
               <motion.p 
-                className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm max-w-xs sm:max-w-md mx-auto px-4 sm:px-0"
+                className="text-muted-foreground text-xs sm:text-sm max-w-xs sm:max-w-md mx-auto px-4 sm:px-0"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.6, ease: "easeOut" }}
@@ -418,8 +418,8 @@ function HomeContent() {
 export default function Home() {
   return (
     <Suspense fallback={
-      <div className="flex items-center justify-center min-h-screen bg-[#F5F5F5] dark:bg-gray-950">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100"></div>
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
       </div>
     }>
       <HomeContent />

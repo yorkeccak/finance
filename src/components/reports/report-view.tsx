@@ -88,7 +88,7 @@ export function ReportView({ reportId }: { reportId: string }) {
   }
   if (error) {
     return (
-      <div className="flex items-center gap-2 text-red-600 py-12">
+      <div className="flex items-center gap-2 text-destructive py-12">
         <AlertCircle className="h-4 w-4" /> {(error as Error).message}
       </div>
     );
@@ -225,13 +225,13 @@ export function ReportView({ reportId }: { reportId: string }) {
 
       {/* Failed / cancelled */}
       {(report.status === "failed" || report.status === "cancelled") && (
-        <div className="rounded-2xl border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/10 p-6 flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-6 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0" />
           <div>
-            <div className="text-sm font-medium text-red-700 dark:text-red-300 capitalize">
+            <div className="text-sm font-medium text-destructive capitalize">
               {report.status}
             </div>
-            <div className="text-xs text-red-500 mt-1">
+            <div className="text-xs text-destructive mt-1">
               {report.error_message || "The research task did not complete."}
             </div>
           </div>

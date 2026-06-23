@@ -106,7 +106,7 @@ export default function CodeSnippetDialog({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
-              className='bg-white dark:bg-gray-950 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 relative max-w-[95vw] w-fit min-w-[320px] max-h-[90vh] overflow-auto flex flex-col'
+              className='bg-card rounded-lg shadow-lg border border-border relative max-w-[95vw] w-fit min-w-[320px] max-h-[90vh] overflow-auto flex flex-col'
             >
               {/* Header */}
               <div className='p-4 sm:p-6 pb-0'>
@@ -119,10 +119,10 @@ export default function CodeSnippetDialog({
                     className='h-6 w-6 opacity-60 dark:invert'
                   />
                   <div>
-                    <h2 className='text-lg font-light text-gray-900 dark:text-gray-100'>
+                    <h2 className='text-lg font-light text-foreground'>
                       {title}
                     </h2>
-                    <p className='text-xs text-gray-500 dark:text-gray-400 mt-0.5'>
+                    <p className='text-xs text-muted-foreground mt-0.5'>
                       Integration snippet for Valyu API
                     </p>
                   </div>
@@ -138,8 +138,8 @@ export default function CodeSnippetDialog({
                       onClick={() => setActiveTab(lang)}
                       className={`px-3 py-1.5 text-sm font-light transition-colors ${
                         activeTab === lang
-                          ? 'text-gray-900 dark:text-gray-100 border-b border-gray-900 dark:border-gray-100'
-                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                          ? 'text-foreground border-b border-foreground'
+                          : 'text-muted-foreground hover:text-foreground'
                       }`}
                     >
                       {lang}
@@ -156,16 +156,16 @@ export default function CodeSnippetDialog({
                     className='absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-10'
                   >
                     {copied ? (
-                      <Check className='h-4 w-4 text-green-600 dark:text-green-400' />
+                      <Check className='h-4 w-4 text-positive' />
                     ) : (
-                      <Copy className='h-4 w-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300' />
+                      <Copy className='h-4 w-4 text-muted-foreground hover:text-foreground' />
                     )}
                   </button>
 
                   {activeSnippet && (
-                    <div className='bg-gray-50 dark:bg-gray-900 rounded-md p-3 sm:p-4 max-w-full h-full max-h-[60vh] overflow-auto'>
+                    <div className='bg-muted rounded-md p-3 sm:p-4 max-w-full h-full max-h-[60vh] overflow-auto'>
                       <pre className='overflow-visible'>
-                        <code className='text-[10px] sm:text-xs font-mono text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words'>
+                        <code className='text-[10px] sm:text-xs font-mono text-foreground whitespace-pre-wrap break-words'>
                           {activeSnippet.code}
                         </code>
                       </pre>
@@ -181,7 +181,7 @@ export default function CodeSnippetDialog({
                     href='https://platform.valyu.ai'
                     target='_blank'
                     rel='noopener noreferrer'
-                    className='text-sm font-light text-gray-900 dark:text-gray-100 hover:underline relative group'
+                    className='text-sm font-light text-foreground hover:underline relative group'
                     onClick={() => {
                       track('Platform Clickthrough', {
                         source: 'data_source_dialog',
@@ -211,11 +211,11 @@ export default function CodeSnippetDialog({
                           className='absolute -top-8 left-0 whitespace-nowrap'
                         >
                           <div className='relative'>
-                            <div className='bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs font-medium px-2.5 py-1 rounded-full shadow-lg'>
+                            <div className='bg-positive text-positive-foreground text-xs font-medium px-2.5 py-1 rounded-full shadow-lg'>
                               $10 free credits
                             </div>
                             {/* Small arrow pointing down */}
-                            <div className='absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-t-[4px] border-l-transparent border-r-transparent border-t-green-500'></div>
+                            <div className='absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-t-[4px] border-l-transparent border-r-transparent border-t-positive'></div>
                           </div>
                         </motion.div>
                       )}
@@ -227,7 +227,7 @@ export default function CodeSnippetDialog({
                   href='https://docs.valyu.ai'
                   target='_blank'
                   rel='noopener noreferrer'
-                  className='text-sm font-light text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                  className='text-sm font-light text-muted-foreground hover:text-foreground'
                 >
                   Documentation
                 </a>

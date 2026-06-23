@@ -128,8 +128,8 @@ export const InlineCitationCardTrigger = React.forwardRef<
         variant="secondary"
         className={cn(
           "ml-0.5 px-1.5 py-0 h-5 text-[10px] font-normal cursor-pointer hover:bg-secondary/80 inline-flex items-center gap-0.5 relative",
-          "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400",
-          "border-blue-200 dark:border-blue-800",
+          "bg-primary/10 text-primary",
+          "border-primary/30",
           className
         )}
         {...props}
@@ -217,7 +217,7 @@ export const InlineCitationCarouselHeader = React.forwardRef<
         <button
           onClick={scrollPrev}
           disabled={!canScrollPrev}
-          className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="p-1 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           aria-label="Previous citation"
         >
           <ChevronLeft className="h-3 w-3" />
@@ -225,7 +225,7 @@ export const InlineCitationCarouselHeader = React.forwardRef<
         <button
           onClick={scrollNext}
           disabled={!canScrollNext}
-          className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="p-1 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           aria-label="Next citation"
         >
           <ChevronRight className="h-3 w-3" />
@@ -367,7 +367,7 @@ export const InlineCitationSource = React.forwardRef<
       )}
 
       {doi && (
-        <div className="text-[10px] bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded inline-block">
+        <div className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded inline-block">
           DOI: {doi}
         </div>
       )}
@@ -376,7 +376,7 @@ export const InlineCitationSource = React.forwardRef<
         href={url}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400 hover:underline"
+        className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
       >
         <ExternalLink className="h-3 w-3" />
         View source

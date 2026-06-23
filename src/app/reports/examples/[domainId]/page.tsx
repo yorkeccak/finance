@@ -16,7 +16,7 @@ export default function ExampleReportPage({
   const router = useRouter();
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] dark:bg-gray-950 flex overflow-x-hidden">
+    <div className="min-h-screen bg-background flex overflow-x-hidden">
       <Sidebar
         currentSessionId={undefined}
         onSessionSelect={(id: string) => router.push(`/?chatId=${id}`)}

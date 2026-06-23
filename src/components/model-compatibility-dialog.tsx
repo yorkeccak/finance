@@ -33,8 +33,8 @@ export function ModelCompatibilityDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
-              <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-500" />
+            <div className="p-2 bg-muted rounded-lg">
+              <AlertTriangle className="h-5 w-5 text-muted-foreground" />
             </div>
             <DialogTitle>Model Compatibility Issue</DialogTitle>
           </div>
@@ -45,7 +45,7 @@ export function ModelCompatibilityDialog({
                   <span className="font-semibold">{modelName || "This model"}</span> doesn&apos;t support
                   tool calling (function calls).
                 </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-muted-foreground">
                   This means it won&apos;t be able to execute Python code, search the web, fetch financial
                   data, or use other interactive tools. You can still have a conversation, but functionality
                   will be limited to text responses only.
@@ -58,13 +58,13 @@ export function ModelCompatibilityDialog({
                   <span className="font-semibold">{modelName || "This model"}</span> doesn&apos;t support
                   thinking mode (chain-of-thought reasoning).
                 </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-muted-foreground">
                   The model will still work normally, but won&apos;t show its reasoning steps.
                 </p>
               </>
             )}
             {!isToolError && !isThinkingError && (
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-muted-foreground">
                 {error}
               </p>
             )}

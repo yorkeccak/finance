@@ -1,7 +1,14 @@
 /**
- * Shared report types + normalization. DB rows come back camelCase from
- * SQLite (Drizzle) and snake_case from Supabase; the client wants one shape.
+ * Shared report types + mappers. Reports are backed entirely by Valyu's
+ * DeepResearch API; the canonical id is the deepresearch task id. These mappers
+ * shape the list index and per-task status into the single ReportDTO the UI
+ * consumes.
  */
+
+import type {
+  DeepResearchListItem,
+  TaskStatusResult,
+} from "./valyu-workflows";
 
 export interface ReportDTO {
   id: string;
@@ -95,47 +102,70 @@ export function parseActivityFromMessages(messages: any): ActivityItem[] {
   return items;
 }
 
-const pick = (row: any, snake: string, camel: string) =>
-  row[snake] !== undefined ? row[snake] : row[camel];
+/** A short, display-safe title derived from the run query. */
+export function deriveTitle(q: string | null | undefined): string {
+  const trimmed = (q ?? "").trim();
+  if (!trimmed) return "Research";
+  return trimmed.slice(0, 80) + (trimmed.length > 80 ? "…" : "");
+}
 
-const toIso = (v: any): string | null => {
-  if (v == null) return null;
-  if (v instanceof Date) return v.toISOString();
-  return typeof v === "string" ? v : String(v);
-};
-
-const parseMaybe = (v: any) => {
-  if (v == null) return null;
-  if (typeof v === "string") {
-    try {
-      return JSON.parse(v);
-    } catch {
-      return v;
-    }
-  }
-  return v;
-};
-
-export function normalizeReport(row: any): ReportDTO {
+/**
+ * Map a thin DeepResearch list entry into a ReportDTO. The index carries only
+ * id/query/status/created_at; richer fields (title/output/sources/activity)
+ * are filled in by `statusToDTO` once the task status is hydrated.
+ */
+export function listItemToDTO(item: DeepResearchListItem): ReportDTO {
   return {
-    id: row.id,
-    workflow_slug: pick(row, "workflow_slug", "workflowSlug"),
-    workflow_version: pick(row, "workflow_version", "workflowVersion") ?? null,
-    workflow_params: parseMaybe(pick(row, "workflow_params", "workflowParams")) ?? {},
-    query: row.query ?? null,
-    mode: row.mode,
-    title: row.title,
-    estimated_time: pick(row, "estimated_time", "estimatedTime") ?? null,
-    valyu_task_id: pick(row, "valyu_task_id", "valyuTaskId") ?? null,
-    status: row.status,
-    output: row.output ?? null,
-    sources: parseMaybe(row.sources),
-    activity: parseMaybe(row.activity) ?? null,
-    pdf_url: pick(row, "pdf_url", "pdfUrl") ?? null,
-    error_message: pick(row, "error_message", "errorMessage") ?? null,
-    created_at: toIso(pick(row, "created_at", "createdAt")),
-    updated_at: toIso(pick(row, "updated_at", "updatedAt")),
-    completed_at: toIso(pick(row, "completed_at", "completedAt")),
+    id: item.taskId,
+    workflow_slug: "freeform",
+    workflow_version: null,
+    workflow_params: {},
+    query: item.query ?? null,
+    mode: "standard",
+    title: deriveTitle(item.query),
+    estimated_time: null,
+    valyu_task_id: item.taskId,
+    status: item.status,
+    output: null,
+    sources: null,
+    activity: null,
+    pdf_url: null,
+    error_message: null,
+    created_at: item.createdAt ?? null,
+    updated_at: null,
+    completed_at: null,
+  };
+}
+
+/**
+ * Merge a hydrated task status over an optional base DTO (from the list index)
+ * into the full ReportDTO the UI renders. `base` preserves list-only fields
+ * (query, created_at) that the status endpoint may not echo back.
+ */
+export function statusToDTO(
+  taskId: string,
+  status: TaskStatusResult,
+  base?: ReportDTO,
+): ReportDTO {
+  return {
+    id: taskId,
+    workflow_slug: base?.workflow_slug ?? "freeform",
+    workflow_version: base?.workflow_version ?? null,
+    workflow_params: base?.workflow_params ?? {},
+    query: base?.query ?? null,
+    mode: status.mode ?? base?.mode ?? "standard",
+    title: status.title || base?.title || "Research",
+    estimated_time: base?.estimated_time ?? null,
+    valyu_task_id: taskId,
+    status: status.status,
+    output: status.output ?? null,
+    sources: status.sources ?? null,
+    activity: status.activity && status.activity.length > 0 ? status.activity : base?.activity ?? null,
+    pdf_url: status.pdfUrl ?? null,
+    error_message: status.errorMessage ?? null,
+    created_at: status.createdAt ?? base?.created_at ?? null,
+    updated_at: null,
+    completed_at: status.completedAt ?? null,
   };
 }
 

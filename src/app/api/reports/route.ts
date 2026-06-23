@@ -1,6 +1,4 @@
-import { randomUUID } from "crypto";
-import * as db from "@/lib/db";
-import { normalizeReport } from "@/lib/reports";
+import { deriveTitle, type ReportDTO } from "@/lib/reports";
 import {
   createDeepResearchTask,
   ValyuError,
@@ -14,25 +12,9 @@ const json = (data: any, status = 200) =>
     headers: { "Content-Type": "application/json" },
   });
 
-/** GET /api/reports — list the user's reports (sidebar). */
-export async function GET(req: Request) {
-  try {
-    const { data: { user } } = await db.getUserFromRequest(req);
-    if (!user) return json({ error: "Unauthorized" }, 401);
-
-    const { data, error } = await db.getReports(user.id);
-    if (error) return json({ error: (error as any).message || "DB error" }, 500);
-
-    return json({ reports: (data || []).map(normalizeReport) });
-  } catch (err) {
-    return json({ error: err instanceof Error ? err.message : "Unknown error" }, 500);
-  }
-}
-
-/** POST /api/reports — launch a workflow as a DeepResearch task. */
+/** POST /api/reports - launch a DeepResearch task (freeform query or workflow). */
 export async function POST(req: Request) {
   try {
-    const reqClone = req.clone();
     const body = await req.json();
     const {
       workflow_slug,
@@ -40,7 +22,6 @@ export async function POST(req: Request) {
       query,
       mode = "standard",
       title,
-      estimated_time,
       valyuAccessToken,
       tools,
     }: {
@@ -58,17 +39,15 @@ export async function POST(req: Request) {
       };
     } = body;
 
-    const { data: { user } } = await db.getUserFromRequest(reqClone);
-    if (!user) return json({ error: "Unauthorized" }, 401);
+    if (!isSelfHostedMode() && !valyuAccessToken) {
+      return json({ error: "AUTH_REQUIRED", message: "Sign in with Valyu to run research." }, 401);
+    }
 
     // Two launch modes: freeform `query` (chat-launched) OR a workflow run.
     const freeformQuery = typeof query === "string" ? query.trim() : "";
     const isFreeform = freeformQuery.length > 0;
     if (!isFreeform && (!workflow_slug || !workflow_params)) {
       return json({ error: "Provide a query, or workflow_slug + workflow_params" }, 400);
-    }
-    if (!isSelfHostedMode() && !valyuAccessToken) {
-      return json({ error: "AUTH_REQUIRED", message: "Sign in with Valyu to run research." }, 401);
     }
 
     // Kick off the async Valyu task.
@@ -87,30 +66,19 @@ export async function POST(req: Request) {
       throw e;
     }
 
-    // Initial title for freeform runs = a truncated query; replaced by Valyu's
-    // auto-generated title on first sync.
-    const initialTitle = isFreeform
-      ? (title || freeformQuery.slice(0, 80) + (freeformQuery.length > 80 ? "…" : ""))
-      : (title || workflow_slug || "Report");
-
-    const reportId = randomUUID();
-    const { error } = await db.createReport({
-      id: reportId,
-      user_id: user.id,
-      workflow_slug: isFreeform ? "freeform" : workflow_slug!,
-      workflow_version: task.workflowVersion ?? null,
-      workflow_params: isFreeform ? {} : workflow_params!,
+    // Minimal DTO keyed by the deepresearch id. The client routes to
+    // /?research=<id> and syncs against the task for everything else.
+    const report: Partial<ReportDTO> = {
+      id: task.deepresearchId,
+      status: task.status,
+      title: title || (isFreeform ? deriveTitle(freeformQuery) : workflow_slug) || "Research",
       query: isFreeform ? freeformQuery : null,
       mode,
-      title: initialTitle,
-      estimated_time: estimated_time ?? null,
-      valyu_task_id: task.deepresearchId,
-      status: task.status,
-    });
-    if (error) return json({ error: (error as any).message || "Failed to save report" }, 500);
+      workflow_slug: isFreeform ? "freeform" : workflow_slug!,
+      created_at: null,
+    };
 
-    const { data: row } = await db.getReport(reportId, user.id);
-    return json({ report: row ? normalizeReport(row) : { id: reportId, status: task.status } });
+    return json({ report });
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : "Unknown error" }, 500);
   }

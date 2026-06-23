@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import puppeteer, { Browser } from "puppeteer";
 import * as fs from "fs";
 import * as path from "path";
-import * as db from "@/lib/db";
-import { normalizeReport } from "@/lib/reports";
+import { isSelfHostedMode } from "@/lib/local-db/local-auth";
+import { statusToDTO } from "@/lib/reports";
+import { getDeepResearchStatus } from "@/lib/valyu-workflows";
 import { buildPdfHtmlTemplate } from "@/lib/pdf-utils";
 import { cleanFinancialText, preprocessMarkdownText } from "@/lib/markdown-utils";
 
@@ -23,7 +24,7 @@ const sanitize = (s: string) =>
   s.replace(/[^a-z0-9]/gi, "_").toLowerCase().substring(0, 50);
 
 /**
- * POST /api/reports/[reportId]/pdf — branded PDF of a completed report.
+ * POST /api/reports/[reportId]/pdf - branded PDF of a completed report.
  * Reuses the shared pdf template/puppeteer pipeline, but reports are plain
  * markdown + tables (no charts/CSVs), so all the chart machinery is skipped.
  */
@@ -34,12 +35,14 @@ export async function POST(
   let browser: Browser | null = null;
   try {
     const { reportId } = await params;
-    const { data: { user } } = await db.getUserFromRequest(req);
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const body = await req.json().catch(() => ({}));
+    const valyuAccessToken: string | undefined = body?.valyuAccessToken;
+    if (!isSelfHostedMode() && !valyuAccessToken) {
+      return NextResponse.json({ error: "AUTH_REQUIRED" }, { status: 401 });
+    }
 
-    const { data: row } = await db.getReport(reportId, user.id);
-    if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const report = normalizeReport(row);
+    const status = await getDeepResearchStatus(reportId, { valyuAccessToken });
+    const report = statusToDTO(reportId, status);
     if (report.status !== "completed" || !report.output) {
       return NextResponse.json({ error: "Report is not ready" }, { status: 400 });
     }

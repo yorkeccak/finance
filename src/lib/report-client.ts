@@ -29,11 +29,25 @@ export async function buildAuth(): Promise<{ headers: Record<string, string>; va
   return { headers, valyuAccessToken };
 }
 
-export async function apiListReports(): Promise<ReportDTO[]> {
-  const { headers } = await buildAuth();
-  const res = await fetch("/api/reports", { headers });
-  if (!res.ok) throw new Error("Failed to load reports");
+/**
+ * History/list: the canonical DeepResearch index (list + hydrate per task).
+ * Returns the caller's runs with auto-generated titles and current statuses.
+ * Never hard-fails on an auth lapse (server returns an empty list + flag).
+ */
+export async function apiReportHistory(): Promise<ReportDTO[]> {
+  const { headers, valyuAccessToken } = await buildAuth();
+  const res = await fetch("/api/reports/history", {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ valyuAccessToken }),
+  });
+  if (!res.ok) throw new Error("Failed to load history");
   return (await res.json()).reports ?? [];
+}
+
+/** Reports are backed entirely by the DeepResearch index - list == history. */
+export async function apiListReports(): Promise<ReportDTO[]> {
+  return apiReportHistory();
 }
 
 export interface CreateReportInput {
@@ -114,13 +128,21 @@ export async function apiSyncReport(
 }
 
 export async function apiDeleteReport(reportId: string): Promise<void> {
-  const { headers } = await buildAuth();
-  await fetch(`/api/reports/${reportId}`, { method: "DELETE", headers });
+  const { headers, valyuAccessToken } = await buildAuth();
+  await fetch(`/api/reports/${reportId}`, {
+    method: "DELETE",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ valyuAccessToken }),
+  });
 }
 
 export async function apiDownloadReportPdf(reportId: string, filename: string): Promise<void> {
-  const { headers } = await buildAuth();
-  const res = await fetch(`/api/reports/${reportId}/pdf`, { method: "POST", headers });
+  const { headers, valyuAccessToken } = await buildAuth();
+  const res = await fetch(`/api/reports/${reportId}/pdf`, {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ valyuAccessToken }),
+  });
   if (!res.ok) {
     const j = await res.json().catch(() => ({}));
     throw new Error(j.error || "PDF export failed");

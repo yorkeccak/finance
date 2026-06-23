@@ -38,7 +38,7 @@ export function SlideOver({
       {open && (
         <div className="fixed inset-0 z-50">
           <motion.div
-            className="absolute inset-0 bg-black/30 backdrop-blur-[1px]"
+            className="absolute inset-0 bg-foreground/30 backdrop-blur-[1px]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -46,7 +46,7 @@ export function SlideOver({
             onClick={onClose}
           />
           <motion.div
-            className="absolute right-0 top-0 h-full w-full max-w-3xl bg-[#F5F5F5] dark:bg-gray-950 shadow-2xl flex flex-col"
+            className="absolute right-0 top-0 h-full w-full max-w-3xl bg-background shadow-2xl flex flex-col"
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}

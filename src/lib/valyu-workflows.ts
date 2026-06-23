@@ -11,7 +11,7 @@
  *
  * NOTE (learned in the Phase 0 spike): the /status endpoint returns transient
  * 5xx mid-run. Callers must treat transient failures as "keep polling", NOT as
- * a terminal failure — see `isTransientValyuError`.
+ * a terminal failure - see `isTransientValyuError`.
  */
 
 import { isSelfHostedMode } from "./local-db/local-auth";
@@ -71,7 +71,7 @@ interface CallOpts {
  *  envelope in valyu mode. Returns parsed JSON, throws ValyuError on failure. */
 async function valyuCall(
   path: string,
-  method: "GET" | "POST",
+  method: "GET" | "POST" | "DELETE",
   body: unknown,
   { valyuAccessToken }: CallOpts,
 ): Promise<any> {
@@ -145,22 +145,6 @@ export async function getWorkflow(slug: string, opts: CallOpts = {}): Promise<an
 // DeepResearch tasks
 // ---------------------------------------------------------------------------
 
-/**
- * Public webhook URL Valyu pings on task completion (for email notifications).
- * Returns null unless a public base URL + REPORT_WEBHOOK_SECRET are set — so it
- * stays off in local dev (Valyu can't reach localhost).
- */
-export function buildWebhookUrl(): string | null {
-  const base =
-    process.env.VALYU_WEBHOOK_BASE_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    "";
-  const secret = process.env.REPORT_WEBHOOK_SECRET;
-  if (!base || !secret) return null;
-  if (!base.startsWith("https://")) return null; // must be publicly reachable
-  return `${base.replace(/\/$/, "")}/api/reports/webhook?key=${encodeURIComponent(secret)}`;
-}
-
 export interface CreateTaskInput {
   // Either a workflow run (slug + params) OR a freeform chat-launched research
   // (query). When `query` is set it takes precedence and no workflow is used.
@@ -195,11 +179,6 @@ export async function createDeepResearchTask(
     mode: input.mode,
     output_formats: ["markdown", "pdf"],
   };
-  // Email-on-completion: Valyu calls this public URL when the task finishes.
-  // Only set when a public base URL + shared secret are configured (so it's a
-  // no-op in local dev where Valyu can't reach localhost).
-  const webhookUrl = buildWebhookUrl();
-  if (webhookUrl) body.webhook_url = webhookUrl;
   if (input.query) {
     body.query = input.query;
   } else {
@@ -255,6 +234,10 @@ export interface TaskStatusResult {
   isPublic?: boolean;
   progress?: { current_step?: number; total_steps?: number } | null;
   usage?: unknown;
+  mode?: string | null;
+  errorMessage?: string | null;
+  createdAt?: string | null;
+  completedAt?: string | null;
   raw: any;
 }
 
@@ -274,6 +257,10 @@ export async function getDeepResearchStatus(
     isPublic: resp?.public ?? false,
     progress: resp?.progress ?? null,
     usage: resp?.usage ?? null,
+    mode: resp?.mode ?? null,
+    errorMessage: resp?.error_message ?? resp?.error ?? null,
+    createdAt: resp?.created_at ?? null,
+    completedAt: resp?.completed_at ?? null,
     raw: resp,
   };
 }
@@ -284,4 +271,43 @@ export async function cancelDeepResearchTask(
   opts: CallOpts = {},
 ): Promise<void> {
   await valyuCall(`/v1/deepresearch/tasks/${taskId}/cancel`, "POST", {}, opts);
+}
+
+/** Delete a DeepResearch task from the caller's index. */
+export async function deleteDeepResearchTask(
+  taskId: string,
+  opts: CallOpts = {},
+): Promise<void> {
+  await valyuCall(`/v1/deepresearch/tasks/${taskId}/delete`, "DELETE", undefined, opts);
+}
+
+/** One entry from the DeepResearch task index (`GET /v1/deepresearch/list`). */
+export interface DeepResearchListItem {
+  taskId: string;
+  query: string;
+  status: TaskStatus;
+  createdAt: string | null;
+}
+
+/**
+ * List the caller's DeepResearch tasks. The index is intentionally thin
+ * (id + query + status + created_at); per-task title/output/pdf come from
+ * `getDeepResearchStatus`. Scoped to the authenticated key server-side.
+ */
+export async function listDeepResearchTasks(
+  opts: CallOpts = {},
+  limit = 100,
+): Promise<DeepResearchListItem[]> {
+  const resp = await valyuCall(`/v1/deepresearch/list?limit=${limit}`, "GET", undefined, opts);
+  const arr = Array.isArray(resp)
+    ? resp
+    : resp?.tasks ?? resp?.data ?? resp?.results ?? [];
+  return (arr as any[])
+    .map((t) => ({
+      taskId: t?.deepresearch_id ?? t?.id ?? t?.task_id,
+      query: t?.query ?? "",
+      status: (t?.status ?? "queued") as TaskStatus,
+      createdAt: t?.created_at ?? null,
+    }))
+    .filter((t) => !!t.taskId);
 }

@@ -73,7 +73,7 @@ function ActivityRow({ item }: { item: ActivityItem }) {
     );
   }
 
-  // Code execution — collapsed dropdown showing the code and its output.
+  // Code execution - collapsed dropdown showing the code and its output.
   if (item.kind === "code") {
     return (
       <details className="group rounded-2xl border border-border bg-muted/30 overflow-hidden">
@@ -106,7 +106,7 @@ function ActivityRow({ item }: { item: ActivityItem }) {
     );
   }
 
-  // Chart — collapsed dropdown; expanding shows the generated chart image.
+  // Chart - collapsed dropdown; expanding shows the generated chart image.
   if (item.kind === "chart") {
     return (
       <details className="group rounded-2xl border border-border bg-muted/30 overflow-hidden">
@@ -132,7 +132,7 @@ function ActivityRow({ item }: { item: ActivityItem }) {
     );
   }
 
-  // Research step — collapsed into a dropdown by default. The summary shows a
+  // Research step - collapsed into a dropdown by default. The summary shows a
   // compact one-line objective + source count; expanding reveals the full
   // objective and the source list.
   return (

@@ -16,7 +16,7 @@ import { markSeen } from "@/lib/report-notify";
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
 /** Reports lead with their title as an H1, which the view already renders in
- *  the header — strip that leading H1 from the body to avoid a duplicate title. */
+ *  the header - strip that leading H1 from the body to avoid a duplicate title. */
 const stripLeadingH1 = (md: string) =>
   md.replace(/^\s*#\s+.+\n+/, "");
 

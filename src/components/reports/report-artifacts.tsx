@@ -206,7 +206,7 @@ function DeliverableContent({ deliverable }: { deliverable: ResearchDeliverable 
 
   return (
     <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-      Preview not available — use Download to open this file.
+      Preview not available - use Download to open this file.
     </div>
   );
 }

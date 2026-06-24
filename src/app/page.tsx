@@ -298,14 +298,14 @@ function HomeContent() {
         <AnimatePresence mode="wait">
             {!hasMessages && !researchActive && (
               <motion.div
-                className="text-center pt-0 md:pt-2 pb-6 md:pb-10 px-4 md:px-0"
+                className="text-center pt-0 md:pt-2 pb-3 md:pb-5 px-4 md:px-0"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20, transition: { duration: 0.3 } }}
                 transition={{ duration: 0.6, ease: "easeOut" }}
               >
               <motion.div
-                className="relative mb-12 inline-block"
+                className="relative mb-8 inline-block"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1, duration: 0.6, ease: "easeOut" }}
@@ -338,8 +338,8 @@ function HomeContent() {
                 </motion.h1>
                 
                 {/* "By Valyu" that slides out from under */}
-                <motion.div 
-                  className="absolute -bottom-6 left-0 right-0 flex items-center justify-center gap-1"
+                <motion.div
+                  className="absolute -bottom-5 left-0 right-0 flex items-center justify-center gap-1"
                   initial={{ opacity: 0 }}
                   animate={{ 
                     opacity: isHoveringTitle ? 1 : 0,
@@ -351,12 +351,12 @@ function HomeContent() {
                   }}
                 >
                   <span className="text-sm text-muted-foreground font-light">By</span>
-                  <Image 
-                    src="/valyu.svg" 
-                    alt="Valyu" 
+                  <Image
+                    src="/valyu.svg"
+                    alt="Valyu"
                     width={60}
                     height={60}
-                    className="h-5 opacity-80 dark:invert"
+                    className="h-4 opacity-80 dark:invert"
                   />
                 </motion.div>
                 

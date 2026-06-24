@@ -38,7 +38,7 @@ export async function GET(req: Request) {
       }
     } catch (e) {
       if (e instanceof ValyuError) {
-        // 403 here means the catalog isn't enabled for this account — present
+        // 403 here means the catalog isn't enabled for this account - present
         // it as a soft "temporarily unavailable" rather than an auth failure.
         if (e.status === 403) return json({ error: "Workflows are temporarily unavailable." }, 503);
         return json({ error: e.message }, valyuErrorStatus(e));

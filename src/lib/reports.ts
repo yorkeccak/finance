@@ -45,12 +45,16 @@ export interface ActivitySource {
 
 /**
  * One entry in the live DeepResearch activity feed, derived from the task
- * status `messages[]` transcript. Mirrors the Valyu playground feed.
+ * status `messages[]` transcript. Mirrors the Valyu playground feed. Each tool
+ * the agent runs (research / code execution / chart) becomes its own item kind
+ * so it can be rendered with the right detail.
  */
 export type ActivityItem =
   | { kind: "reasoning"; text: string }
   | { kind: "text"; text: string }
-  | { kind: "step"; objective: string; sources: ActivitySource[] };
+  | { kind: "step"; objective: string; sources: ActivitySource[] }
+  | { kind: "code"; code: string; output: string | null }
+  | { kind: "chart"; title: string; chartType: string | null; imageUrl: string | null };
 
 /**
  * Parse the DeepResearch status `messages[]` transcript into an ordered
@@ -59,35 +63,40 @@ export type ActivityItem =
  * Shape (verified against the live API):
  *   messages[]: { role, content: part[] }
  *   assistant part: {type:"reasoning",text} | {type:"text",text}
- *                   | {type:"tool-call", toolCallId, toolName:"research", input:{objective}}
- *   tool part:      {type:"tool-result", toolCallId, output:{value:{sources:[...]}}}
+ *                   | {type:"tool-call", toolCallId, toolName, input}
+ *   tool part:      {type:"tool-result", toolCallId, output:{value:{...}}}
+ *
+ * Tools seen: `research` (input.objective, result.value.sources[]),
+ * `execute_code` (input.code, result.value.output), `createChart`
+ * (input.title/chart_type, result.value.imageUrl).
  */
 export function parseActivityFromMessages(messages: any): ActivityItem[] {
   if (!Array.isArray(messages)) return [];
 
-  // First pass: map toolCallId -> sources from any tool-result parts.
-  const sourcesByCall = new Map<string, ActivitySource[]>();
+  // First pass: index each tool-result's payload by toolCallId.
+  const resultByCall = new Map<string, any>();
   for (const msg of messages) {
     const content = Array.isArray(msg?.content) ? msg.content : [];
     for (const part of content) {
       if (part?.type === "tool-result") {
-        const raw = part?.output?.value?.sources ?? part?.output?.sources ?? [];
-        if (Array.isArray(raw)) {
-          sourcesByCall.set(
-            part.toolCallId,
-            raw.map((s: any) => ({
-              source_id: s?.source_id,
-              title: s?.title,
-              url: s?.url,
-              content: s?.content ?? s?.summary ?? s?.description,
-            })),
-          );
-        }
+        resultByCall.set(part.toolCallId, part?.output?.value ?? part?.output ?? null);
       }
     }
   }
 
-  // Second pass: walk assistant parts in order, emitting feed items.
+  const sourcesFrom = (value: any): ActivitySource[] => {
+    const raw = value?.sources ?? [];
+    return Array.isArray(raw)
+      ? raw.map((s: any) => ({
+          source_id: s?.source_id,
+          title: s?.title,
+          url: s?.url,
+          content: s?.content ?? s?.summary ?? s?.description,
+        }))
+      : [];
+  };
+
+  // Second pass: walk assistant parts in order, emitting one item per part.
   const items: ActivityItem[] = [];
   for (const msg of messages) {
     if (msg?.role !== "assistant") continue;
@@ -98,8 +107,28 @@ export function parseActivityFromMessages(messages: any): ActivityItem[] {
       } else if (part?.type === "text" && part.text?.trim()) {
         items.push({ kind: "text", text: part.text });
       } else if (part?.type === "tool-call") {
-        const objective = part?.input?.objective ?? part?.input?.query ?? "Research";
-        items.push({ kind: "step", objective, sources: sourcesByCall.get(part.toolCallId) ?? [] });
+        const tool = part?.toolName ?? part?.tool_name;
+        const input = part?.input ?? part?.args ?? {};
+        const value = resultByCall.get(part.toolCallId);
+
+        if (tool === "execute_code") {
+          const output =
+            typeof value?.output === "string" ? value.output
+            : typeof value === "string" ? value
+            : value != null ? JSON.stringify(value, null, 2) : null;
+          items.push({ kind: "code", code: String(input?.code ?? ""), output });
+        } else if (tool === "createChart") {
+          items.push({
+            kind: "chart",
+            title: input?.title ?? "Chart",
+            chartType: input?.chart_type ?? null,
+            imageUrl: value?.imageUrl ?? value?.image_url ?? null,
+          });
+        } else {
+          // research (and any other search-style tool)
+          const objective = input?.objective ?? input?.query ?? "Research";
+          items.push({ kind: "step", objective, sources: sourcesFrom(value) });
+        }
       }
     }
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { Brain, Search, Check, ExternalLink, Telescope } from "lucide-react";
+import { Brain, Search, Check, ExternalLink, Telescope, ChevronDown, Code2, BarChart3 } from "lucide-react";
 import { getFaviconUrl, getHostname } from "@/lib/favicon";
 import type { ActivityItem, ActivitySource } from "@/lib/reports";
 
@@ -73,37 +73,108 @@ function ActivityRow({ item }: { item: ActivityItem }) {
     );
   }
 
-  // Research step
-  return (
-    <div>
-      <div className="rounded-2xl border border-primary/20 bg-primary/[0.04] overflow-hidden">
-        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-primary/15">
-          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/15">
-            <Check className="h-3 w-3 text-primary" strokeWidth={3} />
+  // Code execution — collapsed dropdown showing the code and its output.
+  if (item.kind === "code") {
+    return (
+      <details className="group rounded-2xl border border-border bg-muted/30 overflow-hidden">
+        <summary className="flex items-center gap-2 px-4 py-2.5 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden hover:bg-muted/50 transition-colors">
+          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-foreground/10 flex-shrink-0">
+            <Code2 className="h-3 w-3 text-foreground/70" />
           </span>
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">research</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-foreground/80 flex-shrink-0">
+            Code execution
+          </span>
+          <span className="text-xs text-muted-foreground/90 truncate flex-1 min-w-0">
+            {item.code.split("\n").find((l) => l.trim()) ?? "Ran code"}
+          </span>
+          <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="border-t border-border">
+          <pre className="px-4 py-3 text-[12px] leading-relaxed overflow-x-auto bg-muted/40 text-foreground/90">
+            <code>{item.code.trim()}</code>
+          </pre>
+          {item.output && (
+            <div className="border-t border-border">
+              <div className="px-4 pt-3 text-[11px] font-medium text-muted-foreground">Output</div>
+              <pre className="px-4 pb-3 pt-1 text-[12px] leading-relaxed overflow-x-auto text-foreground/80 whitespace-pre-wrap">
+                {item.output.trim()}
+              </pre>
+            </div>
+          )}
         </div>
+      </details>
+    );
+  }
+
+  // Chart — collapsed dropdown; expanding shows the generated chart image.
+  if (item.kind === "chart") {
+    return (
+      <details className="group rounded-2xl border border-border bg-muted/30 overflow-hidden">
+        <summary className="flex items-center gap-2 px-4 py-2.5 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden hover:bg-muted/50 transition-colors">
+          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-foreground/10 flex-shrink-0">
+            <BarChart3 className="h-3 w-3 text-foreground/70" />
+          </span>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-foreground/80 flex-shrink-0">
+            Chart
+          </span>
+          <span className="text-xs text-muted-foreground/90 truncate flex-1 min-w-0">{item.title}</span>
+          <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="border-t border-border p-4">
+          {item.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- remote token-bearing chart PNG
+            <img src={item.imageUrl} alt={item.title} loading="lazy" className="w-full h-auto rounded-lg bg-white" />
+          ) : (
+            <p className="text-xs text-muted-foreground">Chart generated.</p>
+          )}
+        </div>
+      </details>
+    );
+  }
+
+  // Research step — collapsed into a dropdown by default. The summary shows a
+  // compact one-line objective + source count; expanding reveals the full
+  // objective and the source list.
+  return (
+    <details className="group rounded-2xl border border-primary/20 bg-primary/[0.04] overflow-hidden">
+      <summary className="flex items-center gap-2 px-4 py-2.5 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden hover:bg-primary/[0.06] transition-colors">
+        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 flex-shrink-0">
+          <Check className="h-3 w-3 text-primary" strokeWidth={3} />
+        </span>
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-primary flex-shrink-0">
+          research
+        </span>
+        <span className="text-xs text-muted-foreground/90 truncate flex-1 min-w-0">{item.objective}</span>
+        {item.sources.length > 0 && (
+          <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground flex-shrink-0">
+            <Search className="h-3 w-3" /> {item.sources.length}
+          </span>
+        )}
+        <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform group-open:rotate-180" />
+      </summary>
+
+      <div className="border-t border-primary/15">
         <div className="px-4 py-3">
           <div className="text-[11px] font-medium text-muted-foreground mb-0.5">Research objective</div>
           <p className="text-sm text-foreground/90 leading-relaxed">{item.objective}</p>
         </div>
-      </div>
 
-      {item.sources.length > 0 && (
-        <div className="mt-2.5 pl-3 border-l-2 border-border ml-1.5">
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-            <Search className="h-3.5 w-3.5" /> {item.sources.length} sources found
+        {item.sources.length > 0 && (
+          <div className="px-4 pb-4">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+              <Search className="h-3.5 w-3.5" /> {item.sources.length} sources found
+            </div>
+            <div className="space-y-1.5">
+              {item.sources.map((s, i) => (
+                // Index-suffixed: the same filing/URL can be cited more than once
+                // in a step, so URL alone is not a unique key.
+                <SourceCard key={`${s.url ?? s.source_id ?? "src"}-${i}`} source={s} />
+              ))}
+            </div>
           </div>
-          <div className="space-y-1.5">
-            {item.sources.map((s, i) => (
-              // Index-suffixed: the same filing/URL can be cited more than once
-              // in a step, so URL alone is not a unique key.
-              <SourceCard key={`${s.url ?? s.source_id ?? "src"}-${i}`} source={s} />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </details>
   );
 }
 

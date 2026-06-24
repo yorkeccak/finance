@@ -304,8 +304,8 @@ function HomeContent() {
                 exit={{ opacity: 0, y: -20, transition: { duration: 0.3 } }}
                 transition={{ duration: 0.6, ease: "easeOut" }}
               >
-              <motion.div 
-                className="relative mb-5 inline-block"
+              <motion.div
+                className="relative mb-12 inline-block"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1, duration: 0.6, ease: "easeOut" }}

@@ -28,6 +28,7 @@ import { unseenCompletedCount } from '@/lib/report-notify';
 import { isTerminal, type ReportDTO } from '@/lib/reports';
 import { SettingsModal } from '@/components/user/settings-modal';
 import { EnterpriseContactModal } from '@/components/enterprise/enterprise-contact-modal';
+import { AuthModal } from '@/components/auth/auth-modal';
 
 interface SidebarProps {
   currentSessionId?: string;
@@ -99,6 +100,7 @@ export function Sidebar({
   const [showSettings, setShowSettings] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showEnterpriseModal, setShowEnterpriseModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [showMobileDrawer, setShowMobileDrawer] = useState(false);
   const [showMobileHistory, setShowMobileHistory] = useState(false);
 
@@ -295,7 +297,7 @@ export function Sidebar({
             </button>
           ) : (
             <button
-              onClick={() => window.dispatchEvent(new CustomEvent('show-auth-modal'))}
+              onClick={() => setShowAuthModal(true)}
               className="px-3 py-1.5 text-sm font-medium text-background bg-foreground hover:bg-foreground/90 rounded-lg transition-colors"
             >
               Log in
@@ -370,7 +372,7 @@ export function Sidebar({
                       onClick={() => {
                         if (!user) {
                           setShowMobileDrawer(false);
-                          window.dispatchEvent(new CustomEvent('show-auth-modal'));
+                          setShowAuthModal(true);
                         } else {
                           setShowMobileHistory(true);
                         }
@@ -466,7 +468,7 @@ export function Sidebar({
                       <button
                         onClick={() => {
                           setShowMobileDrawer(false);
-                          window.dispatchEvent(new CustomEvent('show-auth-modal'));
+                          setShowAuthModal(true);
                         }}
                         className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-foreground text-background hover:bg-foreground/90 rounded-xl font-medium text-sm transition-colors"
                       >
@@ -628,7 +630,7 @@ export function Sidebar({
                 <button
                   onClick={() => {
                     if (!user) {
-                      window.dispatchEvent(new CustomEvent('show-auth-modal'));
+                      setShowAuthModal(true);
                     } else {
                       setShowHistory(!showHistory);
                     }
@@ -710,7 +712,7 @@ export function Sidebar({
                 <div className="relative group/tooltip">
                   <button
                     onClick={() => {
-                      window.dispatchEvent(new CustomEvent('show-auth-modal'));
+                      setShowAuthModal(true);
                     }}
                     className="w-12 h-12 flex items-center justify-center hover:bg-accent hover:text-accent-foreground rounded-[20px] transition-all duration-200 hover:scale-110 active:scale-95"
                   >
@@ -865,6 +867,11 @@ export function Sidebar({
       <EnterpriseContactModal
         open={showEnterpriseModal}
         onClose={() => setShowEnterpriseModal(false)}
+      />
+
+      <AuthModal
+        open={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
       />
     </>
   );

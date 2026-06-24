@@ -27,6 +27,8 @@ const minimalFromId = (id: string): ReportDTO => ({
   output: null,
   sources: null,
   activity: null,
+  images: null,
+  deliverables: null,
   pdf_url: null,
   error_message: null,
   created_at: null,

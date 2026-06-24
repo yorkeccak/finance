@@ -96,7 +96,9 @@ function ActivityRow({ item }: { item: ActivityItem }) {
           </div>
           <div className="space-y-1.5">
             {item.sources.map((s, i) => (
-              <SourceCard key={`${s.url ?? s.source_id ?? i}`} source={s} />
+              // Index-suffixed: the same filing/URL can be cited more than once
+              // in a step, so URL alone is not a unique key.
+              <SourceCard key={`${s.url ?? s.source_id ?? "src"}-${i}`} source={s} />
             ))}
           </div>
         </div>

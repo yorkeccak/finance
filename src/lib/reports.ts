@@ -8,6 +8,8 @@
 import type {
   DeepResearchListItem,
   TaskStatusResult,
+  ResearchImage,
+  ResearchDeliverable,
 } from "./valyu-workflows";
 
 export interface ReportDTO {
@@ -24,6 +26,8 @@ export interface ReportDTO {
   output: string | null;
   sources: unknown[] | null;
   activity: ActivityItem[] | null;
+  images: ResearchImage[] | null;
+  deliverables: ResearchDeliverable[] | null;
   pdf_url: string | null;
   error_message: string | null;
   created_at: string | null;
@@ -129,6 +133,8 @@ export function listItemToDTO(item: DeepResearchListItem): ReportDTO {
     output: null,
     sources: null,
     activity: null,
+    images: null,
+    deliverables: null,
     pdf_url: null,
     error_message: null,
     created_at: item.createdAt ?? null,
@@ -161,6 +167,11 @@ export function statusToDTO(
     output: status.output ?? null,
     sources: status.sources ?? null,
     activity: status.activity && status.activity.length > 0 ? status.activity : base?.activity ?? null,
+    images: status.images && status.images.length > 0 ? status.images : base?.images ?? null,
+    deliverables:
+      status.deliverables && status.deliverables.length > 0
+        ? status.deliverables
+        : base?.deliverables ?? null,
     pdf_url: status.pdfUrl ?? null,
     error_message: status.errorMessage ?? null,
     created_at: status.createdAt ?? base?.created_at ?? null,

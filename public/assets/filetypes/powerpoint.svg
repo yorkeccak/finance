@@ -1,0 +1,406 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="172.02174mm"
+   height="156.45262mm"
+   viewBox="0 0 172.02174 156.45262"
+   version="1.1"
+   id="svg4401"
+   inkscape:version="1.2.1 (9c6d41e410, 2022-07-14)"
+   sodipodi:docname="PowerPoint icon.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:v="http://schemas.microsoft.com/visio/2003/SVGExtensions/">
+  <sodipodi:namedview
+     id="namedview4403"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="1.0444209"
+     inkscape:cx="123.03469"
+     inkscape:cy="352.34837"
+     inkscape:window-width="1920"
+     inkscape:window-height="1009"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs4398">
+    <linearGradient
+       id="grad0-154"
+       x1="0"
+       y1="767.83905"
+       x2="172.07365"
+       y2="767.83905"
+       gradientTransform="scale(1.2881693,0.77629548)"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#2c5a9e"
+         stop-opacity="1"
+         id="stop4" />
+      <stop
+         offset="1"
+         stop-color="#285294"
+         stop-opacity="1"
+         id="stop6" />
+    </linearGradient>
+    <linearGradient
+       id="grad0-154-5"
+       x1="0"
+       y1="767.83905"
+       x2="172.07365"
+       y2="767.83905"
+       gradientTransform="scale(1.2881693,0.77629548)"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#2c5a9e"
+         stop-opacity="1"
+         id="stop4-8" />
+      <stop
+         offset="1"
+         stop-color="#285294"
+         stop-opacity="1"
+         id="stop6-6" />
+    </linearGradient>
+    <linearGradient
+       id="grad0-158"
+       x1="0"
+       y1="767.83905"
+       x2="172.07365"
+       y2="767.83905"
+       gradientTransform="scale(1.2881693,0.77629548)"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#217747"
+         stop-opacity="1"
+         id="stop9" />
+      <stop
+         offset="1"
+         stop-color="#1d6b41"
+         stop-opacity="1"
+         id="stop11" />
+    </linearGradient>
+    <linearGradient
+       id="grad0-162"
+       x1="0"
+       y1="767.83905"
+       x2="172.07365"
+       y2="767.83905"
+       gradientTransform="scale(1.2881693,0.77629548)"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#d44a27"
+         stop-opacity="1"
+         id="stop14" />
+      <stop
+         offset="1"
+         stop-color="#d04323"
+         stop-opacity="1"
+         id="stop16" />
+    </linearGradient>
+    <linearGradient
+       id="grad0-154-2"
+       x1="0"
+       y1="767.83905"
+       x2="172.07365"
+       y2="767.83905"
+       gradientTransform="scale(1.2881693,0.77629548)"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#2c5a9e"
+         stop-opacity="1"
+         id="stop4-4" />
+      <stop
+         offset="1"
+         stop-color="#285294"
+         stop-opacity="1"
+         id="stop6-7" />
+    </linearGradient>
+    <linearGradient
+       id="grad0-158-2"
+       x1="0"
+       y1="767.83905"
+       x2="172.07365"
+       y2="767.83905"
+       gradientTransform="scale(1.2881693,0.77629548)"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#217747"
+         stop-opacity="1"
+         id="stop9-0" />
+      <stop
+         offset="1"
+         stop-color="#1d6b41"
+         stop-opacity="1"
+         id="stop11-7" />
+    </linearGradient>
+    <linearGradient
+       id="grad0-162-2"
+       x1="0"
+       y1="767.83905"
+       x2="172.07365"
+       y2="767.83905"
+       gradientTransform="scale(1.2881693,0.77629548)"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#d44a27"
+         stop-opacity="1"
+         id="stop14-7" />
+      <stop
+         offset="1"
+         stop-color="#d04323"
+         stop-opacity="1"
+         id="stop16-6" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       id="linearGradient11849">
+      <stop
+         style="stop-color:#d04223;stop-opacity:1;"
+         offset="0"
+         id="stop11845" />
+      <stop
+         style="stop-color:#d44a27;stop-opacity:1;"
+         offset="1"
+         id="stop11847" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient11849"
+       id="linearGradient17477"
+       gradientUnits="userSpaceOnUse"
+       x1="110.82898"
+       y1="729.64789"
+       x2="110.82898"
+       y2="596.07373"
+       gradientTransform="matrix(0,-0.70582253,0.70582253,0,-492.15662,131.62084)" />
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(71.436985,24.831782)">
+    <g
+       id="shape307-43"
+       v:mID="307"
+       v:groupContext="shape"
+       transform="matrix(0.70582253,0,0,0.70582253,1.0185879,-406.66344)"
+       style="stroke:none;fill:#ffffff;fill-opacity:1">
+      <title
+         id="title163">Rectangle.307</title>
+      <v:userDefs>
+        <v:ud
+           v:nameU="visVersion"
+           v:val="VT0(15):26" />
+      </v:userDefs>
+      <rect
+         x="0"
+         y="569.896"
+         width="138.075"
+         height="159.75"
+         class="st1"
+         id="rect165"
+         style="fill:#ffffff;stroke:none;stroke-width:0.25;fill-opacity:1" />
+    </g>
+    <g
+       id="shape48-45"
+       v:mID="48"
+       v:groupContext="shape"
+       transform="matrix(0.70582253,0,0,0.70582253,-8.3166021,-403.76462)"
+       style="stroke:none;fill:#d24625;fill-opacity:1">
+      <title
+         id="title168">rect307.48</title>
+      <path
+         d="m 9.48,560.69 c -5.25,0 -9.48,3.99 -9.48,8.96 v 151.04 c 0,4.96 4.23,8.96 9.48,8.96 h 135.33 c 5.25,0 9.48,-4 9.48,-8.96 V 569.65 c 0,-4.97 -4.23,-8.96 -9.48,-8.96 z m -1.65,7.94 H 146.46 V 721.52 L 7.29,721.7 7.58,568.11 Z"
+         class="st6"
+         id="path170"
+         style="fill:#d24625;stroke:none;stroke-width:0.683161;stroke-linecap:round;stroke-linejoin:round;fill-opacity:1" />
+    </g>
+    <g
+       id="shape54-47"
+       v:mID="54"
+       v:groupContext="shape"
+       transform="matrix(0.70582253,0,0,0.70582253,5.8937379,-439.18349)"
+       style="stroke:none;fill:#d24625;fill-opacity:1">
+      <title
+         id="title173">Rectangle.12</title>
+      <v:userDefs>
+        <v:ud
+           v:nameU="visVersion"
+           v:val="VT0(15):26" />
+      </v:userDefs>
+      <rect
+         x="0"
+         y="719.53802"
+         width="97.416397"
+         height="10.1084"
+         class="st7"
+         id="rect175"
+         style="fill:#d24625;stroke:none;stroke-width:0.25;fill-opacity:1" />
+    </g>
+    <g
+       id="shape55-49"
+       v:mID="55"
+       v:groupContext="shape"
+       transform="matrix(0.70582253,0,0,0.70582253,5.8937379,-422.36588)"
+       style="stroke:none;fill:#d24625;fill-opacity:1">
+      <title
+         id="title178">Rectangle.13</title>
+      <v:userDefs>
+        <v:ud
+           v:nameU="visVersion"
+           v:val="VT0(15):26" />
+      </v:userDefs>
+      <rect
+         x="0"
+         y="719.53802"
+         width="97.416397"
+         height="10.1084"
+         class="st7"
+         id="rect180"
+         style="fill:#d24625;stroke:none;stroke-width:0.25;fill-opacity:1" />
+    </g>
+    <g
+       id="group60-51"
+       transform="matrix(0.70582253,0,0,0.70582253,17.622378,-455.71458)"
+       v:mID="60"
+       v:groupContext="group"
+       style="stroke:none;fill:#d24625;fill-opacity:1">
+      <title
+         id="title183">Sheet.60</title>
+      <g
+         id="shape58-52"
+         v:mID="58"
+         v:groupContext="shape"
+         transform="translate(4.64154,-4.08684)"
+         style="stroke:none;fill:#d24625;fill-opacity:1">
+        <title
+           id="title185">Pie Slice</title>
+        <v:userDefs>
+          <v:ud
+             v:nameU="CtrlAng1"
+             v:prompt=""
+             v:val="VT0(5.4977871437822):32" />
+          <v:ud
+             v:nameU="CtrlAng2"
+             v:prompt=""
+             v:val="VT0(0.78539816339745):32" />
+          <v:ud
+             v:nameU="InnerDist"
+             v:prompt=""
+             v:val="VT0(0):1" />
+          <v:ud
+             v:nameU="MidAngle"
+             v:prompt=""
+             v:val="VT0(6.2831853071796):32" />
+          <v:ud
+             v:nameU="visVersion"
+             v:prompt=""
+             v:val="VT0(15):26" />
+          <v:ud
+             v:nameU="CtrlAng1"
+             v:prompt=""
+             v:val="VT0(0):32" />
+          <v:ud
+             v:nameU="CtrlAng2"
+             v:prompt=""
+             v:val="VT0(1.5707963267949):32" />
+          <v:ud
+             v:nameU="MidAngle"
+             v:prompt=""
+             v:val="VT0(0.78539816339745):32" />
+        </v:userDefs>
+        <path
+           d="M 32.66,696.99 H 65.32 A 32.6587,32.6587 -180 0 0 32.66,664.33 Z"
+           class="st7"
+           id="path187"
+           style="fill:#d24625;stroke:none;stroke-width:0.25;fill-opacity:1" />
+      </g>
+      <g
+         id="shape59-54"
+         v:mID="59"
+         v:groupContext="shape"
+         style="stroke:none;fill:#d24625;fill-opacity:1">
+        <title
+           id="title190">Pie Slice.59</title>
+        <v:userDefs>
+          <v:ud
+             v:nameU="CtrlAng1"
+             v:prompt=""
+             v:val="VT0(5.4977871437822):32" />
+          <v:ud
+             v:nameU="CtrlAng2"
+             v:prompt=""
+             v:val="VT0(0.78539816339745):32" />
+          <v:ud
+             v:nameU="InnerDist"
+             v:prompt=""
+             v:val="VT0(0):1" />
+          <v:ud
+             v:nameU="MidAngle"
+             v:prompt=""
+             v:val="VT0(6.2831853071796):32" />
+          <v:ud
+             v:nameU="visVersion"
+             v:prompt=""
+             v:val="VT0(15):26" />
+          <v:ud
+             v:nameU="CtrlAng1"
+             v:prompt=""
+             v:val="VT0(1.5707963267949):32" />
+          <v:ud
+             v:nameU="CtrlAng2"
+             v:prompt=""
+             v:val="VT0(0):32" />
+          <v:ud
+             v:nameU="MidAngle"
+             v:prompt=""
+             v:val="VT0(3.9269908169872):32" />
+        </v:userDefs>
+        <path
+           d="m 32.66,696.99 v -32.66 a 32.6587,32.6587 -180 1 0 32.66,32.66 z"
+           class="st7"
+           id="path192"
+           style="fill:#d24625;stroke:none;stroke-width:0.25;fill-opacity:1" />
+      </g>
+    </g>
+    <path
+       d="M 22.846789,131.62084 V -24.831782 L -71.436985,-9.1907547 V 115.97275 Z"
+       class="st25"
+       id="path439"
+       style="fill:url(#linearGradient17477);fill-opacity:1;stroke:none;stroke-width:0.176456" />
+    <g
+       id="shape277-234"
+       v:mID="277"
+       v:groupContext="shape"
+       transform="matrix(0.70582253,0,0,0.70582253,-40.292597,-434.48174)"
+       style="fill:#ffffff;fill-opacity:1;stroke:none">
+      <title
+         id="title593">Sheet.277</title>
+      <path
+         d="m 0,728.82 v -74.27 l 25.71,-1.43 c 8.321412,-0.26803 12.2,2.55414 16.04,8.04414 3.35,4.8 4.35,11.70586 3.83,17.74586 -1.11,12.76 -9,23.78 -20.87,24.38 H 13.88 v -13.71783 h 7.22 c 5.174747,-0.22918 9.054542,-5.87121 8.806764,-11.73162 -0.222529,-6.60973 -3.69728,-10.52969 -8.400814,-10.69541 L 13.88,667.19 l 0.01,62.46 z"
+         class="st24"
+         id="path595"
+         style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.75"
+         sodipodi:nodetypes="cccccccccccccc" />
+    </g>
+  </g>
+</svg>

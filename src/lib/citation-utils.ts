@@ -68,6 +68,32 @@ export function extractCitationsFromToolResults(toolResults: any[]): CitationMap
   return citations;
 }
 
+// Build a CitationMap from a DeepResearch report's `sources[]`. Each source
+// carries a `source_id` that matches the `[n]` markers in the report body, so
+// `[n]` → the source with `source_id === n`. This is what powers the inline
+// favicon hover cards in the rendered report.
+export function buildCitationMapFromSources(sources: unknown[] | null | undefined): CitationMap {
+  const map: CitationMap = {};
+  if (!Array.isArray(sources)) return map;
+
+  sources.forEach((raw, i) => {
+    const s = raw as Record<string, any> | null;
+    if (!s) return;
+    const id = String(s.source_id ?? i + 1);
+    const url = typeof s.url === "string" ? s.url : "";
+    const citation: Citation = {
+      number: id,
+      title: s.title || url || `Source ${id}`,
+      url,
+      description: s.description || s.content || s.snippet || undefined,
+      date: s.date || undefined,
+    };
+    (map[`[${id}]`] ||= []).push(citation);
+  });
+
+  return map;
+}
+
 // Get tool type from tool name
 function getToolType(toolName?: string): 'financial' | 'web' | 'wiley' | undefined {
   if (!toolName) return undefined;

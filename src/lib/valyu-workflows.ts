@@ -55,6 +55,18 @@ export class ValyuError extends Error {
   }
 }
 
+/** Map an upstream ValyuError to the HTTP status an API route should return.
+ *  Preserves the statuses the client distinguishes (auth, payment, rate-limit
+ *  and other 4xx); collapses genuine upstream faults (5xx / unknown) to 502 so
+ *  a rate-limit never masquerades as a gateway crash. */
+export function valyuErrorStatus(e: ValyuError): number {
+  const s = e.status;
+  if (s === 402) return 402;
+  if (s === 401 || s === 403) return 401;
+  if (s && s >= 400 && s < 500) return s; // 429, 400, 404, ...
+  return 502;
+}
+
 /** Transient = worth retrying (network blip, 5xx, rate limit). The status
  *  endpoint throws intermittent 502s, so this gate keeps a run alive. */
 export function isTransientValyuError(e: unknown): boolean {
@@ -224,12 +236,38 @@ export async function createDeepResearchTask(
   };
 }
 
+/** A chart generated during research (bar/line/etc). `imageUrl` is a public,
+ *  token-bearing PNG served by the Valyu API. */
+export interface ResearchImage {
+  imageUrl: string;
+  title?: string | null;
+  chartType?: string | null;
+  imageType?: string | null;
+  imageId?: string | null;
+}
+
+/** A generated downloadable artifact (spreadsheet / doc / deck / pdf). `url` is
+ *  a public, token-bearing download URL served by the Valyu API. */
+export interface ResearchDeliverable {
+  id?: string | null;
+  type: string;
+  title?: string | null;
+  url: string;
+  description?: string | null;
+  request?: string | null;
+  status?: string | null;
+  rowCount?: number | null;
+  columnCount?: number | null;
+}
+
 export interface TaskStatusResult {
   status: TaskStatus;
   title?: string | null;
   output?: string | null;
   sources?: unknown[] | null;
   activity?: ActivityItem[];
+  images?: ResearchImage[] | null;
+  deliverables?: ResearchDeliverable[] | null;
   pdfUrl?: string | null;
   isPublic?: boolean;
   progress?: { current_step?: number; total_steps?: number } | null;
@@ -239,6 +277,42 @@ export interface TaskStatusResult {
   createdAt?: string | null;
   completedAt?: string | null;
   raw: any;
+}
+
+/** Normalize the API's image/deliverable arrays (snake_case, string counts)
+ *  into typed shapes the UI consumes. */
+function mapImages(raw: unknown): ResearchImage[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((r: any) => ({
+      imageUrl: r?.image_url ?? r?.url ?? "",
+      title: r?.title ?? null,
+      chartType: r?.chart_type ?? null,
+      imageType: r?.image_type ?? null,
+      imageId: r?.image_id ?? null,
+    }))
+    .filter((i) => !!i.imageUrl);
+}
+
+function mapDeliverables(raw: unknown): ResearchDeliverable[] {
+  if (!Array.isArray(raw)) return [];
+  const num = (v: unknown) => {
+    const n = typeof v === "string" ? parseInt(v, 10) : typeof v === "number" ? v : NaN;
+    return Number.isFinite(n) ? n : null;
+  };
+  return raw
+    .map((r: any) => ({
+      id: r?.id ?? null,
+      type: String(r?.type ?? "").toLowerCase(),
+      title: r?.title ?? null,
+      url: r?.url ?? "",
+      description: r?.description ?? null,
+      request: r?.request ?? null,
+      status: r?.status ?? null,
+      rowCount: num(r?.row_count),
+      columnCount: num(r?.column_count),
+    }))
+    .filter((d) => !!d.url && !!d.type);
 }
 
 export async function getDeepResearchStatus(
@@ -253,6 +327,8 @@ export async function getDeepResearchStatus(
     sources: resp?.sources ?? null,
     // Parsed live activity feed (reasoning / research steps / sources found).
     activity: parseActivityFromMessages(resp?.messages),
+    images: mapImages(resp?.images),
+    deliverables: mapDeliverables(resp?.deliverables),
     pdfUrl: resp?.pdf_url ?? null,
     isPublic: resp?.public ?? false,
     progress: resp?.progress ?? null,

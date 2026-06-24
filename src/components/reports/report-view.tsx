@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, AlertCircle, Clock, Download, ExternalLink } from "lucide-react";
 import { CitationTextRenderer } from "@/components/citation-text-renderer";
@@ -9,9 +9,16 @@ import { ErrorNote } from "@/components/reports/error-note";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { apiSyncReport, apiDownloadReportPdf } from "@/lib/report-client";
 import { isTerminal } from "@/lib/reports";
+import { buildCitationMapFromSources } from "@/lib/citation-utils";
+import { ChartGallery, DeliverablesList } from "@/components/reports/report-artifacts";
 import { markSeen } from "@/lib/report-notify";
 
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+
+/** Reports lead with their title as an H1, which the view already renders in
+ *  the header — strip that leading H1 from the body to avoid a duplicate title. */
+const stripLeadingH1 = (md: string) =>
+  md.replace(/^\s*#\s+.+\n+/, "");
 
 const fmtElapsed = (ms: number) => {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -78,6 +85,13 @@ export function ReportView({ reportId }: { reportId: string }) {
   useEffect(() => {
     if (report && isTerminal(report.status)) markSeen([report.id]);
   }, [report?.id, report?.status]);
+
+  // Map the report's sources to inline citations so `[n]` markers in the body
+  // become favicon hover cards. Must run before the early returns (hook rules).
+  const citationMap = useMemo(
+    () => buildCitationMapFromSources(report?.sources),
+    [report?.sources],
+  );
 
   if (isLoading) {
     return (
@@ -257,8 +271,8 @@ export function ReportView({ reportId }: { reportId: string }) {
       {report.status === "completed" && report.output && (
         <div className="rounded-2xl border border-border bg-card p-6 md:p-8">
           <CitationTextRenderer
-            text={report.output}
-            citations={{}}
+            text={stripLeadingH1(report.output)}
+            citations={citationMap}
             className="prose prose-sm dark:prose-invert max-w-none [--tw-prose-headings:var(--foreground)] [--tw-prose-bold:var(--foreground)]"
           />
           {report.sources && report.sources.length > 0 && (
@@ -267,6 +281,13 @@ export function ReportView({ reportId }: { reportId: string }) {
             </div>
           )}
         </div>
+      )}
+
+      {report.status === "completed" && report.images && report.images.length > 0 && (
+        <ChartGallery images={report.images} />
+      )}
+      {report.status === "completed" && report.deliverables && report.deliverables.length > 0 && (
+        <DeliverablesList deliverables={report.deliverables} />
       )}
 
       <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />

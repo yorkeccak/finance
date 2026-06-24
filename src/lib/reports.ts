@@ -126,7 +126,7 @@ export function listItemToDTO(item: DeepResearchListItem): ReportDTO {
     workflow_params: {},
     query: item.query ?? null,
     mode: "standard",
-    title: deriveTitle(item.query),
+    title: item.title || deriveTitle(item.query),
     estimated_time: null,
     valyu_task_id: item.taskId,
     status: item.status,

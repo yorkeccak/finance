@@ -357,17 +357,21 @@ export async function deleteDeepResearchTask(
   await valyuCall(`/v1/deepresearch/tasks/${taskId}/delete`, "DELETE", undefined, opts);
 }
 
-/** One entry from the DeepResearch task index (`GET /v1/deepresearch/list`). */
+/** One entry from the DeepResearch task index (`GET /v1/deepresearch/list`).
+ *  The index already carries the auto-generated title + status, so the history
+ *  list never needs to hydrate each task individually. */
 export interface DeepResearchListItem {
   taskId: string;
   query: string;
+  title: string | null;
   status: TaskStatus;
   createdAt: string | null;
 }
 
 /**
- * List the caller's DeepResearch tasks. The index is intentionally thin
- * (id + query + status + created_at); per-task title/output/pdf come from
+ * List the caller's DeepResearch tasks. The index carries everything the
+ * history/list view needs (id + query + title + status + created_at); full
+ * output/sources/pdf are only fetched when a single report is opened via
  * `getDeepResearchStatus`. Scoped to the authenticated key server-side.
  */
 export async function listDeepResearchTasks(
@@ -382,6 +386,7 @@ export async function listDeepResearchTasks(
     .map((t) => ({
       taskId: t?.deepresearch_id ?? t?.id ?? t?.task_id,
       query: t?.query ?? "",
+      title: t?.title ?? null,
       status: (t?.status ?? "queued") as TaskStatus,
       createdAt: t?.created_at ?? null,
     }))

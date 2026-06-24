@@ -1,9 +1,5 @@
-import { listItemToDTO, statusToDTO, type ReportDTO } from "@/lib/reports";
-import {
-  listDeepResearchTasks,
-  getDeepResearchStatus,
-  ValyuError,
-} from "@/lib/valyu-workflows";
+import { listItemToDTO, type ReportDTO } from "@/lib/reports";
+import { listDeepResearchTasks, ValyuError } from "@/lib/valyu-workflows";
 import { isSelfHostedMode } from "@/lib/local-db/local-auth";
 
 const json = (data: any, status = 200) =>
@@ -15,9 +11,12 @@ const json = (data: any, status = 200) =>
 /**
  * POST /api/reports/history - list the caller's DeepResearch tasks.
  *
- * The list index is thin (id/query/status/created_at), so each task is
- * hydrated in parallel via the status endpoint to pull the auto-generated
- * title and current status. Scoped to the authenticated key/token server-side.
+ * The list index already carries everything this view needs (id, query,
+ * auto-generated title, status, created_at), so it maps straight to DTOs with
+ * a SINGLE upstream call. Full output/sources are fetched lazily, only when a
+ * report is opened (see /api/reports/[reportId]/sync). Hydrating every task
+ * here would fan out to one request per task on every poll - the cause of the
+ * 429s. Scoped to the authenticated key/token server-side.
  */
 export async function POST(req: Request) {
   try {
@@ -37,18 +36,7 @@ export async function POST(req: Request) {
       return json({ reports: [], syncError: e instanceof Error ? e.message : "Failed to load history" });
     }
 
-    const reports: ReportDTO[] = await Promise.all(
-      tasks.map(async (task) => {
-        const base = listItemToDTO(task);
-        try {
-          const status = await getDeepResearchStatus(task.taskId, { valyuAccessToken });
-          return statusToDTO(task.taskId, status, base);
-        } catch {
-          // Transient hydrate failure - fall back to the thin list entry.
-          return base;
-        }
-      }),
-    );
+    const reports: ReportDTO[] = tasks.map(listItemToDTO);
 
     reports.sort((a, b) => {
       const ta = a.created_at ? new Date(a.created_at).getTime() : 0;

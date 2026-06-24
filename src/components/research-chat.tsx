@@ -16,6 +16,7 @@ import { ErrorNote } from "@/components/reports/error-note";
 import { HomeWorkflows } from "@/components/home-workflows";
 import { AuthModal } from "@/components/auth/auth-modal";
 import DataSourceLogos from "@/components/data-source-logos";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
@@ -53,13 +54,14 @@ const RESEARCH_TOOLS: {
 const DELIVERABLE_FORMATS: {
   type: DeliverableType;
   label: string;
+  icon: string;
   sample: string;
 }[] = [
-  { type: "xlsx", label: "Excel (.xlsx)", sample: "e.g. 3-statement model with quarterly revenue, margins and free cash flow" },
-  { type: "pptx", label: "PowerPoint (.pptx)", sample: "e.g. 10-slide IC deck: thesis, comps, risks, recommendation" },
-  { type: "docx", label: "Word (.docx)", sample: "e.g. Full memo with exec summary, analysis and appendix" },
-  { type: "csv", label: "CSV (.csv)", sample: "e.g. Peer comps table: ticker, EV/EBITDA, P/E, revenue growth" },
-  { type: "pdf", label: "PDF (.pdf)", sample: "e.g. One-page summary of key findings and the verdict" },
+  { type: "xlsx", label: "Excel (.xlsx)", icon: "/assets/filetypes/excel.svg", sample: "e.g. 3-statement model with quarterly revenue, margins and free cash flow" },
+  { type: "pptx", label: "PowerPoint (.pptx)", icon: "/assets/filetypes/powerpoint.svg", sample: "e.g. 10-slide IC deck: thesis, comps, risks, recommendation" },
+  { type: "docx", label: "Word (.docx)", icon: "/assets/filetypes/word.svg", sample: "e.g. Full memo with exec summary, analysis and appendix" },
+  { type: "csv", label: "CSV (.csv)", icon: "/assets/filetypes/csv.svg", sample: "e.g. Peer comps table: ticker, EV/EBITDA, P/E, revenue growth" },
+  { type: "pdf", label: "PDF (.pdf)", icon: "/assets/filetypes/pdf.svg", sample: "e.g. One-page summary of key findings and the verdict" },
 ];
 
 const SAMPLE_DESC: Record<DeliverableType, string> = Object.fromEntries(
@@ -136,11 +138,12 @@ function ResearchInput({ onLaunched }: { onLaunched: (id: string) => void }) {
     }));
 
   // Opening the panel with nothing configured seeds one row so it's not empty.
+  // Keep the seed outside the state updater: updaters must be pure (React runs
+  // them twice in dev), so seeding inside would add two rows.
   const toggleDeliverablesPanel = () => {
-    setDeliverablesOpen((open) => {
-      if (!open && tools.deliverables.length === 0) addDeliverable();
-      return !open;
-    });
+    const willOpen = !deliverablesOpen;
+    setDeliverablesOpen(willOpen);
+    if (willOpen && tools.deliverables.length === 0) addDeliverable();
   };
   // Synchronous re-entrancy guard. The `launching` state can't block a second
   // submit() fired in the same tick (rapid double-click / double-Enter) because
@@ -292,18 +295,33 @@ function ResearchInput({ onLaunched }: { onLaunched: (id: string) => void }) {
             <div className="space-y-2">
               {tools.deliverables.map((d, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <select
+                  <Select
                     value={d.type}
-                    onChange={(e) => updateDeliverable(i, { type: e.target.value as DeliverableType })}
-                    aria-label="Deliverable format"
-                    className="shrink-0 rounded-lg border border-border bg-background px-2 py-1.5 text-[11px] font-medium text-foreground outline-none focus:border-muted-foreground/40 cursor-pointer"
+                    onValueChange={(v) => updateDeliverable(i, { type: v as DeliverableType })}
                   >
-                    {DELIVERABLE_FORMATS.map((f) => (
-                      <option key={f.type} value={f.type}>
-                        {f.label}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger
+                      size="sm"
+                      aria-label="Deliverable format"
+                      className="shrink-0 w-[170px] bg-background text-[11px] font-medium"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DELIVERABLE_FORMATS.map((f) => (
+                        <SelectItem key={f.type} value={f.type} className="text-[11px]">
+                          <Image
+                            src={f.icon}
+                            alt=""
+                            width={16}
+                            height={16}
+                            unoptimized
+                            className="h-4 w-4 object-contain"
+                          />
+                          {f.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <input
                     value={d.description}
                     onChange={(e) => updateDeliverable(i, { description: e.target.value })}
@@ -358,7 +376,7 @@ function ResearchInput({ onLaunched }: { onLaunched: (id: string) => void }) {
       >
         <span className="text-xs text-muted-foreground/60">Powered by</span>
         <a
-          href="https://platform.valyu.ai"
+          href="https://valyu.ai"
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Valyu"

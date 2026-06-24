@@ -240,6 +240,20 @@ function HomeContent() {
 
   return (
     <div className='min-h-screen bg-background flex overflow-x-hidden'>
+      {/* Subtle skyline backdrop, anchored to the bottom of the viewport. */}
+      <div aria-hidden className="pointer-events-none fixed inset-x-0 bottom-0 z-0 h-[58vh] select-none">
+        <Image
+          src="/assets/hero/hero-illustration-a.png"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-bottom opacity-[0.12] dark:opacity-[0.10] dark:invert dark:hue-rotate-180"
+        />
+        {/* Fade the top edge into the page so there is no hard seam. */}
+        <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-background" />
+      </div>
+
       {/* Enterprise Banner */}
       <EnterpriseBanner />
 
@@ -277,7 +291,7 @@ function HomeContent() {
       />
 
       {/* Main Content Area */}
-      <div className={`main-content-shell flex-1 min-w-0 flex flex-col pt-14 md:pt-0 ${
+      <div className={`main-content-shell relative z-10 flex-1 min-w-0 flex flex-col pt-14 md:pt-0 ${
         !hasMessages && !researchActive ? 'justify-center' : ''
       }`}>
         {/* Header - Animate out when a research run is active */}

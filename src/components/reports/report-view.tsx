@@ -9,7 +9,7 @@ import { ErrorNote } from "@/components/reports/error-note";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { apiSyncReport, apiDownloadReportPdf } from "@/lib/report-client";
 import { isTerminal } from "@/lib/reports";
-import { buildCitationMapFromSources } from "@/lib/citation-utils";
+import { buildCitationMapFromSources, extractMarkdownLinkCitations } from "@/lib/citation-utils";
 import { ChartGallery, DeliverablesList } from "@/components/reports/report-artifacts";
 import { markSeen } from "@/lib/report-notify";
 
@@ -86,12 +86,16 @@ export function ReportView({ reportId }: { reportId: string }) {
     if (report && isTerminal(report.status)) markSeen([report.id]);
   }, [report?.id, report?.status]);
 
-  // Map the report's sources to inline citations so `[n]` markers in the body
-  // become favicon hover cards. Must run before the early returns (hook rules).
-  const citationMap = useMemo(
-    () => buildCitationMapFromSources(report?.sources),
-    [report?.sources],
-  );
+  // Resolve `[n]` markers to favicon citation cards. Two formats are supported:
+  // bare markers backed by the report's `sources[]`, and inline `[[n]](url)`
+  // markdown-link citations embedded in the body. Both feed one citation map,
+  // and the body is rewritten to bare markers. Runs before the early returns.
+  const { citationMap, bodyText } = useMemo(() => {
+    const stripped = stripLeadingH1(report?.output ?? "");
+    const { citations: linkCites, text } = extractMarkdownLinkCitations(stripped);
+    const citationMap = { ...buildCitationMapFromSources(report?.sources), ...linkCites };
+    return { citationMap, bodyText: text };
+  }, [report?.output, report?.sources]);
 
   if (isLoading) {
     return (
@@ -271,7 +275,7 @@ export function ReportView({ reportId }: { reportId: string }) {
       {report.status === "completed" && report.output && (
         <div className="rounded-2xl border border-border bg-card p-6 md:p-8">
           <CitationTextRenderer
-            text={stripLeadingH1(report.output)}
+            text={bodyText}
             citations={citationMap}
             className="prose prose-sm dark:prose-invert max-w-none [--tw-prose-headings:var(--foreground)] [--tw-prose-bold:var(--foreground)]"
           />

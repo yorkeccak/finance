@@ -94,6 +94,35 @@ export function buildCitationMapFromSources(sources: unknown[] | null | undefine
   return map;
 }
 
+// Build a citation map from inline markdown-link citations of the form
+// `[[12]](https://example.com/...)`. Seeded example reports embed the source
+// URL directly in the marker this way (rather than a separate sources array).
+// Returns the map plus the text rewritten to bare `[12]` markers so the inline
+// pill renderer picks them up - including later bare `[12]` reuses of the same
+// source, which then resolve against the map too.
+export function extractMarkdownLinkCitations(text: string): {
+  citations: CitationMap;
+  text: string;
+} {
+  const map: CitationMap = {};
+  const re = /\[\[(\d+)\]\]\(\s*([^)\s]+)\s*\)/g;
+  const cleaned = text.replace(re, (_m, num: string, url: string) => {
+    const key = `[${num}]`;
+    let host = url;
+    try {
+      host = new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      /* leave the raw url as the title */
+    }
+    const list = (map[key] ||= []);
+    if (!list.some((c) => c.url === url)) {
+      list.push({ number: num, title: host, url });
+    }
+    return key;
+  });
+  return { citations: map, text: cleaned };
+}
+
 // Get tool type from tool name
 function getToolType(toolName?: string): 'financial' | 'web' | 'wiley' | undefined {
   if (!toolName) return undefined;

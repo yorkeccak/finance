@@ -1,8 +1,10 @@
 "use client";
 
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Sparkles, Clock, Loader2, ExternalLink } from "lucide-react";
 import { CitationTextRenderer } from "@/components/citation-text-renderer";
+import { extractMarkdownLinkCitations } from "@/lib/citation-utils";
 import { getExample, isExampleReady } from "@/lib/example-reports/registry";
 import { DOMAINS } from "@/lib/domains";
 
@@ -21,6 +23,13 @@ export function ExampleReportView({
   const router = useRouter();
   const example = getExample(domainId);
   const domain = DOMAINS.find((d) => d.id === domainId);
+
+  // Examples embed source URLs inline as `[[n]](url)` markdown links; turn
+  // those into favicon citation pills (and resolve bare `[n]` reuses too).
+  const { citations, text } = useMemo(
+    () => extractMarkdownLinkCitations(example?.output ?? ""),
+    [example?.output],
+  );
 
   if (!example) {
     return <div className="text-sm text-muted-foreground py-12">No example for this domain.</div>;
@@ -68,8 +77,8 @@ export function ExampleReportView({
       {isExampleReady(example) ? (
         <div className="rounded-2xl border border-border bg-card p-6 md:p-8">
           <CitationTextRenderer
-            text={example.output}
-            citations={{}}
+            text={text}
+            citations={citations}
             className="prose prose-sm dark:prose-invert max-w-none [--tw-prose-headings:var(--foreground)] [--tw-prose-bold:var(--foreground)]"
           />
         </div>

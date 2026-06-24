@@ -63,10 +63,11 @@ export default function ReportsPage() {
   const queryClient = useQueryClient();
   const [openReportId, setOpenReportId] = useState<string | null>(null);
 
-  const { data: reports = [], isLoading } = useQuery({
+  const { data: reports = [], isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ["reports"],
     queryFn: apiListReports,
     refetchInterval: 8000,
+    retry: 1,
   });
 
   // Visiting the reports list acknowledges all finished runs → clears the badge.
@@ -117,6 +118,18 @@ export default function ReportsPage() {
             {isLoading ? (
               <div className="flex items-center gap-2 text-muted-foreground text-sm py-6">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+              </div>
+            ) : error && reports.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border text-sm py-8 text-center">
+                <span className="text-muted-foreground">{(error as Error).message}</span>
+                <button
+                  onClick={() => refetch()}
+                  disabled={isFetching}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:border-foreground/20 disabled:opacity-50"
+                >
+                  {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  Try again
+                </button>
               </div>
             ) : reports.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border text-sm text-muted-foreground py-8 text-center">

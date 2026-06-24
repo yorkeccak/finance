@@ -1,5 +1,5 @@
 import * as db from "@/lib/db";
-import { listWorkflows, ValyuError } from "@/lib/valyu-workflows";
+import { listWorkflows, ValyuError, valyuErrorStatus } from "@/lib/valyu-workflows";
 import { normalizeWorkflow } from "@/lib/workflow-types";
 import { FINANCE_VERTICALS, isFinanceVertical } from "@/lib/domains";
 
@@ -38,10 +38,10 @@ export async function GET(req: Request) {
       }
     } catch (e) {
       if (e instanceof ValyuError) {
-        if (e.status === 401) return json({ error: e.message }, 401);
-        if (e.status === 402) return json({ error: e.message }, 402);
+        // 403 here means the catalog isn't enabled for this account — present
+        // it as a soft "temporarily unavailable" rather than an auth failure.
         if (e.status === 403) return json({ error: "Workflows are temporarily unavailable." }, 503);
-        return json({ error: e.message }, 502);
+        return json({ error: e.message }, valyuErrorStatus(e));
       }
       throw e;
     }

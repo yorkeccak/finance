@@ -128,10 +128,11 @@ export function WorkflowBrowser({
     }
   };
 
-  const { data: workflows = [], isLoading, error } = useQuery({
+  const { data: workflows = [], isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ["workflows", domain],
     queryFn: () => apiListWorkflows(domain === "popular" ? undefined : domain),
     staleTime: 5 * 60 * 1000,
+    retry: 1,
   });
 
   const filtered = useMemo(() => {
@@ -244,8 +245,18 @@ export function WorkflowBrowser({
               <Loader2 className="h-4 w-4 animate-spin" /> Loading workflows…
             </div>
           ) : error ? (
-            <div className="flex items-center gap-2 text-destructive text-sm py-10">
-              <AlertCircle className="h-4 w-4" /> {(error as Error).message}
+            <div className="flex flex-col items-center gap-3 text-sm py-10">
+              <div className="flex items-center gap-2 text-destructive">
+                <AlertCircle className="h-4 w-4" /> {(error as Error).message}
+              </div>
+              <button
+                onClick={() => refetch()}
+                disabled={isFetching}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:border-foreground/20 disabled:opacity-50"
+              >
+                {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                Try again
+              </button>
             </div>
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center text-center py-14 px-6 rounded-2xl border border-dashed border-border">

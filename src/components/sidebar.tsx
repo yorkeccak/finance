@@ -88,6 +88,7 @@ export function Sidebar({
     queryFn: apiListReports,
     refetchInterval: 10000,
     enabled: !!user,
+    retry: 1,
   });
   const unseenReports = unseenCompletedCount(reportsForBadge);
 
@@ -108,6 +109,7 @@ export function Sidebar({
     queryFn: apiReportHistory,
     enabled: !!user,
     refetchInterval: 15000,
+    retry: 1,
   });
 
   // Delete a report (also drops it from Valyu's index).

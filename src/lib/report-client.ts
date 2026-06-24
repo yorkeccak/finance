@@ -29,6 +29,21 @@ export async function buildAuth(): Promise<{ headers: Record<string, string>; va
   return { headers, valyuAccessToken };
 }
 
+/** Turn a failed response into a user-facing Error, with friendly copy for
+ *  the statuses worth distinguishing (rate-limit, credits, auth). */
+export function errorFromResponse(res: Response, body: { error?: string; message?: string }, fallback: string): Error {
+  if (res.status === 429) {
+    return new Error("You're sending requests too quickly. Wait a few seconds and try again.");
+  }
+  if (res.status === 402) {
+    return new Error(body.error || body.message || "Insufficient Valyu credits. Top up your account to continue.");
+  }
+  if (res.status === 401) {
+    return new Error(body.error === "AUTH_REQUIRED" ? (body.message || "Sign in with Valyu to run research.") : (body.message || body.error || "Your session expired. Please sign in again."));
+  }
+  return new Error(body.error || body.message || fallback);
+}
+
 /**
  * History/list: the canonical DeepResearch index (list + hydrate per task).
  * Returns the caller's runs with auto-generated titles and current statuses.
@@ -41,8 +56,16 @@ export async function apiReportHistory(): Promise<ReportDTO[]> {
     headers: { ...headers, "Content-Type": "application/json" },
     body: JSON.stringify({ valyuAccessToken }),
   });
-  if (!res.ok) throw new Error("Failed to load history");
-  return (await res.json()).reports ?? [];
+  const json = await res.json();
+  if (!res.ok) throw errorFromResponse(res, json, "Failed to load history");
+  // The route answers 200 with a `syncError` when the upstream list call failed
+  // (e.g. rate-limited). Surface it as an error so callers show "couldn't load"
+  // instead of a misleading "no reports yet" empty state. `authExpired` is a
+  // legitimate signed-out state, so it stays an empty list, not an error.
+  if (json.syncError && (json.reports?.length ?? 0) === 0) {
+    throw new Error(json.syncError);
+  }
+  return json.reports ?? [];
 }
 
 /** Reports are backed entirely by the DeepResearch index - list == history. */
@@ -66,7 +89,7 @@ export async function apiCreateReport(input: CreateReportInput): Promise<ReportD
     body: JSON.stringify({ ...input, valyuAccessToken }),
   });
   const json = await res.json();
-  if (!res.ok) throw new Error(json.error || json.message || "Failed to start report");
+  if (!res.ok) throw errorFromResponse(res, json, "Failed to start report");
   return json.report;
 }
 
@@ -96,7 +119,7 @@ export async function apiCreateResearch(query: string, mode: string, tools?: Res
     body: JSON.stringify({ query, mode, valyuAccessToken, tools }),
   });
   const json = await res.json();
-  if (!res.ok) throw new Error(json.error || json.message || "Failed to start research");
+  if (!res.ok) throw errorFromResponse(res, json, "Failed to start research");
   return json.report;
 }
 

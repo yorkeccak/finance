@@ -2,6 +2,7 @@ import { deriveTitle, type ReportDTO } from "@/lib/reports";
 import {
   createDeepResearchTask,
   ValyuError,
+  valyuErrorStatus,
   type ResearchMode,
 } from "@/lib/valyu-workflows";
 import { isSelfHostedMode } from "@/lib/local-db/local-auth";
@@ -61,7 +62,7 @@ export async function POST(req: Request) {
       );
     } catch (e) {
       if (e instanceof ValyuError) {
-        return json({ error: e.message }, e.status === 402 ? 402 : e.status === 401 || e.status === 403 ? 401 : 502);
+        return json({ error: e.message }, valyuErrorStatus(e));
       }
       throw e;
     }

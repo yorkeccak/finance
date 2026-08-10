@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -8,7 +8,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Loader2, Plus, Ban, Zap, BarChart3, Terminal, FileSpreadsheet, AlertCircle, X, ChevronDown } from "lucide-react";
 import { MODES } from "@/lib/domains";
 import { isTerminal } from "@/lib/reports";
-import { apiCreateResearch, apiSyncReport, apiCancelReport } from "@/lib/report-client";
+import { apiCreateResearch, apiSyncReport, apiCancelReport, apiSuggestDeliverables } from "@/lib/report-client";
 import type { DeliverableType, DeliverableItem } from "@/lib/report-client";
 import { requestNotifyPermission } from "@/lib/report-notify";
 import { ReportView } from "@/components/reports/report-view";
@@ -68,8 +68,29 @@ const SAMPLE_DESC: Record<DeliverableType, string> = Object.fromEntries(
   DELIVERABLE_FORMATS.map((f) => [f.type, f.sample]),
 ) as Record<DeliverableType, string>;
 
+/** Short names for the launch status line - "an Excel file", "2 files". */
+const SHORT_LABEL: Record<DeliverableType, string> = {
+  xlsx: "an Excel file",
+  pptx: "a PowerPoint deck",
+  docx: "a Word document",
+  csv: "a CSV table",
+  pdf: "a PDF",
+};
+
+const describeDeliverables = (items: DeliverableItem[]) =>
+  items.length === 1 ? SHORT_LABEL[items[0].type] : `${items.length} files`;
+
 const OFFICE_FORMATS: DeliverableType[] = ["xlsx", "pptx", "docx"];
 const isOfficeFormat = (type: DeliverableType) => OFFICE_FORMATS.includes(type);
+
+/** Shortest query worth reasoning about; mirrors the server-side gate. */
+const MIN_SUGGEST_LENGTH = 20;
+/** Let typing settle before spending a model call on it. */
+const SUGGEST_DEBOUNCE_MS = 800;
+/** Tighter ceiling for the catch-up call on submit: this one is the only thing
+ *  standing between the user and their run, so it gives up sooner and launches
+ *  without a deliverable rather than leaving them staring at a spinner. */
+const LATE_SUGGEST_TIMEOUT_MS = 4000;
 
 /**
  * Homepage research surface. A freeform query launches a Valyu DeepResearch
@@ -107,11 +128,16 @@ function ResearchInput({ onLaunched }: { onLaunched: (id: string) => void }) {
   }>({ charts: true, codeExecution: false, deliverables: [] });
   const [deliverablesOpen, setDeliverablesOpen] = useState(false);
   const [launching, setLaunching] = useState(false);
+  // What the launch is doing right now. The button spinner says "something is
+  // happening"; this says what - and on the paste-and-Enter path it is the only
+  // chance the user gets to see a deliverable being attached on their behalf.
+  const [launchNote, setLaunchNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Office deliverables (xlsx/pptx/docx) are produced via code execution, so
   // requesting any of them implies it (reflected in the Code Execution pill).
   const hasOfficeDeliverable = tools.deliverables.some((d) => isOfficeFormat(d.type));
+  const hasSuggestion = tools.deliverables.some((d) => d.suggested);
 
   const toggleTool = (key: "charts" | "codeExecution") =>
     setTools((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -125,10 +151,14 @@ function ResearchInput({ onLaunched }: { onLaunched: (id: string) => void }) {
         : { ...prev, deliverables: [...prev.deliverables, { type: "xlsx", description: "" }] },
     );
 
+  // Editing a row makes it the user's, not the extractor's: drop the suggested
+  // flag so it loses the badge and stops being eligible for replacement.
   const updateDeliverable = (i: number, patch: Partial<DeliverableItem>) =>
     setTools((prev) => ({
       ...prev,
-      deliverables: prev.deliverables.map((d, idx) => (idx === i ? { ...d, ...patch } : d)),
+      deliverables: prev.deliverables.map((d, idx) =>
+        idx === i ? { ...d, ...patch, suggested: false } : d,
+      ),
     }));
 
   const removeDeliverable = (i: number) =>
@@ -145,6 +175,85 @@ function ResearchInput({ onLaunched }: { onLaunched: (id: string) => void }) {
     setDeliverablesOpen(willOpen);
     if (willOpen && tools.deliverables.length === 0) addDeliverable();
   };
+  // ---- Deliverable suggestions --------------------------------------------
+  // A query often names the artifact it wants ("...as an Excel spreadsheet"),
+  // but the picker below was the only way to actually request one - so the file
+  // was quietly never produced. A small model reads the settled query and
+  // pre-fills the picker with a format AND a description drawn from the query
+  // itself, which is the field that steers what ends up in the file.
+  //
+  // Seeded, never imposed: suggestions land in the opened panel where they can
+  // be edited or removed, because a deliverable costs credits and time.
+
+  // Lets the async callback read the live list without making the effect depend
+  // on `tools` - which would re-fire it on every edit the user makes.
+  const deliverablesRef = useRef(tools.deliverables);
+  deliverablesRef.current = tools.deliverables;
+  // Last query suggested for. Stops a re-fire, and stops us re-opening a panel
+  // the user just closed, while the query itself is unchanged.
+  const suggestedForRef = useRef<string | null>(null);
+
+  // A suggestion belongs to the query it came from. Left attached when the
+  // query moves on, it would produce a file about the wrong subject and bill
+  // for it - so drop ours whenever they stop matching. Rows the user wrote are
+  // theirs and always stay.
+  const dropStaleSuggestions = () => {
+    const kept = deliverablesRef.current.filter((d) => !d.suggested);
+    if (kept.length === deliverablesRef.current.length) return;
+    setTools((prev) => ({ ...prev, deliverables: kept }));
+    // Nothing left means everything in the panel was ours, so close what we
+    // opened rather than leaving an empty tray behind.
+    if (kept.length === 0) setDeliverablesOpen(false);
+  };
+
+  useEffect(() => {
+    if (launching) return;
+    const q = input.trim();
+
+    // Query cleared or trimmed back to a fragment: nothing here to justify a
+    // deliverable. Reset the memo too, so retyping the same query re-suggests.
+    if (q.length < MIN_SUGGEST_LENGTH) {
+      dropStaleSuggestions();
+      suggestedForRef.current = null;
+      return;
+    }
+    if (suggestedForRef.current === q) return;
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      const suggestions = await apiSuggestDeliverables(q, controller.signal);
+      if (controller.signal.aborted) return;
+      suggestedForRef.current = q;
+      // The new query warrants no file - so neither does the old one's leftover.
+      if (suggestions.length === 0) {
+        dropStaleSuggestions();
+        return;
+      }
+
+      // Only fill space the user hasn't claimed. A row they typed a description
+      // into is theirs and blocks the fill; a pristine row seeded by opening the
+      // panel is not - replacing that one is the point, since a blank
+      // description falls through to a generic default server-side.
+      const canFill = deliverablesRef.current.every(
+        (d) => d.suggested || !d.description.trim(),
+      );
+      if (!canFill) return;
+
+      setTools((prev) => ({
+        ...prev,
+        deliverables: suggestions.slice(0, MAX_DELIVERABLES),
+      }));
+      // Open the panel: what the run will produce should be visible before it
+      // is launched, not discovered afterwards on the bill.
+      setDeliverablesOpen(true);
+    }, SUGGEST_DEBOUNCE_MS);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [input, launching]);
+
   // Synchronous re-entrancy guard. The `launching` state can't block a second
   // submit() fired in the same tick (rapid double-click / double-Enter) because
   // React hasn't re-rendered yet — without this, one fumble = two runs = double
@@ -161,15 +270,47 @@ function ResearchInput({ onLaunched }: { onLaunched: (id: string) => void }) {
     // (it's a long async run — the user will likely switch away).
     void requestNotifyPermission();
     try {
+      // Paste-and-Enter is the common way in, and it outruns the debounce: the
+      // extractor may never have seen this query. Resolve it here rather than
+      // dropping a file the query explicitly asked for. Only the impatient path
+      // pays the wait - anyone who pauses to read already has their suggestion.
+      setLaunchNote("Starting research…");
+      let deliverables = deliverablesRef.current;
+      if (suggestedForRef.current !== q) {
+        const unclaimed = deliverables.every((d) => d.suggested || !d.description.trim());
+        if (unclaimed) {
+          setLaunchNote("Checking what files this needs…");
+          const late = await apiSuggestDeliverables(q, AbortSignal.timeout(LATE_SUGGEST_TIMEOUT_MS));
+          // This query is now resolved. Without recording it, a failed launch
+          // re-enables the debounced effect and pays for the same call twice.
+          suggestedForRef.current = q;
+          if (late.length > 0) {
+            deliverables = late.slice(0, MAX_DELIVERABLES);
+            // Reflected in state so a failed launch shows what would have been
+            // attached, instead of silently retrying with a different payload.
+            setTools((prev) => ({ ...prev, deliverables }));
+            // Open the panel even though we are about to navigate: attaching a
+            // file the user never saw requested is the thing to avoid, and on a
+            // failed launch this is what they come back to.
+            setDeliverablesOpen(true);
+            setLaunchNote(`Adding ${describeDeliverables(deliverables)} — starting research…`);
+          } else {
+            setLaunchNote("Starting research…");
+          }
+        }
+      }
+
       const report = await apiCreateResearch(q, mode, {
         charts: tools.charts,
-        codeExecution: tools.codeExecution || hasOfficeDeliverable,
-        deliverables: tools.deliverables,
+        codeExecution:
+          tools.codeExecution || deliverables.some((d) => isOfficeFormat(d.type)),
+        deliverables,
       });
       onLaunched(report.id); // navigates away (unmounts) on success
     } catch (e) {
       setError((e as Error).message);
       setLaunching(false);
+      setLaunchNote(null); // the error replaces the status line
       submittingRef.current = false; // allow retry after a failure
     }
   };
@@ -205,6 +346,19 @@ function ResearchInput({ onLaunched }: { onLaunched: (id: string) => void }) {
             {launching ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
           </button>
         </div>
+
+        {/* Launch status. The spinner says "working"; this says what - and names
+            any file being attached, so nothing is added out of sight. */}
+        {launching && launchNote && (
+          <p
+            role="status"
+            aria-live="polite"
+            className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground"
+          >
+            <Loader2 className="h-3 w-3 animate-spin" />
+            {launchNote}
+          </p>
+        )}
 
         {/* Depth + Tools — two labeled sub-groups on a single wrapping row */}
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-4">
@@ -288,7 +442,9 @@ function ResearchInput({ onLaunched }: { onLaunched: (id: string) => void }) {
             <div className="flex items-center justify-between mb-2.5">
               <span className="text-[11px] font-medium text-foreground">Deliverables</span>
               <span className="text-[10px] text-muted-foreground/70">
-                Pick a format and describe what it should contain
+                {hasSuggestion
+                  ? "Suggested from your query — edit or remove before running"
+                  : "Pick a format and describe what it should contain"}
               </span>
             </div>
 
@@ -322,13 +478,22 @@ function ResearchInput({ onLaunched }: { onLaunched: (id: string) => void }) {
                       ))}
                     </SelectContent>
                   </Select>
-                  <input
-                    value={d.description}
-                    onChange={(e) => updateDeliverable(i, { description: e.target.value })}
-                    placeholder={SAMPLE_DESC[d.type]}
-                    maxLength={500}
-                    className="flex-1 min-w-0 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-muted-foreground/40"
-                  />
+                  <div className="relative flex-1 min-w-0">
+                    <input
+                      value={d.description}
+                      onChange={(e) => updateDeliverable(i, { description: e.target.value })}
+                      placeholder={SAMPLE_DESC[d.type]}
+                      maxLength={500}
+                      className={`w-full rounded-lg border border-border bg-background py-1.5 pl-2.5 text-xs text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-muted-foreground/40 ${
+                        d.suggested ? "pr-[76px]" : "pr-2.5"
+                      }`}
+                    />
+                    {d.suggested && (
+                      <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide bg-muted text-muted-foreground/80">
+                        Suggested
+                      </span>
+                    )}
+                  </div>
                   <button
                     onClick={() => removeDeliverable(i)}
                     aria-label="Remove deliverable"

@@ -101,6 +101,10 @@ export type DeliverableType = "csv" | "xlsx" | "pptx" | "docx" | "pdf";
 export interface DeliverableItem {
   type: DeliverableType;
   description: string;
+  /** Proposed by the extractor rather than typed by the user. Drives the UI
+   *  only: it travels as far as our own launch route, which maps deliverables
+   *  field by field, so it never reaches Valyu. Cleared when the row is edited. */
+  suggested?: boolean;
 }
 
 /** Optional research enhancements toggled per run. */
@@ -108,6 +112,36 @@ export interface ResearchTools {
   charts?: boolean;
   codeExecution?: boolean;
   deliverables?: DeliverableItem[];
+}
+
+/**
+ * Ask the server which deliverables (if any) a query implies, so the picker can
+ * be pre-filled with a format AND a description written from the query itself.
+ *
+ * Advisory and best-effort: never throws, and answers `[]` whenever the
+ * extractor is unavailable. Callers treat that as "no suggestion" and carry on.
+ */
+export async function apiSuggestDeliverables(
+  query: string,
+  signal?: AbortSignal,
+): Promise<DeliverableItem[]> {
+  try {
+    const res = await fetch("/api/deliverables/suggest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+      signal,
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return (json.suggestions ?? []).map((s: { type: DeliverableType; description: string }) => ({
+      type: s.type,
+      description: s.description,
+      suggested: true,
+    }));
+  } catch {
+    return [];
+  }
 }
 
 /** Launch a freeform DeepResearch run from a chat query. */

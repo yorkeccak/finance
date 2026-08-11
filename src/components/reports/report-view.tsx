@@ -256,7 +256,13 @@ export function ReportView({ reportId }: { reportId: string }) {
         </div>
       )}
 
-      {/* Completed — research activity (collapsed) then the report */}
+      {/* Completed — the files first. They are the thing a finished report is
+          often opened for, and buried under the body they were easy to miss. */}
+      {report.status === "completed" && report.deliverables && report.deliverables.length > 0 && (
+        <DeliverablesList deliverables={report.deliverables} />
+      )}
+
+      {/* Research activity (collapsed) then the report */}
       {report.status === "completed" && report.activity && report.activity.length > 0 && (
         <details className="mb-4 rounded-2xl border border-border bg-card overflow-hidden group">
           <summary className="cursor-pointer list-none px-5 py-3 text-sm font-medium text-foreground flex items-center justify-between hover:bg-muted/30">
@@ -289,9 +295,6 @@ export function ReportView({ reportId }: { reportId: string }) {
 
       {report.status === "completed" && report.images && report.images.length > 0 && (
         <ChartGallery images={report.images} />
-      )}
-      {report.status === "completed" && report.deliverables && report.deliverables.length > 0 && (
-        <DeliverablesList deliverables={report.deliverables} />
       )}
 
       <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />

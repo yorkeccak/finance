@@ -82,7 +82,7 @@ export function DeliverablesList({ deliverables }: { deliverables: ResearchDeliv
   if (!usable.length) return null;
 
   return (
-    <section className="mt-6">
+    <section className="mb-4">
       <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground mb-3">
         Deliverables
       </h2>

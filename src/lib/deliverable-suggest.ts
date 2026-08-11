@@ -56,7 +56,11 @@ const MAX_DESCRIPTION_LENGTH = 200;
  *  what an unauthenticated caller can push through the model. */
 const MAX_QUERY_CHARS = 1000;
 
-const model = process.env.DELIVERABLE_SUGGEST_MODEL || "gpt-4o-mini";
+/** Small model is the point - this runs on every settled query. Override with
+ *  DELIVERABLE_SUGGEST_MODEL. Whatever you pick must support strict structured
+ *  outputs: the schema below is enforced, and a model that answers with a bare
+ *  array instead of the wrapper object gets rejected as a refusal. */
+const model = process.env.DELIVERABLE_SUGGEST_MODEL || "gpt-5.6-luna";
 
 /**
  * Kept permissive on purpose. `generateObject` throws when the model's output

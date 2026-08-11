@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 23.0.1, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd" [
+	<!ENTITY ns_extend "http://ns.adobe.com/Extensibility/1.0/">
+	<!ENTITY ns_ai "http://ns.adobe.com/AdobeIllustrator/10.0/">
+	<!ENTITY ns_graphs "http://ns.adobe.com/Graphs/1.0/">
+	<!ENTITY ns_vars "http://ns.adobe.com/Variables/1.0/">
+	<!ENTITY ns_imrep "http://ns.adobe.com/ImageReplacement/1.0/">
+	<!ENTITY ns_sfw "http://ns.adobe.com/SaveForWeb/1.0/">
+	<!ENTITY ns_custom "http://ns.adobe.com/GenericCustomNamespace/1.0/">
+	<!ENTITY ns_adobe_xpath "http://ns.adobe.com/XPath/1.0/">
+]>
+<svg version="1.1" id="Layer_1" xmlns:x="&ns_extend;" xmlns:i="&ns_ai;" xmlns:graph="&ns_graphs;"
+	 xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 1052 1052"
+	 style="enable-background:new 0 0 1052 1052;" xml:space="preserve">
+<style type="text/css">
+	.st0{fill:#FFFFFF;}
+	.st1{fill:#2B579A;}
+	.st2{fill-rule:evenodd;clip-rule:evenodd;fill:#2B579A;}
+</style>
+<metadata>
+	<sfw  xmlns="&ns_sfw;">
+		<slices></slices>
+		<sliceSourceBounds  bottomLeftOrigin="true" height="1052" width="1052" x="-502" y="-502"></sliceSourceBounds>
+	</sfw>
+</metadata>
+<g id="Word_48">
+	<path class="st0" d="M526,125.2h475.9c13.8,0,25,11.2,25,25v751.4c0,13.8-11.2,25-25,25H526c-13.8,0-25-11.2-25-25V150.3
+		C501,136.5,512.2,125.2,526,125.2z"/>
+	<path class="st1" d="M1001.9,150.3v751.4H526V150.3H1001.9 M1001.9,100.2H526c-27.7,0-50.1,22.4-50.1,50.1v751.4
+		c0,27.7,22.4,50.1,50.1,50.1h475.9c27.7,0,50.1-22.4,50.1-50.1V150.3C1052,122.6,1029.6,100.2,1001.9,100.2z"/>
+	<rect x="601.1" y="250.5" class="st1" width="300.6" height="50.1"/>
+	<rect x="601.1" y="350.7" class="st1" width="300.6" height="50.1"/>
+	<rect x="601.1" y="450.9" class="st1" width="300.6" height="50.1"/>
+	<rect x="601.1" y="551" class="st1" width="300.6" height="50.1"/>
+	<rect x="601.1" y="651.2" class="st1" width="300.6" height="50.1"/>
+	<rect x="601.1" y="751.4" class="st1" width="300.6" height="50.1"/>
+	<path class="st2" d="M626.2,0L0,109.7v832.6L626.2,1052V0z"/>
+	<path class="st0" d="M501,350.7l-72.4,4.5l-53.3,258.3l-41.6-253.3l-68.6,4.3l-53.6,252.7L162.6,371l-62.4,4.8l66.6,335.6l69.4,4.3
+		l52.1-243.7l48.6,249l75.1,4.5L501,350.7"/>
+</g>
+</svg>

@@ -73,7 +73,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
 
         <div className="space-y-6">
           {/* Current User Info */}
-          <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+          <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
             <Avatar className="h-12 w-12">
               <AvatarImage src={user.user_metadata?.avatar_url} />
               <AvatarFallback>
@@ -82,15 +82,15 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
             </Avatar>
             <div>
               <p className="text-sm font-medium">{user.email?.split('@')[0]}</p>
-              <p className="text-xs text-gray-500">{user.email}</p>
+              <p className="text-xs text-muted-foreground">{user.email}</p>
             </div>
           </div>
 
           {/* Theme Selection */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <Monitor className="h-4 w-4 text-gray-500" />
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <Monitor className="h-4 w-4 text-muted-foreground" />
+              <label className="text-sm font-medium text-foreground">
                 Theme
               </label>
             </div>
@@ -100,11 +100,11 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           {/* Email Update Form */}
           <form onSubmit={handleEmailUpdate} className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+              <label className="text-sm font-medium text-foreground mb-2 block">
                 Change Email Address
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="email"
                   value={newEmail}
@@ -119,8 +119,8 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
             {message && (
               <div className={`flex items-center gap-2 p-3 rounded-lg text-sm ${
                 message.type === 'success' 
-                  ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                  : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                  ? 'bg-positive/10 text-positive'
+                  : 'bg-destructive/10 text-destructive'
               }`}>
                 {message.type === 'success' ? (
                   <CheckCircle className="h-4 w-4" />
@@ -150,7 +150,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
             </div>
           </form>
 
-          <div className="text-xs text-gray-500 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+          <div className="text-xs text-muted-foreground p-3 bg-primary/10 rounded-lg">
             <strong>Note:</strong> You&apos;ll receive confirmation emails at both your current and new email addresses. 
             You must confirm the change from both addresses for security.
           </div>

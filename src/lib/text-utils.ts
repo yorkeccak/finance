@@ -17,7 +17,7 @@ export function parseBoldText(text: string): React.ReactElement | string {
     const boldContent = trimmedText.substring(2, trimmedText.length - 2);
     return React.createElement(
       "b",
-      { className: "text-gray-600 dark:text-gray-100 font-semibold" },
+      { className: "text-foreground font-semibold" },
       boldContent
     );
   }

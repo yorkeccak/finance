@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 
 const MIGRATION_STORAGE_KEY = 'finance-migration-banner-dismissed';
@@ -17,6 +17,7 @@ function DiscordIcon({ className }: { className?: string }) {
 export function MigrationBanner() {
   const [showMigration, setShowMigration] = useState(false);
   const [showDiscord, setShowDiscord] = useState(false);
+  const bannerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const migrationDismissed = localStorage.getItem(MIGRATION_STORAGE_KEY);
@@ -38,6 +39,31 @@ export function MigrationBanner() {
     }
   }, []);
 
+  // While the fixed banner is visible, flag <html> and publish its measured
+  // height so desktop content reserves exactly enough space (mobile already
+  // clears it via pt-14). Re-measures on resize since the text wraps at narrow
+  // widths. Auto-cleans on dismiss/unmount so there's no leftover gap.
+  useEffect(() => {
+    const el = document.documentElement;
+    if (!showMigration) {
+      el.classList.remove('has-top-banner');
+      el.style.removeProperty('--top-banner-h');
+      return;
+    }
+    const measure = () => {
+      const h = bannerRef.current?.offsetHeight ?? 40;
+      el.style.setProperty('--top-banner-h', `${h}px`);
+    };
+    measure();
+    el.classList.add('has-top-banner');
+    window.addEventListener('resize', measure);
+    return () => {
+      window.removeEventListener('resize', measure);
+      el.classList.remove('has-top-banner');
+      el.style.removeProperty('--top-banner-h');
+    };
+  }, [showMigration]);
+
   const dismissMigration = () => {
     setShowMigration(false);
     localStorage.setItem(MIGRATION_STORAGE_KEY, 'true');
@@ -56,7 +82,7 @@ export function MigrationBanner() {
 
   if (showMigration) {
     return (
-      <div className="fixed top-0 left-0 right-0 z-50 animate-in slide-in-from-top duration-300">
+      <div ref={bannerRef} className="fixed top-0 left-0 right-0 z-50 animate-in slide-in-from-top duration-300">
         <div className="bg-muted/80 backdrop-blur-sm border-b border-border/50">
           <div className="max-w-4xl mx-auto px-4 py-2 flex items-center justify-between gap-4">
             <p className="text-sm text-muted-foreground">

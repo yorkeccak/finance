@@ -55,16 +55,12 @@ export function VirtualizedContentDialog({
           <DialogTitle className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2 min-w-0">
               {isJson ? (
-                <Code2 className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                <Code2 className="h-4 w-4 text-primary flex-shrink-0" />
               ) : (
-                <FileText className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               )}
               <span className="truncate">{title}</span>
-              <span className={`px-2 py-0.5 rounded text-xs font-medium flex-shrink-0 ${
-                isJson
-                  ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                  : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-              }`}>
+              <span className="px-2 py-0.5 rounded text-xs font-medium flex-shrink-0 bg-muted text-muted-foreground">
                 {isJson ? "JSON" : "Text"}
               </span>
             </div>
@@ -90,11 +86,7 @@ export function VirtualizedContentDialog({
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
         <div className="flex-1 overflow-y-auto mt-4">
-          <pre className={`whitespace-pre-wrap break-words text-sm font-mono p-4 rounded-lg border ${
-            isJson
-              ? "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700"
-              : "bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700"
-          }`}>
+          <pre className="whitespace-pre-wrap break-words text-sm font-mono p-4 rounded-lg border bg-muted border-border">
             {formattedContent}
           </pre>
         </div>

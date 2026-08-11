@@ -169,10 +169,10 @@ export function LocalModelStatus() {
           onClick={() => setIsMinimized(false)}
           className={`fixed top-6 right-6 z-40 px-2.5 py-2 rounded-xl shadow-lg transition-all ${
             anyConnected && isEnabled
-              ? "bg-white dark:bg-gray-900 border-green-500 hover:shadow-xl hover:scale-105"
+              ? "bg-card border-positive hover:shadow-xl hover:scale-105"
               : anyConnected && !isEnabled
-              ? "bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 hover:shadow-xl hover:scale-105"
-              : "bg-white dark:bg-gray-900 border-red-500 hover:shadow-xl hover:scale-105"
+              ? "bg-card border-border hover:shadow-xl hover:scale-105"
+              : "bg-card border-destructive hover:shadow-xl hover:scale-105"
           } border-2`}
         >
           <div className="flex items-center gap-1.5">
@@ -190,7 +190,7 @@ export function LocalModelStatus() {
                 }`}
               />
               {lmStudioConnected && isEnabled && selectedProvider === 'lmstudio' && (
-                <span className="absolute -top-1 -right-1 h-2 w-2 bg-green-500 rounded-full animate-pulse ring-2 ring-white dark:ring-gray-900" />
+                <span className="absolute -top-1 -right-1 h-2 w-2 bg-positive rounded-full animate-pulse ring-2 ring-card" />
               )}
             </div>
 
@@ -208,7 +208,7 @@ export function LocalModelStatus() {
                 }`}
               />
               {ollamaConnected && isEnabled && selectedProvider === 'ollama' && (
-                <span className="absolute -top-1 -right-1 h-2 w-2 bg-green-500 rounded-full animate-pulse ring-2 ring-white dark:ring-gray-900" />
+                <span className="absolute -top-1 -right-1 h-2 w-2 bg-positive rounded-full animate-pulse ring-2 ring-card" />
               )}
             </div>
           </div>
@@ -224,17 +224,17 @@ export function LocalModelStatus() {
             exit={{ opacity: 0, y: -20 }}
             className="fixed top-6 right-6 z-40 w-80"
           >
-            <div className="bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-5 relative">
+            <div className="bg-card border-2 border-border rounded-xl shadow-xl p-5 relative">
               <button
                 onClick={() => setIsMinimized(true)}
-                className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                className="absolute top-3 right-3 text-muted-foreground hover:text-foreground transition-colors"
                 title="Minimize"
               >
                 <Minimize2 className="h-4 w-4" />
               </button>
 
               {/* Header with logo */}
-              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-border">
                 <div className="relative">
                   <Image
                     src={providerLogo}
@@ -248,35 +248,35 @@ export function LocalModelStatus() {
                     }`}
                   />
                   {isOnline && isEnabled && (
-                    <span className="absolute -top-0.5 -right-0.5 h-3 w-3 bg-green-500 rounded-full animate-pulse ring-2 ring-white dark:ring-gray-900" />
+                    <span className="absolute -top-0.5 -right-0.5 h-3 w-3 bg-positive rounded-full animate-pulse ring-2 ring-card" />
                   )}
                 </div>
                 <div className="flex-1 pr-8">
                   <div className="flex items-center gap-2">
-                    <p className="text-base font-bold text-gray-900 dark:text-gray-100">
+                    <p className="text-base font-bold text-foreground">
                       {providerDisplayName}
                     </p>
                     <span
                       className={`px-2 py-0.5 text-xs font-medium rounded-full ${
                         isOnline && isEnabled
-                          ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                          ? "bg-positive/10 text-positive"
                           : isOnline && !isEnabled
-                          ? "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                          : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                          ? "bg-muted text-muted-foreground"
+                          : "bg-destructive/10 text-destructive"
                       }`}
                     >
                       {isOnline ? (isEnabled ? "Active" : "Disabled") : "Offline"}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {currentStatus?.baseUrl || (selectedProvider === 'ollama' ? 'localhost:11434' : 'localhost:1234')}
                   </p>
                 </div>
               </div>
 
               {/* Provider Switcher - Always show both options */}
-              <div className="mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">
-                <span className="text-xs text-gray-500 dark:text-gray-400 mb-2 block">Provider</span>
+              <div className="mb-4 pb-3 border-b border-border">
+                <span className="text-xs text-muted-foreground mb-2 block">Provider</span>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setSelectedProvider('ollama')}
@@ -285,8 +285,8 @@ export function LocalModelStatus() {
                       selectedProvider === 'ollama'
                         ? 'bg-primary/10 text-primary border border-primary/20'
                         : ollamaStatus?.connected
-                        ? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-transparent hover:border-gray-300 dark:hover:border-gray-600'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 border border-transparent opacity-50 cursor-not-allowed'
+                        ? 'bg-muted text-muted-foreground border border-transparent hover:border-primary/30'
+                        : 'bg-muted text-muted-foreground border border-transparent opacity-50 cursor-not-allowed'
                     }`}
                   >
                     <Image
@@ -305,8 +305,8 @@ export function LocalModelStatus() {
                       selectedProvider === 'lmstudio'
                         ? 'bg-primary/10 text-primary border border-primary/20'
                         : lmstudioStatus?.connected
-                        ? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-transparent hover:border-gray-300 dark:hover:border-gray-600'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 border border-transparent opacity-50 cursor-not-allowed'
+                        ? 'bg-muted text-muted-foreground border border-transparent hover:border-primary/30'
+                        : 'bg-muted text-muted-foreground border border-transparent opacity-50 cursor-not-allowed'
                     }`}
                   >
                     <Image
@@ -324,20 +324,20 @@ export function LocalModelStatus() {
               {isOnline && (
                 <>
                   {/* Toggle */}
-                  <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">
-                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
+                    <span className="text-sm font-medium text-foreground">
                       Use {providerDisplayName}
                     </span>
                     <button
                       onClick={() => setIsEnabled(!isEnabled)}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                         isEnabled
-                          ? "bg-green-500"
-                          : "bg-gray-300 dark:bg-gray-600"
+                          ? "bg-primary"
+                          : "bg-secondary"
                       }`}
                     >
                       <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform ${
+                        className={`inline-block h-4 w-4 transform rounded-full bg-card shadow-lg transition-transform ${
                           isEnabled ? "translate-x-6" : "translate-x-1"
                         }`}
                       />
@@ -348,12 +348,12 @@ export function LocalModelStatus() {
                   <div>
                     <button
                       onClick={() => setIsExpanded(!isExpanded)}
-                      className="flex items-center justify-between w-full text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                      className="flex items-center justify-between w-full text-sm font-medium text-foreground hover:text-muted-foreground transition-colors"
                     >
                       <div className="flex flex-col items-start">
                         <span>{models.length} model{models.length !== 1 ? 's' : ''} available</span>
                         {selectedModel && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400 font-normal mt-0.5">
+                          <span className="text-xs text-muted-foreground font-normal mt-0.5">
                             Using: {selectedModel}
                           </span>
                         )}
@@ -392,8 +392,8 @@ export function LocalModelStatus() {
                                   onClick={() => setSelectedModel(model.name)}
                                   className={`w-full text-left p-2.5 rounded-lg border transition-all ${
                                     isSelected
-                                      ? "bg-blue-50 dark:bg-blue-900/20 border-blue-500 dark:border-blue-500"
-                                      : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-750 hover:border-gray-300 dark:hover:border-gray-600"
+                                      ? "bg-primary/10 border-primary"
+                                      : "bg-muted border-border hover:bg-accent hover:border-primary/30"
                                   }`}
                                 >
                                   <div className="flex items-center justify-between">
@@ -401,8 +401,8 @@ export function LocalModelStatus() {
                                       <div className="flex items-center gap-1.5">
                                         <div className={`font-medium text-sm truncate ${
                                           isSelected
-                                            ? "text-blue-900 dark:text-blue-100"
-                                            : "text-gray-900 dark:text-gray-100"
+                                            ? "text-primary"
+                                            : "text-foreground"
                                         }`}>
                                           {model.name}
                                         </div>
@@ -411,8 +411,8 @@ export function LocalModelStatus() {
                                             <Wrench
                                               className={`h-3 w-3 flex-shrink-0 ${
                                                 isSelected
-                                                  ? "text-blue-600 dark:text-blue-400"
-                                                  : "text-gray-500 dark:text-gray-400"
+                                                  ? "text-primary"
+                                                  : "text-muted-foreground"
                                               }`}
                                             />
                                           </span>
@@ -422,8 +422,8 @@ export function LocalModelStatus() {
                                             <Brain
                                               className={`h-3 w-3 flex-shrink-0 ${
                                                 isSelected
-                                                  ? "text-blue-600 dark:text-blue-400"
-                                                  : "text-gray-500 dark:text-gray-400"
+                                                  ? "text-primary"
+                                                  : "text-muted-foreground"
                                               }`}
                                             />
                                           </span>
@@ -431,14 +431,14 @@ export function LocalModelStatus() {
                                       </div>
                                       <div className={`text-xs mt-1 ${
                                         isSelected
-                                          ? "text-blue-700 dark:text-blue-300"
-                                          : "text-gray-500 dark:text-gray-400"
+                                          ? "text-primary"
+                                          : "text-muted-foreground"
                                       }`}>
                                         {formatSize(model.size)}
                                       </div>
                                     </div>
                                     {isSelected && (
-                                      <Check className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0 ml-2" />
+                                      <Check className="h-4 w-4 text-primary flex-shrink-0 ml-2" />
                                     )}
                                   </div>
                                 </button>

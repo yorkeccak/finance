@@ -94,6 +94,31 @@ CREATE TABLE IF NOT EXISTS public.collection_items (
   CONSTRAINT items_collection_id_fkey FOREIGN KEY (collection_id) REFERENCES public.collections(id) ON DELETE CASCADE
 );
 
+-- Reports (async Valyu DeepResearch workflow runs)
+CREATE TABLE IF NOT EXISTS public.reports (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  workflow_slug text NOT NULL,
+  workflow_version integer,
+  workflow_params jsonb NOT NULL,
+  query text,
+  mode text NOT NULL,
+  title text NOT NULL,
+  estimated_time text,
+  valyu_task_id text,
+  status text NOT NULL,
+  output text,
+  sources jsonb,
+  activity jsonb,
+  pdf_url text,
+  error_message text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  completed_at timestamp with time zone,
+  CONSTRAINT reports_pkey PRIMARY KEY (id),
+  CONSTRAINT reports_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+);
+
 -- Indexes for performance (IF NOT EXISTS)
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_user_id ON public.chat_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_last_message ON public.chat_sessions(last_message_at DESC);
@@ -102,3 +127,10 @@ CREATE INDEX IF NOT EXISTS idx_charts_user_id ON public.charts(user_id);
 CREATE INDEX IF NOT EXISTS idx_csvs_user_id ON public.csvs(user_id);
 CREATE INDEX IF NOT EXISTS idx_collections_user_id ON public.collections(user_id);
 CREATE INDEX IF NOT EXISTS idx_collection_items_collection_id ON public.collection_items(collection_id);
+CREATE INDEX IF NOT EXISTS idx_reports_user_id ON public.reports(user_id);
+CREATE INDEX IF NOT EXISTS idx_reports_status ON public.reports(status);
+CREATE INDEX IF NOT EXISTS idx_reports_created_at ON public.reports(created_at DESC);
+
+-- Migrations for columns added after the reports table already existed.
+ALTER TABLE public.reports ADD COLUMN IF NOT EXISTS query text;
+ALTER TABLE public.reports ADD COLUMN IF NOT EXISTS activity jsonb;

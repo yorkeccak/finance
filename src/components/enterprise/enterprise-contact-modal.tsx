@@ -132,13 +132,13 @@ export function EnterpriseContactModal({ open, onClose }: EnterpriseContactModal
               exit={{ opacity: 0, scale: 0.95 }}
               className="flex flex-col items-center justify-center py-12"
             >
-              <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mb-4">
-                <Check className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+              <div className="w-16 h-16 bg-positive/10 rounded-full flex items-center justify-center mb-4">
+                <Check className="w-8 h-8 text-positive" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              <h3 className="text-xl font-semibold text-foreground mb-2">
                 Thanks for your enquiry
               </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
+              <p className="text-sm text-muted-foreground text-center">
                 {bookedCall ? "Booking call with Hendrik" : "We'll be in touch soon"}
               </p>
             </motion.div>
@@ -151,13 +151,13 @@ export function EnterpriseContactModal({ open, onClose }: EnterpriseContactModal
             >
               {/* Hero Section */}
               <div className="text-center mb-8">
-                <div className="inline-flex items-center justify-center w-14 h-14 bg-slate-100 dark:bg-slate-800 rounded-2xl mb-4">
-                  <Building2 className="w-7 h-7 text-slate-700 dark:text-slate-300" />
+                <div className="inline-flex items-center justify-center w-14 h-14 bg-muted rounded-2xl mb-4">
+                  <Building2 className="w-7 h-7 text-foreground" />
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                <h2 className="text-2xl font-bold text-foreground mb-2">
                   Enterprise AI Search Infrastructure
                 </h2>
-                <p className="text-gray-600 dark:text-gray-400 text-sm max-w-md mx-auto">
+                <p className="text-muted-foreground text-sm max-w-md mx-auto">
                   Deploy enterprise-grade financial search and AI agents in your organization
                 </p>
               </div>
@@ -166,11 +166,11 @@ export function EnterpriseContactModal({ open, onClose }: EnterpriseContactModal
               <div className="space-y-6">
                 {/* Company Details */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Company Details</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Company Details</h3>
 
                   <div>
-                    <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Company Name <span className="text-red-500">*</span>
+                    <label htmlFor="companyName" className="block text-sm font-medium text-foreground mb-1">
+                      Company Name <span className="text-destructive">*</span>
                     </label>
                     <Input
                       type="text"
@@ -185,7 +185,7 @@ export function EnterpriseContactModal({ open, onClose }: EnterpriseContactModal
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="companySize" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label htmlFor="companySize" className="block text-sm font-medium text-foreground mb-1">
                         Company Size
                       </label>
                       <Select value={formData.companySize} onValueChange={(value) => handleSelectChange('companySize', value)}>
@@ -201,7 +201,7 @@ export function EnterpriseContactModal({ open, onClose }: EnterpriseContactModal
                     </div>
 
                     <div>
-                      <label htmlFor="industry" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label htmlFor="industry" className="block text-sm font-medium text-foreground mb-1">
                         Industry
                       </label>
                       <Select value={formData.industry} onValueChange={(value) => handleSelectChange('industry', value)}>
@@ -220,11 +220,11 @@ export function EnterpriseContactModal({ open, onClose }: EnterpriseContactModal
 
                 {/* Contact Details */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Your Details</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Your Details</h3>
 
                   <div>
-                    <label htmlFor="contactName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Full Name <span className="text-red-500">*</span>
+                    <label htmlFor="contactName" className="block text-sm font-medium text-foreground mb-1">
+                      Full Name <span className="text-destructive">*</span>
                     </label>
                     <Input
                       type="text"
@@ -239,8 +239,8 @@ export function EnterpriseContactModal({ open, onClose }: EnterpriseContactModal
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="contactEmail" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Email <span className="text-red-500">*</span>
+                      <label htmlFor="contactEmail" className="block text-sm font-medium text-foreground mb-1">
+                        Email <span className="text-destructive">*</span>
                       </label>
                       <Input
                         type="email"
@@ -254,8 +254,8 @@ export function EnterpriseContactModal({ open, onClose }: EnterpriseContactModal
                     </div>
 
                     <div>
-                      <label htmlFor="jobTitle" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Job Title <span className="text-red-500">*</span>
+                      <label htmlFor="jobTitle" className="block text-sm font-medium text-foreground mb-1">
+                        Job Title <span className="text-destructive">*</span>
                       </label>
                       <Input
                         type="text"
@@ -272,8 +272,8 @@ export function EnterpriseContactModal({ open, onClose }: EnterpriseContactModal
 
                 {/* Use Case */}
                 <div>
-                  <label htmlFor="useCase" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Tell us about your needs <span className="text-red-500">*</span>
+                  <label htmlFor="useCase" className="block text-sm font-medium text-foreground mb-1">
+                    Tell us about your needs <span className="text-destructive">*</span>
                   </label>
                   <Textarea
                     id="useCase"
@@ -288,14 +288,14 @@ export function EnterpriseContactModal({ open, onClose }: EnterpriseContactModal
                 </div>
 
                 {/* Trust Signals */}
-                <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+                <div className="bg-muted border border-border rounded-lg p-4">
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0">
-                      <Check className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                      <Check className="w-5 h-5 text-muted-foreground" />
                     </div>
-                    <div className="text-sm text-slate-900 dark:text-slate-100">
+                    <div className="text-sm text-foreground">
                       <p className="font-medium mb-1">Enterprise-grade security</p>
-                      <p className="text-slate-600 dark:text-slate-400">Trusted by leading financial institutions worldwide</p>
+                      <p className="text-muted-foreground">Trusted by leading financial institutions worldwide</p>
                     </div>
                   </div>
                 </div>
@@ -305,7 +305,7 @@ export function EnterpriseContactModal({ open, onClose }: EnterpriseContactModal
                   <Button
                     onClick={() => handleSubmit(true)}
                     disabled={!isFormValid() || isSubmitting}
-                    className="w-full bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-slate-200 dark:text-slate-900 text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {isSubmitting ? (
                       <Loader2 className="w-4 h-4 animate-spin" />

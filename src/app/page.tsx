@@ -1,6 +1,6 @@
 'use client';
 
-import { ChatInterface } from '@/components/chat-interface';
+import { ResearchChat } from '@/components/research-chat';
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BottomBar from '@/components/bottom-bar';
@@ -30,6 +30,10 @@ function HomeContent() {
   const [autoTiltTriggered, setAutoTiltTriggered] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   
+  // An active DeepResearch run (?research=<id>) takes over the main area; hide
+  // the hero while it's showing.
+  const researchActive = !!searchParams.get('research');
+
   // Get chatId from URL params
   const chatIdParam = searchParams.get('chatId');
   const [currentSessionId, setCurrentSessionId] = useState<string | undefined>(chatIdParam || undefined);
@@ -198,6 +202,7 @@ function HomeContent() {
     } else {
       url.searchParams.delete('chatId');
       url.searchParams.delete('q'); // Also clear query parameter for clean new chat
+      url.searchParams.delete('research'); // Clear any active DeepResearch run
     }
     // Use replace to avoid creating browser history entries
     window.history.replaceState(null, '', url.toString());
@@ -227,14 +232,28 @@ function HomeContent() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#F5F5F5] dark:bg-gray-950">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
       </div>
     );
   }
 
   return (
-    <div className='min-h-screen bg-[#F5F5F5] dark:bg-gray-950 flex overflow-x-hidden'>
+    <div className='min-h-screen bg-background flex overflow-x-hidden'>
+      {/* Subtle skyline backdrop, anchored to the bottom of the viewport. */}
+      <div aria-hidden className="pointer-events-none fixed inset-x-0 bottom-0 z-0 h-[58vh] select-none">
+        <Image
+          src="/assets/hero/hero-illustration-a.png"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-bottom opacity-[0.12] dark:opacity-[0.10] dark:invert dark:hue-rotate-180"
+        />
+        {/* Fade the top edge into the page so there is no hard seam. */}
+        <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-background" />
+      </div>
+
       {/* Enterprise Banner */}
       <EnterpriseBanner />
 
@@ -249,8 +268,8 @@ function HomeContent() {
           >
             <div className={`flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-sm font-medium ${
               notification.type === 'success'
-                ? 'bg-green-50 text-green-800 border border-green-200'
-                : 'bg-red-50 text-red-800 border border-red-200'
+                ? 'bg-positive/10 text-positive border border-positive/20'
+                : 'bg-destructive/10 text-destructive border border-destructive/20'
             }`}>
               {notification.type === 'success' ? (
                 <CheckCircle className="h-4 w-4" />
@@ -272,19 +291,21 @@ function HomeContent() {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 min-w-0 flex flex-col pt-14 md:pt-0">
-        {/* Header - Animate out when messages appear */}
+      <div className={`main-content-shell relative z-10 flex-1 min-w-0 flex flex-col pt-14 md:pt-0 ${
+        !hasMessages && !researchActive ? 'justify-center' : ''
+      }`}>
+        {/* Header - Animate out when a research run is active */}
         <AnimatePresence mode="wait">
-            {!hasMessages && (
+            {!hasMessages && !researchActive && (
               <motion.div
-                className="text-center pt-8 md:pt-16 pb-6 md:pb-4 px-4 md:px-0"
+                className="text-center pt-0 md:pt-2 pb-3 md:pb-5 px-4 md:px-0"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20, transition: { duration: 0.3 } }}
                 transition={{ duration: 0.6, ease: "easeOut" }}
               >
-              <motion.div 
-                className="relative mb-10 inline-block"
+              <motion.div
+                className="relative mb-8 inline-block"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1, duration: 0.6, ease: "easeOut" }}
@@ -304,7 +325,7 @@ function HomeContent() {
                 onClick={handleTitleClick}
               >
                 <motion.h1 
-                  className={`text-3xl sm:text-5xl font-light text-gray-900 dark:text-gray-100 tracking-tight relative z-10 ${
+                  className={`text-3xl sm:text-5xl font-light text-foreground tracking-tight relative z-10 ${
                     isMobile ? 'cursor-pointer' : 'cursor-default'
                   }`}
                   style={{ transformOrigin: '15% 100%' }}
@@ -317,8 +338,8 @@ function HomeContent() {
                 </motion.h1>
                 
                 {/* "By Valyu" that slides out from under */}
-                <motion.div 
-                  className="absolute -bottom-6 left-0 right-0 flex items-center justify-center gap-1"
+                <motion.div
+                  className="absolute -bottom-5 left-0 right-0 flex items-center justify-center gap-1"
                   initial={{ opacity: 0 }}
                   animate={{ 
                     opacity: isHoveringTitle ? 1 : 0,
@@ -329,13 +350,13 @@ function HomeContent() {
                     y: { delay: isHoveringTitle ? 0.1 : 0, duration: 0.3, ease: [0.23, 1, 0.32, 1] }
                   }}
                 >
-                  <span className="text-sm text-gray-500 dark:text-gray-400 font-light">By</span>
-                  <Image 
-                    src="/valyu.svg" 
-                    alt="Valyu" 
+                  <span className="text-sm text-muted-foreground font-light">By</span>
+                  <Image
+                    src="/valyu.svg"
+                    alt="Valyu"
                     width={60}
                     height={60}
-                    className="h-5 opacity-80 dark:invert"
+                    className="h-4 opacity-80 dark:invert"
                   />
                 </motion.div>
                 
@@ -348,7 +369,7 @@ function HomeContent() {
                     exit={{ opacity: 0 }}
                     transition={{ delay: 3, duration: 0.5 }}
                   >
-                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                    <span className="text-xs text-muted-foreground">
                       Tap to reveal
                     </span>
                   </motion.div>
@@ -358,35 +379,31 @@ function HomeContent() {
                 <div className="absolute inset-0 -bottom-10" />
               </motion.div>
               <motion.p 
-                className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm max-w-xs sm:max-w-md mx-auto px-4 sm:px-0"
+                className="text-muted-foreground text-xs sm:text-sm max-w-xs sm:max-w-md mx-auto px-4 sm:px-0"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.6, ease: "easeOut" }}
               >
-                Powered by Valyu&apos;s enterprise-grade search infrastructure for real-time financial analysis
+                Real-time financial research with deep, cited analysis
               </motion.p>
             </motion.div>
           )}
         </AnimatePresence>
         
-        {/* Chat Interface */}
-        <motion.div 
-          className="flex-1 px-0 md:px-4 overflow-x-hidden"
+        {/* DeepResearch runner (replaces the old chat) */}
+        <motion.div
+          className={`px-0 md:px-4 overflow-x-hidden ${
+            !hasMessages && !researchActive ? 'pb-4 md:pb-6' : 'flex-1 pb-16'
+          }`}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
         >
           <Suspense fallback={<div className="text-center py-8">Loading...</div>}>
-            <ChatInterface
-              key={chatKey}
-              sessionId={currentSessionId}
-              onMessagesChange={handleMessagesChange}
-              onSessionCreated={handleSessionCreated}
-              onNewChat={handleNewChat}
-            />
+            <ResearchChat />
           </Suspense>
         </motion.div>
-        
+
         <BottomBar />
       </div>
       
@@ -415,8 +432,8 @@ function HomeContent() {
 export default function Home() {
   return (
     <Suspense fallback={
-      <div className="flex items-center justify-center min-h-screen bg-[#F5F5F5] dark:bg-gray-950">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100"></div>
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
       </div>
     }>
       <HomeContent />

@@ -122,9 +122,9 @@ function ValyuCallbackContent() {
 
         {status === 'success' && (
           <>
-            <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto">
+            <div className="w-12 h-12 bg-positive/10 rounded-full flex items-center justify-center mx-auto">
               <svg
-                className="w-6 h-6 text-green-600 dark:text-green-400"
+                className="w-6 h-6 text-positive"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -139,9 +139,9 @@ function ValyuCallbackContent() {
 
         {status === 'error' && (
           <>
-            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto">
+            <div className="w-12 h-12 bg-destructive/10 rounded-full flex items-center justify-center mx-auto">
               <svg
-                className="w-6 h-6 text-red-600 dark:text-red-400"
+                className="w-6 h-6 text-destructive"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"

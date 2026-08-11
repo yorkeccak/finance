@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { motion, useAnimationControls, useMotionValue } from "framer-motion";
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { useTheme } from "next-themes";
 import Image from "next/image";
 
@@ -367,9 +367,6 @@ const DataSourceLogos = () => {
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const controls = useAnimationControls();
-  const x = useMotionValue(0);
-  const pausedPositionRef = useRef(0);
 
   // All logos from assets/banner
   const allLogos = [
@@ -390,78 +387,45 @@ const DataSourceLogos = () => {
     // { name: "Wiley", src: "/assets/banner/wiley.png" },
     { name: "ClinicalTrials", src: "/assets/banner/clinicaltrials.png" },
     { name: "Polymarket", src: "/assets/banner/polymarket.png" },
+    { name: "World Bank", src: "/assets/banner/worldbank.png" },
+    { name: "FDIC", src: "/assets/banner/fdic.png" },
+    { name: "IMF", src: "/assets/banner/imf.png" },
+    { name: "Destatis", src: "/assets/banner/destatis.png" },
+    { name: "USAspending", src: "/assets/banner/usaspending.png" },
   ];
 
-  // Duplicate logos for seamless infinite scroll
+  // Triple the logos so a one-third translate loops seamlessly.
   const duplicatedLogos = [...allLogos, ...allLogos, ...allLogos];
 
-  // Animation constants
-  const totalDistance = 100 * allLogos.length; // Total scroll distance in px
-  const speed = totalDistance / ((allLogos.length * 3) / 1.5); // px per second
+  // One full set takes this long to scroll past; scales with logo count so the
+  // speed stays consistent as sources are added.
+  const scrollDuration = allLogos.length * 2.5; // seconds
 
-  // Prevent hydration mismatch
+  // Prevent hydration mismatch (theme-dependent filter)
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Start/resume animation
-  const startAnimation = (fromPosition: number = 0) => {
-    // Normalize position to be within one cycle
-    const normalizedPosition = fromPosition % totalDistance;
-    const remainingDistance = totalDistance - Math.abs(normalizedPosition);
-    const remainingDuration = remainingDistance / speed;
-
-    controls.start({
-      x: -totalDistance,
-      transition: {
-        duration: remainingDuration,
-        ease: "linear",
-        repeat: Infinity,
-        repeatType: "loop",
-      }
-    });
-  };
-
-  // Initial animation start
-  useEffect(() => {
-    if (mounted && !isPaused) {
-      x.set(0);
-      startAnimation(0);
-    }
-  }, [mounted]);
-
-  const handleMouseEnter = (index: number) => {
-    setHoveredIndex(index);
-    setIsPaused(true);
-
-    // Capture current position and stop
-    pausedPositionRef.current = x.get();
-    controls.stop();
-  };
-
-  const handleMouseLeave = () => {
-    setHoveredIndex(null);
-    setIsPaused(false);
-
-    // Resume from paused position at same speed
-    const currentPos = pausedPositionRef.current;
-    x.set(currentPos);
-    startAnimation(currentPos);
-  };
-
   const isDark = mounted && resolvedTheme === 'dark';
 
   return (
-    <div className="relative w-full overflow-hidden py-4">
+    <div
+      className="relative w-full overflow-hidden py-4"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
       <motion.div
         className="flex gap-12"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1, duration: 0.5 }}
       >
-        <motion.div
-          className="flex gap-12 flex-shrink-0"
-          animate={controls}
+        <div
+          className="flex gap-12 flex-shrink-0 w-max"
+          style={{
+            animation: `data-source-scroll ${scrollDuration}s linear infinite`,
+            animationPlayState: isPaused ? "paused" : "running",
+          }}
         >
           {duplicatedLogos.map((logo, index) => {
             const isHovered = hoveredIndex === index;
@@ -470,8 +434,8 @@ const DataSourceLogos = () => {
               <motion.div
                 key={`${logo.name}-${index}`}
                 className="relative flex-shrink-0"
-                onMouseEnter={() => handleMouseEnter(index)}
-                onMouseLeave={handleMouseLeave}
+                onMouseEnter={() => setHoveredIndex(index)}
+                onMouseLeave={() => setHoveredIndex(null)}
                 animate={{
                   scale: isHovered ? 1.3 : 1,
                 }}
@@ -497,12 +461,12 @@ const DataSourceLogos = () => {
               </motion.div>
             );
           })}
-        </motion.div>
+        </div>
       </motion.div>
 
       {/* Gradient edges for infinite scroll effect */}
-      <div className="absolute top-0 left-0 h-full w-32 bg-gradient-to-r from-[#F5F5F5] dark:from-gray-950 to-transparent pointer-events-none" />
-      <div className="absolute top-0 right-0 h-full w-32 bg-gradient-to-l from-[#F5F5F5] dark:from-gray-950 to-transparent pointer-events-none" />
+      <div className="absolute top-0 left-0 h-full w-32 bg-gradient-to-r from-background to-transparent pointer-events-none" />
+      <div className="absolute top-0 right-0 h-full w-32 bg-gradient-to-l from-background to-transparent pointer-events-none" />
     </div>
   );
 };

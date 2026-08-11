@@ -101,18 +101,18 @@ export function OllamaStatusIndicator({ hasMessages = false }: { hasMessages?: b
 
   const getStatusIcon = () => {
     if (isLoading) {
-      return <Clock className="h-3 w-3 animate-spin text-blue-500" />;
+      return <Clock className="h-3 w-3 animate-spin text-primary" />;
     }
-    
+
     if (status.connected) {
-      return <CheckCircle className="h-3 w-3 text-green-500" />;
+      return <CheckCircle className="h-3 w-3 text-positive" />;
     }
-    
+
     if (status.available) {
-      return <XCircle className="h-3 w-3 text-red-500" />;
+      return <XCircle className="h-3 w-3 text-destructive" />;
     }
-    
-    return <AlertCircle className="h-3 w-3 text-yellow-500" />;
+
+    return <AlertCircle className="h-3 w-3 text-muted-foreground" />;
   };
 
 
@@ -139,9 +139,9 @@ export function OllamaStatusIndicator({ hasMessages = false }: { hasMessages?: b
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
         >
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-card/90 backdrop-blur-sm border border-border rounded-lg shadow-sm hover:shadow-md transition-all">
             {getStatusIcon()}
-            <span className="text-xs font-light text-gray-700 dark:text-gray-300">
+            <span className="text-xs font-light text-foreground">
               Local Models
             </span>
           </div>
@@ -157,7 +157,7 @@ export function OllamaStatusIndicator({ hasMessages = false }: { hasMessages?: b
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className='fixed inset-0 z-50 bg-white/80 dark:bg-gray-950/80 backdrop-blur-sm'
+              className='fixed inset-0 z-50 bg-background/80 backdrop-blur-sm'
               onClick={() => setShowInitialDialog(false)}
             />
             <DialogContent className='fixed left-[50%] top-[50%] z-50 w-[95vw] max-w-lg sm:w-[90vw] translate-x-[-50%] translate-y-[-50%] p-0 border-0 bg-transparent shadow-none'>
@@ -168,44 +168,44 @@ export function OllamaStatusIndicator({ hasMessages = false }: { hasMessages?: b
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
                 transition={{ duration: 0.2, ease: 'easeOut' }}
-                className='bg-white dark:bg-gray-950 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 relative'
+                className='bg-card rounded-lg shadow-lg border border-border relative'
               >
                 <div className='p-4 sm:p-6'>
                   <div className='flex items-center gap-3 mb-4'>
-                    <div className='h-8 w-8 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center justify-center'>
-                      <Info className='h-4 w-4 text-blue-600 dark:text-blue-400' />
+                    <div className='h-8 w-8 bg-accent rounded-lg flex items-center justify-center'>
+                      <Info className='h-4 w-4 text-primary' />
                     </div>
                     <div>
-                      <h2 className='text-sm font-medium text-gray-900 dark:text-gray-100'>
+                      <h2 className='text-sm font-medium text-foreground'>
                         Run Finance with Your Local Models
                       </h2>
-                      <p className='text-xs text-gray-500 dark:text-gray-400 mt-0.5'>
+                      <p className='text-xs text-muted-foreground mt-0.5'>
                         Use Ollama for privacy and unlimited queries
                       </p>
                     </div>
                   </div>
-                  
-                  <div className='space-y-3 text-xs text-gray-600 dark:text-gray-400'>
+
+                  <div className='space-y-3 text-xs text-muted-foreground'>
                     <p>Get started in 2 simple steps:</p>
                     <div className='space-y-2 ml-2'>
                       <div>1. Install Ollama and pull a model (qwen2.5:7b recommended)</div>
                       <div>2. Click the Local Models button to select your model</div>
                     </div>
                   </div>
-                  
-                  <div className='flex gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700'>
+
+                  <div className='flex gap-2 mt-4 pt-4 border-t border-border'>
                     <a
                       href='https://ollama.com'
                       target='_blank'
                       rel='noopener noreferrer'
-                      className='flex items-center gap-1 text-xs px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors'
+                      className='flex items-center gap-1 text-xs px-3 py-1.5 bg-primary/10 text-primary rounded hover:bg-primary/20 transition-colors'
                     >
                       <ExternalLink className='h-3 w-3' />
                       Get Ollama
                     </a>
                     <button
                       onClick={() => setShowInitialDialog(false)}
-                      className='text-xs px-3 py-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors'
+                      className='text-xs px-3 py-1.5 text-muted-foreground hover:text-foreground transition-colors'
                     >
                       Maybe later
                     </button>
@@ -226,7 +226,7 @@ export function OllamaStatusIndicator({ hasMessages = false }: { hasMessages?: b
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className='fixed inset-0 z-50 bg-white/80 dark:bg-gray-950/80 backdrop-blur-sm'
+              className='fixed inset-0 z-50 bg-background/80 backdrop-blur-sm'
               onClick={() => setShowDialog(false)}
             />
             <DialogContent className='fixed left-[50%] top-[50%] z-50 w-[95vw] max-w-2xl sm:w-[90vw] translate-x-[-50%] translate-y-[-50%] p-0 border-0 bg-transparent shadow-none overflow-hidden'>
@@ -237,19 +237,19 @@ export function OllamaStatusIndicator({ hasMessages = false }: { hasMessages?: b
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
                 transition={{ duration: 0.2, ease: 'easeOut' }}
-                className='bg-white dark:bg-gray-950 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 relative'
+                className='bg-card rounded-lg shadow-lg border border-border relative'
               >
                 {/* Header */}
                 <div className='p-4 sm:p-6 pb-0'>
                   <div className='flex items-center gap-3 mb-4'>
-                    <div className='h-8 w-8 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg flex items-center justify-center border border-blue-200 dark:border-blue-700'>
+                    <div className='h-8 w-8 bg-accent rounded-lg flex items-center justify-center border border-border'>
                       {getStatusIcon()}
                     </div>
                     <div>
-                      <h2 className='text-lg font-light text-gray-900 dark:text-gray-100'>
+                      <h2 className='text-lg font-light text-foreground'>
                         Local Models
                       </h2>
-                      <p className='text-xs text-gray-500 dark:text-gray-400 mt-0.5'>
+                      <p className='text-xs text-muted-foreground mt-0.5'>
                         {status.connected 
                           ? `${status.models?.length || 0} models currently installed`
                           : 'Install Ollama to use local models for unlimited, private queries'
@@ -264,9 +264,9 @@ export function OllamaStatusIndicator({ hasMessages = false }: { hasMessages?: b
                   {status.connected && status.models && status.models.length > 0 ? (
                     <div className='space-y-3'>
                       {/* Warning Banner */}
-                      <div className='flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg'>
-                        <AlertTriangle className='h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5' />
-                        <div className='text-xs text-amber-800 dark:text-amber-200'>
+                      <div className='flex items-start gap-3 p-3 bg-muted border border-border rounded-lg'>
+                        <AlertTriangle className='h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5' />
+                        <div className='text-xs text-muted-foreground'>
                           <strong className='font-medium'>Tool Calling Performance:</strong> Many models struggle with function calling. 
                           We recommend <strong>Qwen2.5:7B or larger</strong> for best results with financial tools.
                         </div>
@@ -280,9 +280,9 @@ export function OllamaStatusIndicator({ hasMessages = false }: { hasMessages?: b
                             <div 
                               key={index}
                               className={`group cursor-pointer p-3 rounded-lg border transition-all hover:shadow-sm ${
-                                selectedModel === model.name 
-                                  ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700'
-                                  : 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                                selectedModel === model.name
+                                  ? 'bg-primary/10 border-primary/30'
+                                  : 'bg-muted border-border hover:border-primary/30'
                               }`}
                               onClick={() => {
                                 setSelectedModel(model.name);
@@ -293,32 +293,32 @@ export function OllamaStatusIndicator({ hasMessages = false }: { hasMessages?: b
                                 <div className='min-w-0 flex-1'>
                                   <div className='flex items-center gap-2'>
                                     <span className={`text-sm font-medium truncate ${
-                                      selectedModel === model.name 
-                                        ? 'text-blue-900 dark:text-blue-100'
-                                        : 'text-gray-900 dark:text-gray-100'
+                                      selectedModel === model.name
+                                        ? 'text-primary'
+                                        : 'text-foreground'
                                     }`}>
                                       {selectedModel === model.name ? '✓ ' : ''}{model.name}
                                     </span>
                                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                      recommendation.type === 'recommended' 
-                                        ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                                      recommendation.type === 'recommended'
+                                        ? 'bg-positive/10 text-positive'
                                         : recommendation.type === 'good'
-                                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                                        ? 'bg-primary/10 text-primary'
                                         : recommendation.type === 'fair'
-                                        ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300'
-                                        : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                                        ? 'bg-muted text-muted-foreground'
+                                        : 'bg-destructive/10 text-destructive'
                                     }`}>
                                       {recommendation.text}
                                     </span>
                                   </div>
                                   <div className='flex items-center gap-2 mt-1'>
-                                    <span className='text-xs text-gray-500 dark:text-gray-400'>
+                                    <span className='text-xs text-muted-foreground'>
                                       {formatModelSize(model.size)}
                                     </span>
-                                    <span className='text-xs text-gray-400 dark:text-gray-500'>
+                                    <span className='text-xs text-muted-foreground'>
                                       •
                                     </span>
-                                    <span className='text-xs text-gray-500 dark:text-gray-400'>
+                                    <span className='text-xs text-muted-foreground'>
                                       {new Date(model.modified_at).toLocaleDateString()}
                                     </span>
                                   </div>
@@ -331,20 +331,20 @@ export function OllamaStatusIndicator({ hasMessages = false }: { hasMessages?: b
                     </div>
                   ) : (
                     <div className='text-center py-6'>
-                      <div className='h-12 w-12 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center mx-auto mb-4'>
-                        <XCircle className='h-6 w-6 text-gray-400' />
+                      <div className='h-12 w-12 bg-muted rounded-lg flex items-center justify-center mx-auto mb-4'>
+                        <XCircle className='h-6 w-6 text-muted-foreground' />
                       </div>
-                      <h3 className='text-sm font-medium text-gray-900 dark:text-gray-100 mb-2'>
+                      <h3 className='text-sm font-medium text-foreground mb-2'>
                         No Local Models Found
                       </h3>
-                      <p className='text-xs text-gray-500 dark:text-gray-400 mb-4 max-w-sm mx-auto'>
+                      <p className='text-xs text-muted-foreground mb-4 max-w-sm mx-auto'>
                         {status.message}
                       </p>
                       <div className='space-y-3'>
-                        <div className='text-xs text-gray-600 dark:text-gray-400 space-y-1'>
+                        <div className='text-xs text-muted-foreground space-y-1'>
                           <div>To get started:</div>
                           <div>1. Install Ollama from ollama.com</div>
-                          <div>2. Run: <code className='bg-gray-100 dark:bg-gray-800 px-1 rounded'>ollama pull qwen2.5:7b</code></div>
+                          <div>2. Run: <code className='bg-muted px-1 rounded'>ollama pull qwen2.5:7b</code></div>
                           <div>3. Refresh this dialog</div>
                         </div>
                       </div>
@@ -353,11 +353,11 @@ export function OllamaStatusIndicator({ hasMessages = false }: { hasMessages?: b
                 </div>
 
                 {/* Footer */}
-                <div className='flex items-center justify-between p-4 sm:p-6 pt-0 border-t border-gray-200 dark:border-gray-700'>
+                <div className='flex items-center justify-between p-4 sm:p-6 pt-0 border-t border-border'>
                   <div className='flex gap-2'>
                     <button
                       onClick={() => checkOllamaStatus()}
-                      className='text-xs px-3 py-1.5 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors'
+                      className='text-xs px-3 py-1.5 text-foreground hover:bg-accent border border-border rounded-lg transition-colors'
                     >
                       Refresh
                     </button>
@@ -365,18 +365,18 @@ export function OllamaStatusIndicator({ hasMessages = false }: { hasMessages?: b
                       href='https://ollama.com/library'
                       target='_blank'
                       rel='noopener noreferrer'
-                      className='flex items-center gap-1 text-xs px-3 py-1.5 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors'
+                      className='flex items-center gap-1 text-xs px-3 py-1.5 text-muted-foreground hover:text-foreground transition-colors'
                     >
                       <ExternalLink className='h-3 w-3' />
                       Browse Models
                     </a>
                   </div>
-                  
+
                   <a
                     href='https://docs.valyu.ai/local-models'
                     target='_blank'
                     rel='noopener noreferrer'
-                    className='text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline'
+                    className='text-xs text-muted-foreground hover:text-foreground underline'
                   >
                     Documentation
                   </a>

@@ -137,6 +137,10 @@ export async function suggestDeliverables(
       system: SYSTEM_PROMPT,
       prompt: `Request: ${trimmed.slice(0, MAX_QUERY_CHARS)}`,
       temperature: 0,
+      // Classifying one sentence needs no deliberation, and this call sits on
+      // the path between the user and their run. Ignored by non-reasoning
+      // models, so it is safe whichever model is configured.
+      providerOptions: { openai: { reasoningEffort: "none" } },
       abortSignal: AbortSignal.timeout(TIMEOUT_MS),
     });
 
